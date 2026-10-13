@@ -24,6 +24,34 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   CONFIRMADO pelo usuario em 2026-09-30. O proprio notebook nao abre o proprio IP (limitacao host->WSL):
   no notebook usar http://localhost. A regra Hyper-V nao pode ser removida (Acesso negado), so mantida
 
+## Servidor dedicado NexoGI (2026-10-13)
+- O app roda numa maquina Linux dedicada (usuario `suporte`, interface `enp2s0`,
+  IP 172.16.1.13/24 DHCP, DNS 172.16.1.111). Projeto em `/home/suporte/Documents/NexoGI`
+  (git: github.com/CG-Construcoes/NexoGI). PHP 8.5 + Apache 2.4 (mod_php) +
+  PDO_ODBC + ODBC Driver 18 (nesta maquina NAO tem pdo_sqlsrv — `conexao()` cai
+  no fallback ODBC).
+- **Acesso: https://sistemacg.com** — zona de pesquisa direta `sistemacg.com`
+  criada no DNS do AD (VM-CG-SRV001 / 172.16.1.111) com registro A da raiz
+  (nome em branco) -> 172.16.1.13. So resolve em maquinas que usam o DNS
+  interno; quem nao usa segue pelo IP. NAO criar zona `com` (quebraria todos
+  os .com da rede).
+- **HTTPS**: certificado autoassinado (SANs `sistemacg.com` + IP 172.16.1.13,
+  ~825 dias) em `/etc/ssl/nexogi/` (originais em `/home/suporte/nexogi-tls/`).
+  Porta 80 redireciona para 443. Navegadores mostram aviso ate o .crt ser
+  instalado como Autoridade de Certificacao Raiz Confiavel nos PCs
+  (GPO ou certmgr.msc) — o certificado tem CA:TRUE justamente para isso.
+- Site Apache `/etc/apache2/sites-available/nexogi.conf` (copia versionada em
+  `scripts/nexogi.apache.conf`): DocumentRoot `public/`, `FallbackResource
+  /index.php`, `ServerName sistemacg.com`, vhosts :80 (redirect) e :443 (app).
+  `000-default` desabilitado.
+- Permissoes por ACL (projeto fica no home do usuario): `setfacl -m
+  u:www-data:--x /home/suporte`, `u:www-data:r` no `.env` e `u:www-data:rwX` +
+  default ACL em `storage/`.
+- Sob mod_php o .env fica cacheado por processo-filho: depois de mexer nele,
+  `sudo systemctl reload apache2`.
+- `php -S :8000` (scripts/servidor.sh) virou apenas fallback/dev — nao sobe
+  sozinho no boot; o Apache (systemd) e o servico principal.
+
 ## Estrutura
 - `public/index.php` — controlador unico (switch de rotas); `public/static/css/style.css` (copia do Python)
 - `app/bootstrap.php` (env, timezone, includes), `app/db.php` (`conexao()`, `query()`, `execute()`),

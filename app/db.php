@@ -1,22 +1,34 @@
 <?php
 declare(strict_types=1);
 
-/** Conexao com o SQL Server via PDO (pdo_sqlsrv). Uma conexao por banco, reaproveitada. */
+/** Conexao com o SQL Server via PDO (pdo_sqlsrv ou pdo_odbc). Uma conexao por banco, reaproveitada. */
 function conexao(?string $banco = null): PDO
 {
     static $cache = [];
     $banco ??= env('DB_NAME', 'CGGestao');
     if (!isset($cache[$banco])) {
-        $dsn = sprintf(
-            'sqlsrv:Server=%s;Database=%s;Encrypt=yes;TrustServerCertificate=yes;LoginTimeout=10',
-            env('DB_SERVER'),
-            $banco
-        );
-        $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), [
+        $opcoes = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::SQLSRV_ATTR_ENCODING => PDO::SQLSRV_ENCODING_UTF8,
-        ]);
+        ];
+        if (extension_loaded('pdo_sqlsrv')) {
+            $dsn = sprintf(
+                'sqlsrv:Server=%s;Database=%s;Encrypt=yes;TrustServerCertificate=yes;LoginTimeout=10',
+                env('DB_SERVER'),
+                $banco
+            );
+            $opcoes[PDO::SQLSRV_ATTR_ENCODING] = PDO::SQLSRV_ENCODING_UTF8;
+            $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), $opcoes);
+        } else {
+            $driver = env('DB_DRIVER', 'ODBC Driver 18 for SQL Server');
+            $dsn = sprintf(
+                'odbc:Driver={%s};Server=%s;Database=%s;Encrypt=yes;TrustServerCertificate=yes;LoginTimeout=10',
+                $driver,
+                env('DB_SERVER'),
+                $banco
+            );
+            $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), $opcoes);
+        }
     }
     return $cache[$banco];
 }
