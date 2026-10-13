@@ -17,22 +17,27 @@
 
     <div class="rel-econ-linha">
         <label for="base">Base</label>
-        <select id="base" name="base">
+        <select id="base" name="base" onchange="this.form.submit()">
             <option value="MGA" <?= $base === 'MGA' ? 'selected' : '' ?>>MGA</option>
             <option value="CONV" <?= $base === 'CONV' ? 'selected' : '' ?>>CONV</option>
         </select>
     </div>
 
-    <div class="rel-econ-linha">
-        <label for="empresa">Empresa</label>
-        <select id="empresa" name="empresa" required onchange="this.form.submit()">
-            <?php foreach ($empresas as $emp): ?>
-            <option value="<?= e($emp['Empresa_Cod']) ?>"
-                <?= trim($emp['Empresa_Cod']) === $opcoes['empresa'] ? 'selected' : '' ?>>
-                <?= e(trim($emp['Empresa_Cod']) . ' - ' . trim((string) $emp['Empresa_Nome'])) ?></option>
+    <fieldset class="rel-econ-box rel-econ-centros">
+        <legend>Empresa</legend>
+        <label><input type="radio" name="empresa_op" value="todas"
+            <?= $opcoes['empresa_op'] === 'todas' ? 'checked' : '' ?>> Todas</label>
+        <label><input type="radio" name="empresa_op" value="selecionadas" id="empresaSel"
+            <?= $opcoes['empresa_op'] !== 'todas' ? 'checked' : '' ?>> Selecionadas:</label>
+        <div class="rel-econ-centros-lista">
+            <?php foreach ($empresas as $emp): $cod = trim((string) $emp['Empresa_Cod']); ?>
+            <label><input type="checkbox" name="empresas_sel[]" value="<?= e($cod) ?>"
+                   <?= in_array($cod, $opcoes['empresas_sel'], true) ? 'checked' : '' ?>
+                   onclick="document.getElementById('empresaSel').checked=true">
+                <?= e($cod . ' - ' . trim((string) $emp['Empresa_Nome'])) ?></label>
             <?php endforeach; ?>
-        </select>
-    </div>
+        </div>
+    </fieldset>
 
     <div class="rel-econ-linha">
         <label for="nucleo">Núcleo</label>
@@ -102,20 +107,39 @@
 <div class="alert-erro"><?= e($erro) ?></div>
 <?php endif; ?>
 
-<?php if ($dados && !$dados['grupos']): ?>
+<?php if ($dados && !$dados['blocos']): ?>
 <p style="color:#666">Nenhuma conta encontrada.</p>
 <?php endif; ?>
 
-<?php if ($dados && $dados['grupos']):
+<?php if ($dados && $dados['blocos']):
     $fmt  = fn($v) => number_format(abs((float) $v), 2, ',', '.');
     $dc   = fn($v) => (float) $v < 0 ? 'D' : 'C';
-    $totG = $dados['tot']; ?>
+    $totG = $dados['tot'];
+    $linhaTot = function ($rotulo, $tot, $cls = 'rel-total') use ($fmt, $dc) { ?>
+            <tr class="<?= $cls ?>">
+                <td colspan="2"><?= e($rotulo) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['ant'])) ?></td>
+                <td><?= e($dc($tot['ant'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['deb'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['cred'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['atual'])) ?></td>
+                <td><?= e($dc($tot['atual'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['limite'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['aplicado'])) ?></td>
+                <td class="col-valor"><?= e($fmt($tot['disponivel'])) ?></td>
+                <td><?= e($dc($tot['disponivel'])) ?></td>
+                <td></td>
+            </tr>
+    <?php };
+    $multi = count($dados['blocos']) > 1; ?>
 <div class="rel-econ" style="max-width:none">
     <div class="rel-econ-cab">
-        <div class="rel-econ-empresa">Empresa: <?= e($dados['empresa_nome'] ?: $dados['empresa']) ?>
+        <div class="rel-econ-empresa"><?= $multi
+            ? 'Relatório de Múltiplas empresas.'
+            : 'Empresa: ' . e($dados['blocos'][0]['nome'] ?: $dados['blocos'][0]['cod']) ?>
             <span class="rel-econ-centro">Núcleo: <?= e($dados['nucleo_desc']) ?></span></div>
         <div class="rel-econ-titulo">Posição Agente Financeiro
-            <?= $dados['conciliados'] ? '- VALORES CONCILIADOS' : '' ?>
+            <?= $dados['conciliados'] ? '- VALORES CONCILIADOS' : '- VALORES DO RAZÃO' ?>
             em <?= e(data_br($dados['data'])) ?></div>
         <div class="rel-econ-impresso">Impresso em: <?= e(date('d/m/Y H:i:s')) ?></div>
     </div>
@@ -138,7 +162,11 @@
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($dados['grupos'] as $g): ?>
+        <?php foreach ($dados['blocos'] as $b): ?>
+            <?php if ($multi): ?>
+            <tr class="rel-secao rel-emp"><td colspan="13">Empresa: <?= e($b['cod'] . ' - ' . $b['nome']) ?></td></tr>
+            <?php endif; ?>
+            <?php foreach ($b['grupos'] as $g): ?>
             <tr class="rel-secao"><td colspan="13"><?= e($g['tipo'] . ' - ' . $g['agente'] . ' - ' . $g['nome']) ?></td></tr>
             <?php foreach ($g['contas'] as $c): ?>
             <tr>
@@ -157,49 +185,11 @@
                 <td><?= e(data_br($c['ultima'])) ?></td>
             </tr>
             <?php endforeach; ?>
-            <tr class="rel-total">
-                <td colspan="2">Total: <?= e($g['nome']) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['ant'])) ?></td>
-                <td><?= e($dc($g['tot']['ant'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['deb'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['cred'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['atual'])) ?></td>
-                <td><?= e($dc($g['tot']['atual'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['limite'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['aplicado'])) ?></td>
-                <td class="col-valor"><?= e($fmt($g['tot']['disponivel'])) ?></td>
-                <td><?= e($dc($g['tot']['disponivel'])) ?></td>
-                <td></td>
-            </tr>
+            <?php $linhaTot('Total: ' . $g['nome'], $g['tot']); ?>
+            <?php endforeach; ?>
+            <?php $linhaTot('Total: ' . $b['cod'], $b['tot']); ?>
         <?php endforeach; ?>
-            <tr class="rel-total">
-                <td colspan="2">Total: <?= e($dados['empresa']) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['ant'])) ?></td>
-                <td><?= e($dc($totG['ant'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['deb'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['cred'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['atual'])) ?></td>
-                <td><?= e($dc($totG['atual'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['limite'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['aplicado'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['disponivel'])) ?></td>
-                <td><?= e($dc($totG['disponivel'])) ?></td>
-                <td></td>
-            </tr>
-            <tr class="rel-geral rel-total">
-                <td colspan="2">Total Geral</td>
-                <td class="col-valor"><?= e($fmt($totG['ant'])) ?></td>
-                <td><?= e($dc($totG['ant'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['deb'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['cred'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['atual'])) ?></td>
-                <td><?= e($dc($totG['atual'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['limite'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['aplicado'])) ?></td>
-                <td class="col-valor"><?= e($fmt($totG['disponivel'])) ?></td>
-                <td><?= e($dc($totG['disponivel'])) ?></td>
-                <td></td>
-            </tr>
+        <?php $linhaTot('Total Geral', $totG, 'rel-geral rel-total'); ?>
         </tbody>
     </table>
 </div>

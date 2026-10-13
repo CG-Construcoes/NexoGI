@@ -703,6 +703,9 @@ a.card-modulo { text-decoration: none; color: inherit; }
 .rel-econ-tab tr.rel-total td { font-weight: 700; border-top: 1px solid #9db3cc; }
 .rel-econ-tab tr.rel-saldo td { font-weight: 700; background: #fde9c8; border-top: 2px solid #b08a3e; }
 
+/* Linha de secao de empresa no relatorio multi-empresas (Posicao de Contas) */
+.rel-econ-tab tr.rel-emp td { background: #142c49; }
+
 @media print {
     .filtros, .sidebar, .topbar, .pedidos-rodape { display: none !important; }
     .rel-econ { max-width: none; }

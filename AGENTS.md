@@ -232,6 +232,20 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Validado 09/10/2026: CGC/BC/06-10-2026 conciliados — 15 contas, todos os
   valores identicos ao PDF ao centavo; CONV/CVP funciona (empresas distintas
   por base). O `update ... set X=X` do trace e no-op, nao reproduzido.
+- Multi-empresa (2026-10-13): filtro Empresa virou radio Todas/Selecionadas
+  com checkboxes (padrao dos boxes Centro/Nucleo; vazio = todas). Combo
+  Agente lista agentes do tipo na base inteira (sem depender da empresa).
+  `posicao_contas_dados` recebe `empresas` (array; [] = todas) e devolve
+  `blocos` por empresa + `tot` geral; queries por conta usam o Empresa_Cod
+  da propria conta. Layout "Relatorio de Multiplas empresas" (PDF
+  Posiçãodecontas_todas.pdf): UMA tabela continua, linha
+  `Empresa: COD - Nome` (`.rel-emp`, azul mais escuro) como secao antes dos
+  grupos de agente, "Total: COD" por empresa e "Total Geral" na ultima
+  linha — SEM quebra de pagina por empresa (confirmado pelo usuario).
+  Com 1 empresa so, mantem o layout anterior (cabecalho "Empresa: nome",
+  sem linha de empresa). Titulo sempre com sufixo: "- VALORES CONCILIADOS"
+  ou "- VALORES DO RAZAO". Revalidado: CVC/CONV/BC/09-10-2026 =
+  107.884,40 (igual ao PDF Posiçãodecontas.pdf).
 
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para

@@ -6,6 +6,11 @@ declare(strict_types=1);
  * "Posicao Agente Financeiro" do ERP (Informakon), conforme trace
  * traces/rel_Posicao_Contas.trc e o PDF Financeiro-RelatorioPosicaoContas.pdf.
  *
+ * Aceita varias empresas (ou todas): o relatorio corre em sequencia numa
+ * tabela unica (layout "Relatorio de Multiplas empresas" do Informakon),
+ * com "Empresa: COD - Nome" como linha de secao e Total Geral consolidado
+ * na ultima linha.
+ *
  * Por conta (uma linha por AgenteFinanceiroConta):
  *   Saldo Anterior = spGetSaldoDiaAnteriorCon(tipo,ag,conta,DATA,emp,nuc)
  *                    (saldo conciliado da ultima conciliacao ANTES da data;
@@ -58,8 +63,8 @@ function posicao_contas_nucleos(string $banco): array
     }
 }
 
-/** Agentes que possuem conta no tipo/empresa informados (combo "Um Agente"). */
-function posicao_contas_agentes(string $banco, string $tipo, string $empresa): array
+/** Agentes que possuem conta no tipo informado (combo "Um Agente"). */
+function posicao_contas_agentes(string $banco, string $tipo): array
 {
     try {
         return query(
@@ -68,10 +73,9 @@ function posicao_contas_agentes(string $banco, string $tipo, string $empresa): a
              WHERE a.AgenteFinanceiroTipo_Cod = ?
                AND EXISTS (SELECT 1 FROM dbo.AgenteFinanceiroConta c
                            WHERE c.AgenteFinanceiroTipo_Cod = a.AgenteFinanceiroTipo_Cod
-                             AND c.AgenteFinanceiro_Cod = a.AgenteFinanceiro_Cod
-                             AND c.Empresa_Cod = ?)
+                             AND c.AgenteFinanceiro_Cod = a.AgenteFinanceiro_Cod)
              ORDER BY a.AgenteFinanceiro_RazaoSocial",
-            [$tipo, $empresa], $banco);
+            [$tipo], $banco);
     } catch (Throwable $t) {
         return [];
     }
@@ -161,11 +165,11 @@ function posicao_contas_dados(string $base, array $o): array
     $banco = banco_da_base($base);
     $pdo = conexao($banco);
 
-    $empresa = trim((string) ($o['empresa'] ?? ''));
+    $empresas = array_values(array_filter(array_map('trim', (array) ($o['empresas'] ?? []))));
     $tipo    = trim((string) ($o['tipo'] ?? ''));
     $data    = (string) ($o['data'] ?? '');
-    if ($empresa === '' || $tipo === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
-        throw new InvalidArgumentException('Informe empresa, tipo de agente e data.');
+    if ($tipo === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
+        throw new InvalidArgumentException('Informe tipo de agente e data.');
     }
     $nucleo = trim((string) ($o['nucleo'] ?? '')) ?: null;
     $agente = trim((string) ($o['agente'] ?? '')) ?: null;
@@ -173,11 +177,22 @@ function posicao_contas_dados(string $base, array $o): array
     $proc   = $con ? 'spGetSaldoDiaAnteriorCon' : 'spGetSaldoDiaAnterior';
     $diaSeguinte = date('Y-m-d', strtotime("$data +1 day"));
 
+    $filtroEmp = '';
+    $params = [$tipo, $agente, $agente];
+    if ($empresas) {
+        $filtroEmp = 'AND Conta.Empresa_Cod IN ('
+            . implode(',', array_fill(0, count($empresas), '?')) . ')';
+        $params = array_merge($params, $empresas);
+    }
+    $params[] = $nucleo;
+    $params[] = $nucleo;
+    $params[] = $data;
+
     $contas = query(
         "SELECT Conta.AgenteFinanceiroTipo_Cod, Conta.AgenteFinanceiro_Cod,
                 Conta.AgeFin_ContaNumero, Conta.AgeFin_LimitedeCredito,
-                Conta.AgeFinAgencia_Cod, Agente.AgenteFinanceiro_RazaoSocial,
-                Emp.Empresa_Nome
+                Conta.AgeFinAgencia_Cod, Conta.Empresa_Cod,
+                Agente.AgenteFinanceiro_RazaoSocial, Emp.Empresa_Nome
          FROM dbo.AgenteFinanceiroConta Conta
          INNER JOIN dbo.AgenteFinanceiro Agente
              ON Conta.AgenteFinanceiroTipo_Cod = Agente.AgenteFinanceiroTipo_Cod
@@ -185,47 +200,55 @@ function posicao_contas_dados(string $base, array $o): array
          INNER JOIN dbo.Empresa Emp ON Emp.Empresa_Cod = Conta.Empresa_Cod
          WHERE Conta.AgenteFinanceiroTipo_Cod = ?
            AND (Conta.AgenteFinanceiro_Cod = ? OR ? IS NULL)
-           AND Conta.Empresa_Cod = ?
+           $filtroEmp
            AND (Conta.Nucleo_Cod = ? OR ? IS NULL)
            AND (Conta.AgeFin_SuspendeImpressao <> 'S' OR Conta.AgeFin_SuspendeImpressao IS NULL)
            AND Conta.AgeFin_ImpDataSaldoRazao <= ?
          ORDER BY Conta.Empresa_Cod, Conta.AgenteFinanceiroTipo_Cod,
                   Conta.AgenteFinanceiro_Cod, Conta.AgeFinAgencia_Cod, Conta.AgeFin_ContaNumero",
-        [$tipo, $agente, $agente, $empresa, $nucleo, $nucleo, $data], $banco);
+        $params, $banco);
 
-    $grupos = [];
-    $totEmp = ['ant' => 0.0, 'deb' => 0.0, 'cred' => 0.0, 'atual' => 0.0,
-               'limite' => 0.0, 'aplicado' => 0.0, 'disponivel' => 0.0];
-    $nomeEmpresa = '';
+    $totZerado = ['ant' => 0.0, 'deb' => 0.0, 'cred' => 0.0, 'atual' => 0.0,
+                  'limite' => 0.0, 'aplicado' => 0.0, 'disponivel' => 0.0];
+    $blocos = [];
+    $totG = $totZerado;
     foreach ($contas as $c) {
+        $empCod = trim((string) $c['Empresa_Cod']);
         $ag = trim((string) $c['AgenteFinanceiro_Cod']);
         $ct = trim((string) $c['AgeFin_ContaNumero']);
-        $ant   = pc_saldo_dia($pdo, $proc, $tipo, $ag, $ct, $data, $empresa, $nucleo);
-        $atual = pc_saldo_dia($pdo, $proc, $tipo, $ag, $ct, $diaSeguinte, $empresa, $nucleo);
-        $mov   = pc_mov_dia($pdo, $con, $tipo, $ag, $ct, $data, $empresa, $nucleo);
-        $aplic = pc_valor_aplicado($pdo, $tipo, $ag, $ct, $data, $empresa, $nucleo);
+        $ant   = pc_saldo_dia($pdo, $proc, $tipo, $ag, $ct, $data, $empCod, $nucleo);
+        $atual = pc_saldo_dia($pdo, $proc, $tipo, $ag, $ct, $diaSeguinte, $empCod, $nucleo);
+        $mov   = pc_mov_dia($pdo, $con, $tipo, $ag, $ct, $data, $empCod, $nucleo);
+        $aplic = pc_valor_aplicado($pdo, $tipo, $ag, $ct, $data, $empCod, $nucleo);
         $ultima = pc_ultima_data($pdo, $tipo, $ag, $ct);
         $limite = (float) $c['AgeFin_LimitedeCredito'];
-        $disp = $atual['saldo'] + $limite + $aplic;
 
-        $nomeEmpresa = trim((string) $c['Empresa_Nome']);
-        $nomeAgente = trim((string) $c['AgenteFinanceiro_RazaoSocial']);
-        if (!isset($grupos[$ag])) {
-            $grupos[$ag] = ['tipo' => $tipo, 'agente' => $ag, 'nome' => $nomeAgente,
-                'contas' => [], 'tot' => ['ant' => 0.0, 'deb' => 0.0, 'cred' => 0.0,
-                'atual' => 0.0, 'limite' => 0.0, 'aplicado' => 0.0, 'disponivel' => 0.0]];
+        if (!isset($blocos[$empCod])) {
+            $blocos[$empCod] = ['cod' => $empCod,
+                'nome' => trim((string) $c['Empresa_Nome']), 'grupos' => [], 'tot' => $totZerado];
         }
-        $grupos[$ag]['contas'][] = [
+        if (!isset($blocos[$empCod]['grupos'][$ag])) {
+            $blocos[$empCod]['grupos'][$ag] = ['tipo' => $tipo, 'agente' => $ag,
+                'nome' => trim((string) $c['AgenteFinanceiro_RazaoSocial']),
+                'contas' => [], 'tot' => $totZerado];
+        }
+        $linha = [
             'conta' => $ct, 'agencia' => trim((string) $c['AgeFinAgencia_Cod']),
             'ant' => $ant['saldo'], 'deb' => $mov['deb'], 'cred' => $mov['cred'],
             'atual' => $atual['saldo'], 'limite' => $limite, 'aplicado' => $aplic,
-            'disponivel' => $disp, 'ultima' => $ultima,
+            'disponivel' => $atual['saldo'] + $limite + $aplic, 'ultima' => $ultima,
         ];
-        foreach (['ant', 'deb', 'cred', 'atual', 'limite', 'aplicado', 'disponivel'] as $k) {
-            $grupos[$ag]['tot'][$k] += $grupos[$ag]['contas'][array_key_last($grupos[$ag]['contas'])][$k];
-            $totEmp[$k] += $grupos[$ag]['contas'][array_key_last($grupos[$ag]['contas'])][$k];
+        $blocos[$empCod]['grupos'][$ag]['contas'][] = $linha;
+        foreach (array_keys($totZerado) as $k) {
+            $blocos[$empCod]['grupos'][$ag]['tot'][$k] += $linha[$k];
+            $blocos[$empCod]['tot'][$k] += $linha[$k];
+            $totG[$k] += $linha[$k];
         }
     }
+    foreach ($blocos as &$b) {
+        $b['grupos'] = array_values($b['grupos']);
+    }
+    unset($b);
 
     $nucleoDesc = 'Todos os Núcleos';
     if ($nucleo !== null) {
@@ -237,7 +260,7 @@ function posicao_contas_dados(string $base, array $o): array
         }
     }
 
-    return ['base' => $base, 'empresa' => $empresa, 'empresa_nome' => $nomeEmpresa,
-            'tipo' => $tipo, 'data' => $data, 'nucleo_desc' => $nucleoDesc,
-            'conciliados' => $con, 'grupos' => array_values($grupos), 'tot' => $totEmp];
+    return ['base' => $base, 'tipo' => $tipo, 'data' => $data,
+            'nucleo_desc' => $nucleoDesc, 'conciliados' => $con,
+            'blocos' => array_values($blocos), 'tot' => $totG];
 }

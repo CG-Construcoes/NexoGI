@@ -329,14 +329,20 @@ switch ($rota) {
         exigir_login();
         $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
         $gerado = isset($_GET['gerar']);
+        $empOp = ((string) ($_GET['empresa_op'] ?? 'selecionadas')) === 'todas'
+            ? 'todas' : 'selecionadas';
+        $empSel = array_values(array_filter(array_map('trim',
+            (array) ($_GET['empresas_sel'] ?? (!isset($_GET['empresa_op']) ? ['CGC'] : [])))));
         $opcoes = [
-            'empresa'     => trim((string) ($_GET['empresa'] ?? 'CGC')),
-            'data'        => (string) ($_GET['data'] ?? date('Y-m-d')),
-            'tipo'        => trim((string) ($_GET['tipo'] ?? 'BC')),
-            'nucleo'      => trim((string) ($_GET['nucleo'] ?? '')),
-            'agente'      => ($_GET['agente_op'] ?? 'todos') === 'um'
-                             ? trim((string) ($_GET['agente'] ?? '')) : '',
-            'conciliados' => !$_GET || isset($_GET['conciliados']),
+            'empresa_op'   => $empOp,
+            'empresas_sel' => $empSel,
+            'empresas'     => $empOp === 'selecionadas' ? $empSel : [],
+            'data'         => (string) ($_GET['data'] ?? date('Y-m-d')),
+            'tipo'         => trim((string) ($_GET['tipo'] ?? 'BC')),
+            'nucleo'       => trim((string) ($_GET['nucleo'] ?? '')),
+            'agente'       => ($_GET['agente_op'] ?? 'todos') === 'um'
+                              ? trim((string) ($_GET['agente'] ?? '')) : '',
+            'conciliados'  => !$_GET || isset($_GET['conciliados']),
         ];
         $dados = null;
         $erro = '';
@@ -352,7 +358,7 @@ switch ($rota) {
             $empresas = posicao_contas_empresas($banco);
             $tipos = posicao_contas_tipos($banco);
             $nucleos = posicao_contas_nucleos($banco);
-            $agentes = posicao_contas_agentes($banco, $opcoes['tipo'], $opcoes['empresa']);
+            $agentes = posicao_contas_agentes($banco, $opcoes['tipo']);
         } catch (Throwable $t) {
             $empresas = [['Empresa_Cod' => 'CGC', 'Empresa_Nome' => 'C. G. Construcoes']];
             $tipos = [['AgenteFinanceiroTipo_Cod' => 'BC', 'AgenteFinanceiroTipo_Titulo' => 'Bancos']];
