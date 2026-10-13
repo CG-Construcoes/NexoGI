@@ -44,3 +44,4 @@ require ROOT . '/app/relatorio_economico.php';
 require ROOT . '/app/relatorio_financeiro.php';
 require ROOT . '/app/posicao_contas.php';
 require ROOT . '/app/matriz_prioridades.php';
+require ROOT . '/app/fluxo_caixa.php';

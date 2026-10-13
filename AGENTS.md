@@ -247,6 +247,35 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   ou "- VALORES DO RAZAO". Revalidado: CVC/CONV/BC/09-10-2026 =
   107.884,40 (igual ao PDF Posiçãodecontas.pdf).
 
+## Financeiro > Fluxo de Caixa > Grupos de Centros (2026-10-13)
+- Rota `fluxo-caixa-grupos`, permissao propria; `app/fluxo_caixa.php` +
+  `views/fluxo_caixa_grupos.php`. Subgrupo novo "Fluxo de Caixa" em MODULES
+  dentro de Financeiro. Padrao da Matriz de Prioridades (CRUD + permissoes
+  por acao: inserir/alterar/excluir).
+- Tabelas `msoft.FluxoCaixa_Grupo` (FCGrupo_Id int IDENTITY PK,
+  FCGrupo_Nome char(60) NOT NULL, FCGrupo_Descricao char(100) NULL) e
+  `msoft.FluxoCaixa_Centros` (FCGrupo_Id + Centro_CodC char(9), PK
+  composta, FK ON DELETE CASCADE). Script: `scripts/migrar_fluxo_caixa.php`
+  (ja rodado 2026-10-13).
+- Centro_CodC = Empresa+Filial+Centro (9 chars), reaproveita `mp_centros()`
+  (centros ativos de dbMGA+dbConv, filtra Centro_Inativo <> 'S').
+- Fluxo (layout v3, 2026-10-13): topo = form novo/editar grupo; meio =
+  lista de grupos (linha `.fc-grupo-row` clicavel, selecionada = `.fc-sel`);
+  rodape = painel "Centros do grupo": combobox datalist (busca contem) para
+  ADICIONAR centro (acao `incluir_centro`, dedup via IF NOT EXISTS) +
+  tabela dos centros do grupo com botao Remover por linha (acao
+  `excluir_centro`) — sem "salvar" em lote. Clique na linha -> `?centros=<id>`
+  (so com perm alterar). Botao DIREITO na linha abre menu de contexto
+  `.fc-menu` com Editar (-> `?editar=<id>`, form do topo vira edicao) e
+  Excluir (form oculto `#fcFormExcluir` + confirm). `fc_codc` normaliza
+  "CODC - Nome" e valida contra mp_centros().
+- PENDENTE (pedido do usuario, 2026-10-13 — lembrar amanha): regra de
+  unicidade do centro ENTRE grupos — um Centro_CodC nao pode pertencer a
+  mais de um grupo ao mesmo tempo. Hoje `fc_incluir_centro` so impede
+  duplicata dentro do mesmo grupo. Ao implementar: checar se o CodC ja
+  esta em outro FCGrupo_Id (aviso dizendo em qual grupo) e, se valer,
+  mostrar na combobox/lista o grupo atual de cada centro.
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.

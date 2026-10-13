@@ -19,6 +19,7 @@ $ROTAS_TELA = [
     'relatorio-economico' => 'relatorio-economico',
     'relatorio-financeiro' => 'relatorio-financeiro',
     'posicao-contas' => 'posicao-contas',
+    'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'matriz-prioridades' => 'matriz-prioridades',
 ];
 if (isset($ROTAS_TELA[$rota])) {
@@ -263,6 +264,70 @@ switch ($rota) {
             'podeInserir' => usuario_pode('matriz-prioridades', 'inserir'),
             'podeAlterar' => usuario_pode('matriz-prioridades', 'alterar'),
             'podeExcluir' => usuario_pode('matriz-prioridades', 'excluir')]);
+        break;
+
+    case 'fluxo-caixa-grupos':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('fluxo-caixa-grupos');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);
+            $destino = 'fluxo-caixa-grupos';
+            try {
+                if ($acao === 'excluir') {
+                    exigir_tela('fluxo-caixa-grupos', 'excluir');
+                    fc_excluir($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Grupo excluido.']);
+                } elseif ($acao === 'incluir_centro' || $acao === 'excluir_centro') {
+                    exigir_tela('fluxo-caixa-grupos', 'alterar');
+                    if ($acao === 'incluir_centro') {
+                        fc_incluir_centro($id, (string) ($_POST['centro'] ?? ''));
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Centro adicionado ao grupo.']);
+                    } else {
+                        fc_excluir_centro($id, (string) ($_POST['centro'] ?? ''));
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Centro removido do grupo.']);
+                    }
+                    $destino = 'fluxo-caixa-grupos?centros=' . $id;
+                } else {
+                    $d = fc_validar($_POST);
+                    if ($acao === 'editar') {
+                        exigir_tela('fluxo-caixa-grupos', 'alterar');
+                        fc_atualizar($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Grupo atualizado.']);
+                    } else {
+                        exigir_tela('fluxo-caixa-grupos', 'inserir');
+                        $novo = fc_inserir($d);
+                        definir_aviso(['tipo' => 'ok', 'html' =>
+                            'Grupo cadastrado. Agora selecione os centros de custo.']);
+                        redirecionar('fluxo-caixa-grupos?centros=' . $novo);
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+                if ($id && in_array($acao, ['incluir_centro', 'excluir_centro'], true)) {
+                    $destino = 'fluxo-caixa-grupos?centros=' . $id;
+                }
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $edicao = isset($_GET['editar']) && usuario_pode('fluxo-caixa-grupos', 'alterar')
+            ? fc_get((int) $_GET['editar']) : null;
+        $grupoCentros = isset($_GET['centros']) && usuario_pode('fluxo-caixa-grupos', 'alterar')
+            ? fc_get((int) $_GET['centros']) : null;
+        render('fluxo_caixa_grupos', ['titulo' => 'Grupos de Centros',
+            'active' => 'fluxo-caixa-grupos', 'aviso' => consumir_aviso(),
+            'grupos' => fc_listar(), 'centros' => mp_centros(),
+            'edicao' => $edicao, 'grupoCentros' => $grupoCentros,
+            'centrosDoGrupo' => $grupoCentros
+                ? fc_centros_do_grupo((int) $grupoCentros['FCGrupo_Id']) : [],
+            'podeInserir' => usuario_pode('fluxo-caixa-grupos', 'inserir'),
+            'podeAlterar' => usuario_pode('fluxo-caixa-grupos', 'alterar'),
+            'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
         break;
 
     case 'relatorio-financeiro':

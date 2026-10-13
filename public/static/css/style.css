@@ -706,6 +706,18 @@ a.card-modulo { text-decoration: none; color: inherit; }
 /* Linha de secao de empresa no relatorio multi-empresas (Posicao de Contas) */
 .rel-econ-tab tr.rel-emp td { background: #142c49; }
 
+/* ---------- Grupos de Centros (Fluxo de Caixa) ---------- */
+.fc-grupo-row { cursor: pointer; }
+.fc-grupo-row:hover td { background: #eef3fa; }
+.fc-grupo-row.fc-sel td { background: #dbe7f5; }
+.fc-menu { position: fixed; z-index: 10000; background: #fff; border: 1px solid #c8d2e0;
+    border-radius: 6px; box-shadow: 0 4px 16px rgba(30,58,95,.18); min-width: 130px;
+    padding: 4px 0; }
+.fc-menu button { display: block; width: 100%; text-align: left; background: none;
+    border: 0; padding: 8px 14px; font-size: 13px; cursor: pointer; color: #22344d; }
+.fc-menu button:hover { background: #eef3fa; }
+.fc-menu button.fc-danger { color: #b3261e; }
+
 @media print {
     .filtros, .sidebar, .topbar, .pedidos-rodape { display: none !important; }
     .rel-econ { max-width: none; }
