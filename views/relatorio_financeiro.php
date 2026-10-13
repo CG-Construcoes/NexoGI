@@ -48,6 +48,8 @@
             <label><input type="checkbox" name="sin_classe" value="1" checked> Sintético em Classe</label>
             <label><input type="checkbox" name="sin_assunto" value="1" checked> Sintético em Assunto</label>
             <label><input type="checkbox" name="sin_grupo" value="1" checked> Sintético em Grupo</label>
+            <label><input type="checkbox" name="analitico" value="1"
+                <?= !empty($opcoes['analitico']) ? 'checked' : '' ?>> Analítico (movimentos)</label>
         </fieldset>
 
         <fieldset class="rel-econ-box">
@@ -134,9 +136,9 @@
 <?php endif; ?>
 
 <?php if ($dados):
-    $cols = $dados['apenas_periodo'] ? 2 : 4;
+    $cols = $dados['apenas_periodo'] ? 4 : 6;
     $linha = function ($cls, $rotulo, $ant, $per) use ($dados) {
-        echo '<tr class="' . $cls . '"><td>' . $rotulo . '</td>';
+        echo '<tr class="' . $cls . '"><td></td><td></td><td>' . $rotulo . '</td>';
         if (!$dados['apenas_periodo']) {
             echo '<td class="col-valor">' . e(number_format($ant, 2, ',', '.')) . '</td>';
         }
@@ -150,10 +152,21 @@
     $sinA = !empty($opcoes['sin_assunto']);
     $sinG = !empty($opcoes['sin_grupo']);
     if (!$sinC && !$sinA && !$sinG) { $sinC = $sinA = $sinG = true; }
-    foreach ($dados['blocos'] as $centroNome => $secoes): ?>
+    $analitico = !empty($opcoes['analitico']);
+    foreach ($dados['blocos'] as $centroNome => $secoes):
+        $saldoAnt = 0.0; $saldoPer = 0.0;
+        if ($dados['mostrar_saldo']) {
+            foreach ($secoes as $s2) {
+                if ($s2['id'] === 'receitas' || $s2['id'] === 'despesas') {
+                    $saldoAnt += $s2['ant']; $saldoPer += $s2['per'];
+                }
+            }
+        }
+        ?>
 <div class="rel-econ">
     <div class="rel-econ-cab">
-        <div class="rel-econ-empresa"><?= e($dados['base']) ?>
+        <div class="rel-econ-empresa"><?= e($dados['empresa_nome'] ?? $dados['base']) ?><?php
+            if (!empty($dados['empresa_cnpj'])): ?> CNPJ: <?= e($dados['empresa_cnpj']) ?><?php endif; ?>
             <span class="rel-econ-centro">Centro: <?= $centroNome !== ''
                 ? e($centroNome) : e($dados['centros_desc']) ?>
             | Núcleo: <?= e($dados['nucleos_desc'] ?? 'Todos') ?></span></div>
@@ -166,10 +179,13 @@
         <div class="rel-econ-titulo">Relatório Financeiro no Período de
             <?= e(data_br($dados['data_ini'])) ?> a <?= e(data_br($dados['data_fim'])) ?></div>
         <div class="rel-econ-impresso">Impresso em: <?= e(date('d/m/Y H:i:s')) ?></div>
+        <div class="rel-econ-centros-sel"><?= e($dados['filtro_mascara'] ?? '(*).99.9999') ?></div>
     </div>
     <table class="tabela rel-econ-tab">
         <thead>
             <tr>
+                <th>Data</th>
+                <th>Nº Mvto</th>
                 <th>Discriminação</th>
                 <?php if (!$dados['apenas_periodo']): ?>
                 <th class="col-valor">Acum. Anterior</th>
@@ -191,28 +207,31 @@
                         foreach ($a['gos'] as $g) {
                             $linha('rel-folha', e($a['cod']) . ' - ' . e($g['cod']) . ' - ' . e($g['titulo']),
                                 $g['ant'], $g['per']);
-                            foreach ($g['movs'] ?? [] as $mv) {
-                                echo '<tr class="rel-mov"><td><span class="mov-data">'
-                                    . e(data_br($mv['data'])) . '</span><span class="mov-num">'
-                                    . e($mv['num']) . '</span>' . e($mv['hist']) . '</td>';
-                                if (!$dados['apenas_periodo']) {
+                            if ($analitico) {
+                                foreach ($g['movs'] ?? [] as $mv) {
+                                    echo '<tr class="rel-mov"><td>' . e(data_br($mv['data']))
+                                        . '</td><td>' . e($mv['num']) . '</td><td>'
+                                        . e($mv['hist']) . '</td>';
+                                    if (!$dados['apenas_periodo']) {
+                                        echo '<td class="col-valor">'
+                                            . ($mv['ant'] ? e(number_format($mv['valor'], 2, ',', '.')) : '')
+                                            . '</td>';
+                                    }
                                     echo '<td class="col-valor">'
-                                        . ($mv['ant'] ? e(number_format($mv['valor'], 2, ',', '.')) : '')
+                                        . (!$mv['ant'] ? e(number_format($mv['valor'], 2, ',', '.')) : '')
                                         . '</td>';
+                                    if (!$dados['apenas_periodo']) {
+                                        echo '<td class="col-valor"></td>';
+                                    }
+                                    echo '</tr>';
                                 }
-                                echo '<td class="col-valor">'
-                                    . (!$mv['ant'] ? e(number_format($mv['valor'], 2, ',', '.')) : '')
-                                    . '</td>';
-                                if (!$dados['apenas_periodo']) {
-                                    echo '<td class="col-valor"></td>';
-                                }
-                                echo '</tr>';
                             }
                         }
                     }
                 }
             endforeach; ?>
-            <tr class="rel-total"><td>Total <?= e($sec['titulo']) ?></td>
+            <tr class="rel-total"><td></td><td></td>
+                <td><?= $sec['id'] === 'outros' ? 'Total Outros' : 'Total ' . e($sec['titulo']) ?></td>
                 <?php if (!$dados['apenas_periodo']): ?>
                 <td class="col-valor"><?= e(number_format($sec['ant'], 2, ',', '.')) ?></td>
                 <?php endif; ?>
@@ -221,16 +240,11 @@
                 <td class="col-valor"><?= e(number_format($sec['ant'] + $sec['per'], 2, ',', '.')) ?></td>
                 <?php endif; ?>
             </tr>
+            <?php if ($dados['mostrar_saldo'] && $sec['id'] === 'despesas'):
+                $linha('rel-saldo', 'SALDO', $saldoAnt, $saldoPer);
+            endif; ?>
         <?php endforeach; ?>
-        <?php if ($dados['mostrar_saldo']):
-            $sa = 0.0; $sp = 0.0;
-            foreach ($secoes as $sec) {
-                if ($sec['id'] === 'receitas' || $sec['id'] === 'despesas') {
-                    $sa += $sec['ant']; $sp += $sec['per'];
-                }
-            }
-            $linha('rel-saldo', 'SALDO', $sa, $sp);
-        endif;
+        <?php
         $ga = 0.0; $gp = 0.0;
         foreach ($secoes as $sec) {
             $ga += $sec['ant']; $gp += $sec['per'];

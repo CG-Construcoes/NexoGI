@@ -193,18 +193,43 @@ function relatorio_financeiro_dados(string $base, array $o): array
 
     usort($agentes, fn($a, $b) => [$a['tipo'], $a['agente'], $a['conta']] <=> [$b['tipo'], $b['agente'], $b['conta']]);
 
+    // cabecalho Informakon: empresa + CNPJ da filial matriz (menor Filial_CGC)
+    $empresaNome = (string) $o['empresa'];
+    $cnpj = '';
+    try {
+        $emp = query(
+            "SELECT TOP 1 e.Empresa_Nome, f.Filial_CGC FROM dbo.Empresa e
+             LEFT JOIN dbo.Filial f ON f.Empresa_Cod = e.Empresa_Cod
+             WHERE e.Empresa_Cod = ? ORDER BY f.Filial_CGC",
+            [$o['empresa']], $banco);
+        if ($emp) {
+            $empresaNome = trim((string) $emp[0]['Empresa_Nome']);
+            $d = preg_replace('/\D/', '', (string) ($emp[0]['Filial_CGC'] ?? ''));
+            if (strlen($d) === 14) {
+                $cnpj = substr($d, 0, 2) . '.' . substr($d, 2, 3) . '.' . substr($d, 5, 3)
+                    . '/' . substr($d, 8, 4) . '-' . substr($d, 12, 2);
+            }
+        }
+    } catch (Throwable $t) { /* mantem codigo */ }
+
     $centrosDesc = 'Todos';
+    $centroMascara = '(*)';
     if ($centrosSel) {
         $descs = array_map('trim', (array) ($o['centros'] ?? []));
         $centrosDesc = count($descs) === 1 ? $descs[0] : count($descs) . ' centros selecionados';
+        $centroMascara = '(' . implode(',', $descs) . ')';
     }
     $nucleosDesc = 'Todos';
+    $nucleoMascara = '99.9999';
     if ($nucleosSel) {
         $descs = array_map('trim', (array) ($o['nucleos'] ?? []));
         $nucleosDesc = count($descs) === 1 ? $descs[0] : count($descs) . ' nucleos selecionados';
+        $nucleoMascara = implode(',', $descs);
     }
     return ['blocos' => $blocos, 'base' => $base, 'data_ini' => $o['data_ini'],
             'data_fim' => $fim, 'apenas_periodo' => $apenasPeriodo,
+            'empresa_nome' => $empresaNome, 'empresa_cnpj' => $cnpj,
+            'filtro_mascara' => $centroMascara . '.' . $nucleoMascara,
             'centros_desc' => $centrosDesc, 'centros_lista' => (array) ($o['centros'] ?? []),
             'nucleos_desc' => $nucleosDesc, 'nucleos_lista' => (array) ($o['nucleos'] ?? []),
             'agentes' => $agentes,

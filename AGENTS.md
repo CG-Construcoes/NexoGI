@@ -143,12 +143,25 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   ao centavo; total do resumo por agente = Total Geral.
 - Linhas de movimento: o detalhe 'J' traz MovFin_Data/MovFin_Numero/
   MovFin_Historico/MovFinItem_ValorOrig por lancamento; sao exibidas embaixo de
-  cada GO (classe `rel-mov`) quando "Sintetico em Grupo" esta marcado — igual ao
-  Informakon. `GO_Titulo` ja vem com o codigo embutido ("1202 Impostos...") —
-  o prefixo e removido para nao duplicar na linha.
+  cada GO (classe `rel-mov`) somente quando o checkbox "Analitico (movimentos)"
+  esta marcado (desmarcado por padrao, igual ao PDF RelFin_20261013.pdf que
+  mostra so os totais por GO). `GO_Titulo` ja vem com o codigo embutido
+  ("1202 Impostos...") — o prefixo e removido para nao duplicar na linha.
 - "Detalhar por Centro" gera um bloco por centro (como as folhas do PDF); sem
   ele, o relatorio consolida todos os centros — ao comparar com o Informakon,
   somar as folhas ou marcar a opcao para bater folha a folha.
+- Layout alinhado ao Informakon em 2026-10-13 (PDF RelFin_20261013.pdf,
+  CGC/09-2026, todos os valores identicos ao centavo):
+  - Cabecalho: `Empresa_Nome + " CNPJ: " + Filial.Filial_CGC` (filial matriz =
+    menor Filial_CGC da empresa, formatado XX.XXX.XXX/XXXX-XX), titulo,
+    "Impresso em" e linha de filtro `(*).99.9999` = (centros).(nucleos) —
+    `(*)`/`99.9999` quando "todos" (notacao INFERIDA do PDF; com filtro
+    especifico mostra os codigos).
+  - Colunas: Data | No Mvto | Discriminacao | Acum. Anterior | Periodo |
+    Acumulado (Data/No Mvto so preenchidas no modo Analitico).
+  - SALDO (Receitas+Despesas) logo apos "Total Despesas", antes de
+    "Outros Grupos"; total da secao outros = "Total Outros".
+  - "Folha No N" do Informakon NAO reproduzido (HTML nao pagina).
 
 ## Financeiro > Caixas e Bancos > Posicao de Contas (2026-10-09)
 - Rota `posicao-contas`, permissao propria; `app/posicao_contas.php` +

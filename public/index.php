@@ -287,6 +287,7 @@ switch ($rota) {
             'sin_classe'     => isset($_GET['sin_classe']),
             'sin_assunto'    => isset($_GET['sin_assunto']),
             'sin_grupo'      => isset($_GET['sin_grupo']),
+            'analitico'      => isset($_GET['analitico']),
             'sec_receitas'   => isset($_GET['sec_receitas']),
             'sec_despesas'   => isset($_GET['sec_despesas']),
             'sec_outros'     => isset($_GET['sec_outros']),
