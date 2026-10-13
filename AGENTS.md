@@ -190,6 +190,9 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   - SALDO (Receitas+Despesas) logo apos "Total Despesas", antes de
     "Outros Grupos"; total da secao outros = "Total Outros".
   - "Folha No N" do Informakon NAO reproduzido (HTML nao pagina).
+- APROVADO pelo usuario em 2026-10-13 ("relatorio ficou perfeito") —
+  comparacao visual com RelFin_20261013.pdf OK. Commit 4948ca3 + merge
+  no NexoGI. Se precisar alterar, retomar a partir deste estado.
 
 ## Financeiro > Caixas e Bancos > Posicao de Contas (2026-10-09)
 - Rota `posicao-contas`, permissao propria; `app/posicao_contas.php` +
