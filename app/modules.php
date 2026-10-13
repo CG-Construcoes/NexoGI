@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+
+/** Menu lateral: grupos e telas. 'pronto' => true quando a tela ja foi convertida para PHP. */
+const MODULES = [
+    ['nome' => 'Comercial',     'icone' => '📈', 'itens' => []],
+    ['nome' => 'Contabilidade', 'icone' => '🧮', 'itens' => []],
+    ['nome' => 'Engenharia',    'icone' => '🏗️', 'itens' => []],
+    ['nome' => 'Estoque',       'icone' => '📦', 'itens' => []],
+    ['nome' => 'Financeiro',    'icone' => '💰', 'itens' => [
+        ['nome' => 'Caixas e Bancos', 'itens' => [
+            ['slug' => 'posicao-contas', 'nome' => 'Posição de Contas', 'pronto' => true],
+        ]],
+        ['nome' => 'Relatorios', 'itens' => [
+            ['slug' => 'relatorio-economico', 'nome' => 'Relatorio Economico', 'pronto' => true],
+            ['slug' => 'relatorio-financeiro', 'nome' => 'Relatorio Financeiro', 'pronto' => true],
+        ]],
+    ]],
+    ['nome' => 'Suprimentos',   'icone' => '🚚', 'itens' => [
+        ['slug' => 'pedidos', 'nome' => 'Pedidos', 'pronto' => true],
+        ['slug' => 'insumos', 'nome' => 'Insumos', 'pronto' => false],
+        ['slug' => 'credor',  'nome' => 'Credor',  'pronto' => false],
+        ['nome' => 'Solicitacoes', 'itens' => [
+            ['slug' => 'matriz-prioridades', 'nome' => 'Matriz de Prioridades', 'pronto' => true],
+        ]],
+    ]],
+    ['nome' => 'Indicadores',   'icone' => '📊', 'itens' => [
+        ['slug' => 'indicadores-comercial',     'nome' => 'Comercial',     'pronto' => false],
+        ['slug' => 'indicadores-contabilidade', 'nome' => 'Contabilidade', 'pronto' => false],
+        ['slug' => 'indicadores-engenharia',    'nome' => 'Engenharia',    'pronto' => false],
+        ['slug' => 'indicadores-estoque',       'nome' => 'Estoque',       'pronto' => false],
+        ['slug' => 'indicadores-financeiro',    'nome' => 'Financeiro',    'pronto' => false],
+        ['slug' => 'indicadores-suprimentos',   'nome' => 'Suprimentos',   'pronto' => true],
+    ]],
+    ['nome' => 'Configuracoes', 'icone' => '⚙️', 'itens' => [
+        ['slug' => 'usuarios', 'nome' => 'Usuarios', 'pronto' => true, 'admin' => true],
+    ]],
+];
+
+/** Telas publicas ja convertidas (controla links na tela de login). */
+const TELAS_PUBLICAS_PRONTAS = ['acesso' => true];
