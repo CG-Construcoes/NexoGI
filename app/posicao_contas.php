@@ -81,17 +81,70 @@ function posicao_contas_agentes(string $banco, string $tipo): array
     }
 }
 
-/** Chamada da proc de saldo. $con=true -> conciliado; false -> razao. */
+/** Saldo do dia. SELECT puro equivalente as procs spGetSaldoDiaAnterior[Con]
+ *  (replica exata da logica) — o batch DECLARE/EXEC/OUTPUT nao funciona no
+ *  PDO_ODBC do servidor NexoGI (nao tem pdo_sqlsrv). $proc seleciona o modo. */
 function pc_saldo_dia(PDO $pdo, string $proc, string $tipo, string $ag, string $conta,
                     string $data, ?string $empresa, ?string $nucleo): array
 {
-    $st = $pdo->prepare(
-        "DECLARE @s numeric(12,2), @d datetime;
-         EXEC dbo.$proc ?,?,?,?,?,?, @s OUTPUT, @d OUTPUT;
-         SELECT @s AS saldo, CONVERT(varchar(23), @d, 121) AS dt");
-    $st->execute([$tipo, $ag, $conta, $data, $empresa, $nucleo]);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
+    $con  = $proc === 'spGetSaldoDiaAnteriorCon';
+    $tab  = $con ? 'dbo.Movimento_Financeiro_SaldosCon' : 'dbo.Movimento_Financeiro_Saldos';
+    $cs   = $con ? 'MovFin_SaldoConciliado' : 'MovFin_SaldoRazao';
+    $cd   = $con ? 'MovFin_DataConciliado' : 'MovFin_Data';
+    $fc   = $con ? "AND MF.MovFin_Conciliado = 'C'" : '';
+    $fc2  = $con ? "AND MF2.MovFin_Conciliado = 'C'" : '';
+    $fENg = $con ? '' : "AND (MF.Empresa_Cod = ? OR ? IS NULL)
+                          AND (MF.Nucleo_Cod = ? OR ? IS NULL)";
+    $impS = $con ? 'AgeFin_ImpSaldoConciliado' : 'AgeFin_ImpSaldoRazao';
+    $impD = $con ? 'AgeFin_ImpDataSaldoConciliado' : 'AgeFin_ImpDataSaldoRazao';
+
+    // gate da proc: EXISTS usa MovFin_Data; so o modo razao filtra empresa/nucleo
+    $params = [$tipo, $ag, $conta, $data];
+    if (!$con) {
+        $params = array_merge($params, [$empresa, $empresa, $nucleo, $nucleo]);
+    }
+    $st = $pdo->prepare("SELECT 1 x WHERE EXISTS(
+        SELECT * FROM dbo.Movimento_Financeiro MF
+        WHERE MF.AgenteFinanceiroTipo_Cod = ? AND MF.AgenteFinanceiro_Cod = ?
+          AND MF.AgeFin_ContaNumero = ? AND MF.MovFin_Cancelado <> 'S'
+          AND MF.MovFin_Data < ? $fc $fENg)");
+    $st->execute($params);
+    $existe = (bool) $st->fetch(PDO::FETCH_ASSOC);
     $st->closeCursor();
+
+    $r = null;
+    if ($existe) {
+        $st = $pdo->prepare(
+            "SELECT TOP 1 S.$cs AS saldo, CONVERT(varchar(23), MF.$cd, 121) AS dt
+             FROM $tab S JOIN dbo.Movimento_Financeiro MF ON MF.MovFin_Numero = S.MovFin_Numero
+             WHERE MF.AgenteFinanceiroTipo_Cod = ? AND MF.AgenteFinanceiro_Cod = ?
+               AND MF.AgeFin_ContaNumero = ? AND MF.MovFin_Cancelado <> 'S'
+               AND MF.$cd < ?
+               AND (MF.Empresa_Cod = ? OR ? IS NULL)
+               AND (MF.Nucleo_Cod = ? OR ? IS NULL) $fc
+               AND MF.$cd = (SELECT MAX(MF2.$cd) FROM dbo.Movimento_Financeiro MF2
+                   WHERE MF2.AgenteFinanceiroTipo_Cod = ? AND MF2.AgenteFinanceiro_Cod = ?
+                     AND MF2.AgeFin_ContaNumero = ? AND MF2.MovFin_Cancelado <> 'S'
+                     AND MF2.$cd < ? $fc2)
+             ORDER BY MF.$cd DESC, MF.MovFin_Numero DESC"
+        );
+        $st->execute([$tipo, $ag, $conta, $data, $empresa, $empresa, $nucleo, $nucleo,
+                      $tipo, $ag, $conta, $data]);
+        $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        $st->closeCursor();
+    }
+    if ($r === null && !$existe) {
+        // ELSE da proc: saldo/data de implantacao da conta
+        $st = $pdo->prepare(
+            "SELECT AGC.$impS AS saldo, CONVERT(varchar(23), AGC.$impD, 121) AS dt
+             FROM dbo.AgenteFinanceiroConta AGC
+             WHERE AGC.AgenteFinanceiroTipo_Cod = ? AND AGC.AgenteFinanceiro_Cod = ?
+               AND AGC.AgeFin_ContaNumero = ?"
+        );
+        $st->execute([$tipo, $ag, $conta]);
+        $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        $st->closeCursor();
+    }
     return ['saldo' => (float) ($r['saldo'] ?? 0), 'data' => $r['dt'] ?? null];
 }
 
