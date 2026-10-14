@@ -1,79 +1,29 @@
-<?php
-if (!function_exists('tabela_permissoes')) {
-    /** Matriz Tela x (Consultar/Inserir/Alterar/Excluir) para um usuario. */
-    function tabela_permissoes(array $telasDisp, array $permUsuario): void
-    { ?>
-<table class="tabela tabela-permissoes">
-    <thead>
-        <tr>
-            <th>Tela</th>
-            <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Consultar</th>
-            <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Inserir</th>
-            <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Alterar</th>
-            <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Excluir</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($telasDisp as $t):
-            $p = $permUsuario[$t['slug']] ?? []; ?>
-        <tr>
-            <td><?= e($t['nome']) ?></td>
-            <?php foreach (PERM_ACOES as $a): ?>
-            <td class="td-check"><input type="checkbox"
-                   name="perm[<?= e($t['slug']) ?>][<?= $a ?>]" value="1"
-                   <?= !empty($p[$a]) ? 'checked' : '' ?>></td>
-            <?php endforeach; ?>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-<?php } } ?>
-
+<?php // Cadastro e liberacao de Usuarios — Configuracoes (admin) ?>
 <?php if ($aviso): ?>
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
 
-<h2>Solicitacoes pendentes</h2>
-<?php if ($pendentes): ?>
-<table class="tabela">
-    <thead>
-        <tr><th>Nome</th><th>E-mail</th><th>Solicitado em</th><th>Acoes</th></tr>
-    </thead>
-    <tbody>
-        <?php foreach ($pendentes as $u): ?>
-        <tr>
-            <td><?= e($u['Nome']) ?></td>
-            <td><?= e($u['Email']) ?></td>
-            <td><?= e(data_br($u['CriadoEm'], true)) ?></td>
-            <td class="acoes">
-                <form method="post" action="<?= url("usuarios/{$u['Id']}/liberar") ?>">
-                    <?= csrf_campo() ?>
-                    <input type="hidden" name="telas_enviadas" value="1">
-                    <?php tabela_permissoes($telasDisp, $telasMapa[$u['Id']] ?? []); ?>
-                    <button type="submit" class="btn btn-sm" style="margin-top:6px">Liberar com estas permissoes</button>
-                </form>
-                <form method="post" action="<?= url("usuarios/{$u['Id']}/bloquear") ?>">
-                    <?= csrf_campo() ?>
-                    <button type="submit" class="btn btn-sm btn-danger">Bloquear</button>
-                </form>
-            </td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-<?php else: ?>
-<p class="vazio">Nenhuma solicitacao pendente.</p>
-<?php endif; ?>
+<!-- ===================== FILTRO DE USUARIO ===================== -->
+<h2>Usuarios cadastrados</h2>
+<div class="filtros" style="margin-bottom:8px">
+    <div class="campo grow">
+        <label for="usFiltro">Filtrar usuario</label>
+        <input type="text" id="usFiltro" placeholder="Digite parte do nome ou e-mail" autocomplete="off">
+    </div>
+</div>
 
-<h2 style="margin-top:32px">Usuarios</h2>
-<table class="tabela">
+<!-- ===================== GRID DE USUARIOS ===================== -->
+<table class="tabela" id="usGrid">
     <thead>
-        <tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Perfil</th><th>Senha (PHP)</th><th>Permissoes</th><th>Acoes</th></tr>
+        <tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Perfil</th><th>Senha (PHP)</th><th>Acoes</th></tr>
     </thead>
     <tbody>
-        <?php foreach ($demais as $u):
+        <?php foreach ($usuarios as $u):
+            $sel = $usuarioSel && (int) $u['Id'] === (int) $usuarioSel['Id'];
             $proprio = strcasecmp($u['Email'], $_SESSION['usuario'] ?? '') === 0; ?>
-        <tr>
+        <tr class="us-row<?= $sel ? ' fc-sel' : '' ?>"
+            data-id="<?= (int) $u['Id'] ?>"
+            data-texto="<?= e(mb_strtolower($u['Nome'] . ' ' . $u['Email'])) ?>">
             <td><?= e($u['Nome']) ?></td>
             <td><?= e($u['Email']) ?></td>
             <td><span class="badge badge-<?= e($u['Status']) ?>"><?= e($u['Status']) ?></span></td>
@@ -85,19 +35,17 @@ if (!function_exists('tabela_permissoes')) {
                 <span class="badge badge-pendente">redefinir</span>
                 <?php endif; ?>
             </td>
-            <td>
-                <?php if ($u['Admin']): ?>
-                <span class="badge badge-ativo">todas</span>
-                <?php else: ?>
-                <form method="post" action="<?= url("usuarios/{$u['Id']}/telas") ?>">
+            <td class="acoes" onclick="event.stopPropagation()">
+                <?php if ($u['Status'] === 'pendente'): ?>
+                <form method="post" action="<?= url("usuarios/{$u['Id']}/liberar") ?>">
                     <?= csrf_campo() ?>
-                    <?php tabela_permissoes($telasDisp, $telasMapa[$u['Id']] ?? []); ?>
-                    <button type="submit" class="btn btn-sm btn-secundario" style="margin-top:6px">Salvar permissoes</button>
+                    <button type="submit" class="btn btn-sm">Liberar</button>
                 </form>
-                <?php endif; ?>
-            </td>
-            <td class="acoes">
-                <?php if ($u['Status'] === 'ativo' && !$proprio): ?>
+                <form method="post" action="<?= url("usuarios/{$u['Id']}/bloquear") ?>">
+                    <?= csrf_campo() ?>
+                    <button type="submit" class="btn btn-sm btn-danger">Bloquear</button>
+                </form>
+                <?php elseif ($u['Status'] === 'ativo' && !$proprio): ?>
                 <form method="post" action="<?= url("usuarios/{$u['Id']}/bloquear") ?>">
                     <?= csrf_campo() ?>
                     <button type="submit" class="btn btn-sm btn-danger">Bloquear</button>
@@ -108,24 +56,81 @@ if (!function_exists('tabela_permissoes')) {
                     <button type="submit" class="btn btn-sm">Reativar</button>
                 </form>
                 <?php endif; ?>
+                <?php if ($u['Status'] !== 'pendente'): ?>
                 <form method="post" action="<?= url("usuarios/{$u['Id']}/gerar-senha") ?>"
                       onsubmit="return confirm('Gerar uma nova senha provisoria para <?= e($u['Nome']) ?>? A senha atual deixara de funcionar.');">
                     <?= csrf_campo() ?>
                     <button type="submit" class="btn btn-sm btn-secundario">Gerar senha</button>
                 </form>
+                <?php endif; ?>
             </td>
         </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
 
+<?php if ($usuarioSel):
+    $gruposDoUsuario = $gruposMapa[(int) $usuarioSel['Id']] ?? []; ?>
+<!-- ===================== GRUPOS DO USUARIO (parte inferior) ===================== -->
+<h2 style="margin-top:28px">Grupos do usuario: <?= e($usuarioSel['Nome']) ?></h2>
+<div class="filtros" style="margin-bottom:8px">
+    <div class="campo grow">
+        <label for="ugFiltro">Filtrar grupo</label>
+        <input type="text" id="ugFiltro" placeholder="Digite parte do nome ou descricao" autocomplete="off">
+    </div>
+</div>
+<form method="post" action="<?= url("usuarios/{$usuarioSel['Id']}/grupos") ?>">
+    <?= csrf_campo() ?>
+    <div id="ugLista" style="border:1px solid #d5dde8; border-radius:6px; padding:10px 14px;
+         max-height:220px; overflow-y:auto; background:#fff; max-width:760px">
+        <?php if ($gruposDisp): ?>
+            <?php foreach ($gruposDisp as $g):
+                $gid = (int) $g['UsGrupo_Id']; ?>
+            <label class="ug-item" data-texto="<?= e(mb_strtolower($g['UsGrupo_Nome'] . ' ' . ($g['UsGrupo_Descricao'] ?? ''))) ?>"
+                   style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px; cursor:pointer">
+                <input type="checkbox" name="grupos[]" value="<?= $gid ?>"<?= isset($gruposDoUsuario[$gid]) ? ' checked' : '' ?>>
+                <span><?= e($g['UsGrupo_Nome']) ?><?= $g['UsGrupo_Descricao'] !== null && $g['UsGrupo_Descricao'] !== ''
+                    ? ' <span style="color:#8899aa">— ' . e($g['UsGrupo_Descricao']) . '</span>' : '' ?></span>
+            </label>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p class="vazio" style="margin:0">Nenhum grupo cadastrado —
+                crie em <a href="<?= url('grupos-usuarios') ?>">Grupos de Usuarios</a>.</p>
+        <?php endif; ?>
+    </div>
+    <div style="margin-top:10px">
+        <button type="submit" class="btn">Salvar grupos</button>
+        <a href="<?= url('usuarios') ?>" class="btn btn-secundario">Voltar</a>
+    </div>
+</form>
+<?php endif; ?>
+
 <script>
-// checkbox no cabecalho da coluna marca/desmarca toda a coluna daquela tabela
-function permColuna(headChk) {
-    var col = headChk.closest('th').cellIndex;
-    headChk.closest('table').querySelectorAll('tbody tr').forEach(function (tr) {
-        var chk = tr.cells[col].querySelector('input[type=checkbox]');
-        if (chk) chk.checked = headChk.checked;
+(function () {
+    // filtro "contem" no grid de usuarios
+    var fUs = document.getElementById('usFiltro');
+    fUs.addEventListener('input', function () {
+        var t = fUs.value.toLowerCase().trim();
+        document.querySelectorAll('#usGrid .us-row').forEach(function (tr) {
+            tr.style.display = (t === '' || tr.dataset.texto.indexOf(t) !== -1) ? '' : 'none';
+        });
     });
-}
+    // clique na linha -> seleciona o usuario (abre o painel de grupos)
+    document.querySelectorAll('#usGrid .us-row').forEach(function (tr) {
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', function () {
+            location.href = '<?= e(url('usuarios')) ?>?usuario=' + tr.dataset.id;
+        });
+    });
+    // filtro "contem" na lista de grupos
+    var fUg = document.getElementById('ugFiltro');
+    if (fUg) {
+        fUg.addEventListener('input', function () {
+            var t = fUg.value.toLowerCase().trim();
+            document.querySelectorAll('#ugLista .ug-item').forEach(function (it) {
+                it.style.display = (t === '' || it.dataset.texto.indexOf(t) !== -1) ? '' : 'none';
+            });
+        });
+    }
+})();
 </script>

@@ -37,6 +37,7 @@ const MODULES = [
     ]],
     ['nome' => 'Configuracoes', 'icone' => '⚙️', 'itens' => [
         ['slug' => 'usuarios', 'nome' => 'Usuarios', 'pronto' => true, 'admin' => true],
+        ['slug' => 'grupos-usuarios', 'nome' => 'Grupos de Usuarios', 'pronto' => true, 'admin' => true],
     ]],
 ];
 

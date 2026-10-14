@@ -8,7 +8,8 @@ iniciar_sessao();
 $rota = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '', '/');
 $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// Permissao por tela: rotas mapeadas exigem registro em msoft.UsuarioTelas (admin sempre passa).
+// Permissao por tela: rotas mapeadas exigem acesso via grupos do usuario
+// (msoft.UsuarioGrupoMembro -> UsuarioGrupoTelas; admin sempre passa).
 $ROTAS_TELA = [
     'pedidos' => 'pedidos',
     'pedidos/imprimir' => 'pedidos',
@@ -20,6 +21,7 @@ $ROTAS_TELA = [
     'relatorio-financeiro' => 'relatorio-financeiro',
     'posicao-contas' => 'posicao-contas',
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
+    'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
     'matriz-prioridades' => 'matriz-prioridades',
 ];
 if (isset($ROTAS_TELA[$rota])) {
@@ -92,8 +94,57 @@ switch ($rota) {
 
     case 'usuarios':
         exigir_admin();
+        $usuarioSel = isset($_GET['usuario']) ? usuario_get((int) $_GET['usuario']) : null;
         render('usuarios', ['titulo' => 'Usuarios do sistema', 'active' => 'usuarios',
-            'aviso' => consumir_aviso()] + listar_usuarios());
+            'aviso' => consumir_aviso(), 'usuarioSel' => $usuarioSel] + listar_usuarios());
+        break;
+
+    case 'grupos-usuarios':
+        exigir_admin();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('grupos-usuarios');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);
+            $destino = 'grupos-usuarios';
+            try {
+                if ($acao === 'excluir') {
+                    ug_excluir($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Grupo excluido.']);
+                } elseif ($acao === 'telas') {
+                    $n = ug_salvar_telas($id, (array) ($_POST['perm'] ?? []));
+                    definir_aviso(['tipo' => 'ok', 'html' =>
+                        "Permissoes do grupo atualizadas ($n tela(s))."]);
+                    $destino = 'grupos-usuarios?permissoes=' . $id;
+                } else {
+                    $d = ug_validar($_POST);
+                    if ($acao === 'editar') {
+                        ug_atualizar($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Grupo atualizado.']);
+                    } else {
+                        $novo = ug_inserir($d);
+                        definir_aviso(['tipo' => 'ok', 'html' =>
+                            'Grupo cadastrado. Agora marque as telas e funcoes.']);
+                        $destino = 'grupos-usuarios?permissoes=' . $novo;
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $edicao = isset($_GET['editar']) ? ug_get((int) $_GET['editar']) : null;
+        $grupoSel = isset($_GET['permissoes']) ? ug_get((int) $_GET['permissoes']) : null;
+        render('grupos_usuarios', ['titulo' => 'Grupos de Usuarios',
+            'active' => 'grupos-usuarios', 'aviso' => consumir_aviso(),
+            'grupos' => ug_listar(), 'edicao' => $edicao, 'grupoSel' => $grupoSel,
+            'telasDisp' => telas_disponiveis(),
+            'permGrupo' => $grupoSel ? ug_telas((int) $grupoSel['UsGrupo_Id']) : [],
+            'membros' => $grupoSel ? ug_membros((int) $grupoSel['UsGrupo_Id']) : []]);
         break;
 
     case 'pedidos':
@@ -284,8 +335,16 @@ switch ($rota) {
                 } elseif ($acao === 'incluir_centro' || $acao === 'excluir_centro') {
                     exigir_tela('fluxo-caixa-grupos', 'alterar');
                     if ($acao === 'incluir_centro') {
-                        fc_incluir_centro($id, (string) ($_POST['centro'] ?? ''));
-                        definir_aviso(['tipo' => 'ok', 'html' => 'Centro adicionado ao grupo.']);
+                        $r = fc_incluir_centros($id, (array) ($_POST['centros'] ?? []),
+                                                trim((string) ($_POST['centro'] ?? '')));
+                        $msg = $r['ok'] === 0
+                            ? 'Selecione ou digite um centro de custo.'
+                            : ($r['ok'] === 1 ? '1 centro adicionado ao grupo.'
+                                              : $r['ok'] . ' centros adicionados ao grupo.');
+                        if ($r['erros']) {
+                            $msg .= ' Nao incluidos: ' . e(implode(' | ', $r['erros']));
+                        }
+                        definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
                     } else {
                         fc_excluir_centro($id, (string) ($_POST['centro'] ?? ''));
                         definir_aviso(['tipo' => 'ok', 'html' => 'Centro removido do grupo.']);
@@ -321,13 +380,20 @@ switch ($rota) {
             ? fc_get((int) $_GET['centros']) : null;
         render('fluxo_caixa_grupos', ['titulo' => 'Grupos de Centros',
             'active' => 'fluxo-caixa-grupos', 'aviso' => consumir_aviso(),
-            'grupos' => fc_listar(), 'centros' => mp_centros(),
+            'grupos' => fc_listar(), 'centros' => fc_centros(),
+            'ocupados' => fc_centros_em_grupos(),
             'edicao' => $edicao, 'grupoCentros' => $grupoCentros,
             'centrosDoGrupo' => $grupoCentros
                 ? fc_centros_do_grupo((int) $grupoCentros['FCGrupo_Id']) : [],
             'podeInserir' => usuario_pode('fluxo-caixa-grupos', 'inserir'),
             'podeAlterar' => usuario_pode('fluxo-caixa-grupos', 'alterar'),
             'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
+        break;
+
+    case 'fluxo-caixa-grupos/relatorio':
+        exigir_login();
+        render('fluxo_caixa_relatorio', ['titulo' => 'Agrupamento de Centros de Custo',
+            'active' => 'fluxo-caixa-grupos', 'grupos' => fc_relatorio()]);
         break;
 
     case 'relatorio-financeiro':
@@ -452,12 +518,12 @@ switch ($rota) {
         break;
 
     default:
-        if ($metodo === 'POST' && preg_match('#^usuarios/(\d+)/(liberar|bloquear|gerar-senha|telas)$#', $rota, $m)) {
+        if ($metodo === 'POST' && preg_match('#^usuarios/(\d+)/(liberar|bloquear|gerar-senha|grupos)$#', $rota, $m)) {
             exigir_admin();
             definir_aviso(csrf_valido()
                 ? acao_usuario((int) $m[1], $m[2])
                 : ['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
-            redirecionar('usuarios');
+            redirecionar($m[2] === 'grupos' ? 'usuarios?usuario=' . (int) $m[1] : 'usuarios');
         }
         http_response_code(404);
         render('erro404', ['titulo' => 'Pagina nao encontrada'], 'base');

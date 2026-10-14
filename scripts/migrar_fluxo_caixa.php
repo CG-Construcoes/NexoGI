@@ -22,5 +22,12 @@ IF OBJECT_ID('msoft.FluxoCaixa_Centros') IS NULL
         Centro_CodC CHAR(9)  NOT NULL,
         PRIMARY KEY (FCGrupo_Id, Centro_CodC)
     );
+
+-- Um centro de custo so pode pertencer a UM grupo de fluxo de caixa.
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints
+               WHERE name = 'UQ_FluxoCaixa_Centros_Centro'
+                 AND parent_object_id = OBJECT_ID('msoft.FluxoCaixa_Centros'))
+    ALTER TABLE msoft.FluxoCaixa_Centros
+    ADD CONSTRAINT UQ_FluxoCaixa_Centros_Centro UNIQUE (Centro_CodC);
 ");
 echo "Tabelas msoft.FluxoCaixa_Grupo e msoft.FluxoCaixa_Centros verificadas/criadas.\n";

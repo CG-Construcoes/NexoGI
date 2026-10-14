@@ -64,6 +64,40 @@ function fc_excluir(int $id): void
     execute('DELETE FROM msoft.FluxoCaixa_Grupo WHERE FCGrupo_Id = ?', [$id]);
 }
 
+/**
+ * Centros de custo (dbMGA + dbConv), ATIVOS e INATIVOS:
+ * Centro_CodC (9 chars = Empresa+Filial+Centro) => rotulo ("CODC - Nome (inativo)").
+ * Diferente de mp_centros(), aqui entram os Centro_Inativo = 'S' tambem.
+ */
+function fc_centros(): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    $cache = [];
+    foreach (['dbMGA', 'dbConv'] as $base) {
+        try {
+            $rows = query("SELECT RTRIM(Empresa_Cod) Empresa_Cod, RTRIM(Filial_Cod) Filial_Cod,
+                                  RTRIM(Centro_Cod) Centro_Cod, RTRIM(Centro_Nome) Centro_Nome,
+                                  ISNULL(RTRIM(Centro_Inativo), 'N') Centro_Inativo
+                           FROM $base.dbo.Centro_de_Custo
+                           ORDER BY Centro_Nome");
+        } catch (Throwable $e) {
+            continue;
+        }
+        foreach ($rows as $r) {
+            $codc = strtoupper($r['Empresa_Cod'] . $r['Filial_Cod'] . $r['Centro_Cod']);
+            if (strlen($codc) === 9) {
+                $cache[$codc] = $codc . ' - ' . $r['Centro_Nome']
+                    . ($r['Centro_Inativo'] === 'S' ? ' (inativo)' : '');
+            }
+        }
+    }
+    asort($cache);
+    return $cache;
+}
+
 /** Centro_CodC dos centros ja associados ao grupo. */
 function fc_centros_do_grupo(int $id): array
 {
@@ -73,30 +107,105 @@ function fc_centros_do_grupo(int $id): array
                WHERE FCGrupo_Id = ? ORDER BY Centro_CodC', [$id]));
 }
 
-/** Normaliza "CODC - Nome" ou "CODC" para o Centro_CodC; valida contra mp_centros(). */
+/**
+ * Centros JA agrupados em QUALQUER grupo:
+ * Centro_CodC => ['FCGrupo_Id'=>int, 'FCGrupo_Nome'=>string].
+ * Regra: um centro de custo nao pode se repetir entre grupos.
+ */
+function fc_centros_em_grupos(): array
+{
+    $map = [];
+    foreach (query('SELECT RTRIM(c.Centro_CodC) Centro_CodC, c.FCGrupo_Id,
+                           RTRIM(g.FCGrupo_Nome) FCGrupo_Nome
+                    FROM msoft.FluxoCaixa_Centros c
+                    JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id') as $r) {
+        $map[$r['Centro_CodC']] = $r;
+    }
+    return $map;
+}
+
+/** Normaliza "CODC - Nome" ou "CODC" para o Centro_CodC; valida contra fc_centros(). */
 function fc_codc(string $centro): string
 {
     $codc = strtoupper(trim($centro));
     if (preg_match('/^([A-Z0-9]{9})/', $codc, $m)) {
         $codc = $m[1];
     }
-    if (!isset(mp_centros()[$codc])) {
+    if (!isset(fc_centros()[$codc])) {
         throw new InvalidArgumentException('Selecione um centro de custo da lista.');
     }
     return $codc;
 }
 
-function fc_incluir_centro(int $id, string $centro): void
+/**
+ * Inclui centros no grupo: $selecionados = array de "CODC"/"CODC - Nome"
+ * vindos dos checkboxes + opcionalmente um valor digitado.
+ * Pula os ja agrupados (regra: centro nao se repete entre grupos).
+ * Devolve ['ok' => qtd incluida, 'erros' => [mensagens]].
+ */
+function fc_incluir_centros(int $id, array $selecionados, string $digitado = ''): array
 {
-    $codc = fc_codc($centro);
-    execute('IF NOT EXISTS (SELECT 1 FROM msoft.FluxoCaixa_Centros
-                          WHERE FCGrupo_Id = ? AND Centro_CodC = ?)
-             INSERT INTO msoft.FluxoCaixa_Centros (FCGrupo_Id, Centro_CodC) VALUES (?, ?)',
-            [$id, $codc, $id, $codc]);
+    $ocupados = fc_centros_em_grupos();
+    $vistos = [];
+    $ok = 0;
+    $erros = [];
+    if ($digitado !== '') {
+        $selecionados[] = $digitado;
+    }
+    foreach ($selecionados as $c) {
+        try {
+            $codc = fc_codc((string) $c);
+        } catch (InvalidArgumentException $e) {
+            $erros[] = '"' . trim((string) $c) . '" nao e um centro de custo valido.';
+            continue;
+        }
+        if (isset($vistos[$codc])) {
+            continue;
+        }
+        $vistos[$codc] = true;
+        if (isset($ocupados[$codc])) {
+            $erros[] = ((int) $ocupados[$codc]['FCGrupo_Id'] === $id)
+                ? "$codc ja esta neste grupo."
+                : "$codc ja pertence ao grupo \"{$ocupados[$codc]['FCGrupo_Nome']}\".";
+            continue;
+        }
+        execute('INSERT INTO msoft.FluxoCaixa_Centros (FCGrupo_Id, Centro_CodC) VALUES (?, ?)',
+                [$id, $codc]);
+        $ocupados[$codc] = ['FCGrupo_Id' => $id, 'FCGrupo_Nome' => ''];
+        $ok++;
+    }
+    return ['ok' => $ok, 'erros' => $erros];
 }
 
 function fc_excluir_centro(int $id, string $centro): void
 {
     execute('DELETE FROM msoft.FluxoCaixa_Centros WHERE FCGrupo_Id = ? AND Centro_CodC = ?',
             [$id, strtoupper(trim($centro))]);
+}
+
+/**
+ * Dados do relatorio "Agrupamento de centros de custo":
+ * lista de grupos, cada um com ['centros' => [rotulos ordenados]].
+ */
+function fc_relatorio(): array
+{
+    $grupos = [];
+    foreach (fc_listar() as $g) {
+        $grupos[(int) $g['FCGrupo_Id']] = $g + ['centros' => []];
+    }
+    $labels = fc_centros();
+    foreach (query('SELECT FCGrupo_Id, RTRIM(Centro_CodC) Centro_CodC
+                    FROM msoft.FluxoCaixa_Centros ORDER BY Centro_CodC') as $r) {
+        $gid = (int) $r['FCGrupo_Id'];
+        if (isset($grupos[$gid])) {
+            $grupos[$gid]['centros'][] = [
+                'codc'   => $r['Centro_CodC'],
+                'rotulo' => $labels[$r['Centro_CodC']] ?? $r['Centro_CodC'],
+            ];
+        }
+    }
+    foreach ($grupos as &$g) {
+        usort($g['centros'], fn($a, $b) => strcmp($a['rotulo'], $b['rotulo']));
+    }
+    return array_values($grupos);
 }

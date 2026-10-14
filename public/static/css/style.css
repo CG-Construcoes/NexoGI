@@ -717,6 +717,23 @@ a.card-modulo { text-decoration: none; color: inherit; }
     border: 0; padding: 8px 14px; font-size: 13px; cursor: pointer; color: #22344d; }
 .fc-menu button:hover { background: #eef3fa; }
 .fc-menu button.fc-danger { color: #b3261e; }
+.fc-combo { position: relative; }
+.fc-combo-lista { position: absolute; top: 100%; left: 0; right: 0; z-index: 9000;
+    max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid #b8c4d0;
+    border-top: 0; border-radius: 0 0 6px 6px; box-shadow: 0 6px 16px rgba(30,58,95,.18); }
+.fc-combo-item { padding: 6px 10px; font-size: 13px; cursor: pointer; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+.fc-combo-item input[type=checkbox] { margin: 0 6px 0 0; vertical-align: -1px; }
+.fc-sel-count { color: #4a6a8a; font-weight: normal; }
+.fc-combo-item:hover { background: #eef3fa; }
+.fc-combo-item.fc-ocupado { color: #9aa4b0; cursor: not-allowed; }
+.fc-combo-item.fc-ocupado:hover { background: #f5f6f7; }
+.fc-combo-grupo { float: right; color: #b6bec8; font-size: 11px; font-style: italic;
+    padding-left: 12px; }
+
+/* ---------- Usuarios (selecao por linha + filtro) ---------- */
+.us-row { cursor: pointer; }
+.us-row:hover td { background: #eef3fa; }
 
 @media print {
     .filtros, .sidebar, .topbar, .pedidos-rodape { display: none !important; }

@@ -42,17 +42,21 @@ function pendentes_count(): int
 
 function listar_usuarios(): array
 {
-    $sql = 'SELECT Id, Email, Nome, Status, Admin, CriadoEm,
-                   CASE WHEN SenhaHashPHP IS NULL THEN 0 ELSE 1 END AS TemSenhaPHP
-            FROM msoft.Usuarios';
-    $pendentes = query("$sql WHERE Status = 'pendente' ORDER BY CriadoEm");
-    $demais = query("$sql WHERE Status <> 'pendente' ORDER BY Nome");
+    $usuarios = query("SELECT Id, Email, Nome, Status, Admin, CriadoEm,
+                              CASE WHEN SenhaHashPHP IS NULL THEN 0 ELSE 1 END AS TemSenhaPHP
+                       FROM msoft.Usuarios
+                       ORDER BY CASE WHEN Status = 'pendente' THEN 0 ELSE 1 END, Nome");
     return [
-        'pendentes' => $pendentes,
-        'demais' => $demais,
-        'telasDisp' => telas_disponiveis(),
-        'telasMapa' => telas_de_usuarios(array_column(array_merge($pendentes, $demais), 'Id')),
+        'usuarios' => $usuarios,
+        'gruposDisp' => ug_listar(),
+        'gruposMapa' => ug_mapa_grupos(array_column($usuarios, 'Id')),
     ];
+}
+
+function usuario_get(int $id): ?array
+{
+    $rows = query('SELECT Id, Email, Nome, Status, Admin FROM msoft.Usuarios WHERE Id = ?', [$id]);
+    return $rows[0] ?? null;
 }
 
 /** Telas que podem ser liberadas por usuario (itens do menu que nao sao exclusivos de admin).
@@ -77,55 +81,6 @@ function telas_disponiveis(): array
         }
     }
     return $telas;
-}
-
-/** Mapa UsuarioId => slug => [consultar,inserir,alterar,excluir] das telas liberadas. */
-function telas_de_usuarios(array $ids): array
-{
-    if (!$ids) {
-        return [];
-    }
-    $ph = implode(',', array_fill(0, count($ids), '?'));
-    $rows = query("SELECT UsuarioId, Tela, P_Consultar, P_Inserir, P_Alterar, P_Excluir
-                   FROM msoft.UsuarioTelas WHERE UsuarioId IN ($ph)", $ids);
-    $mapa = [];
-    foreach ($rows as $r) {
-        $mapa[$r['UsuarioId']][$r['Tela']] = [
-            'consultar' => (bool) $r['P_Consultar'],
-            'inserir'   => (bool) $r['P_Inserir'],
-            'alterar'   => (bool) $r['P_Alterar'],
-            'excluir'   => (bool) $r['P_Excluir'],
-        ];
-    }
-    return $mapa;
-}
-
-/** Substitui as telas/permissoes do usuario pelas marcadas.
- *  $perm = [slug => [acao => 1,...]] (formato do formulario). Retorna telas salvas. */
-function definir_telas(int $id, array $perm): int
-{
-    $validos = array_column(telas_disponiveis(), 'slug');
-    execute('DELETE FROM msoft.UsuarioTelas WHERE UsuarioId = ?', [$id]);
-    $salvas = 0;
-    foreach ($perm as $slug => $acoes) {
-        $slug = (string) $slug;
-        if (!in_array($slug, $validos, true)) {
-            continue;
-        }
-        $acoes = (array) $acoes;
-        $flags = [];
-        foreach (PERM_ACOES as $a) {
-            $flags[$a] = !empty($acoes[$a]) ? 1 : 0;
-        }
-        if (!$flags['consultar']) {
-            continue; // sem consultar a tela nem aparece para o usuario
-        }
-        execute('INSERT INTO msoft.UsuarioTelas (UsuarioId, Tela, P_Consultar, P_Inserir, P_Alterar, P_Excluir)
-                 VALUES (?, ?, ?, ?, ?, ?)',
-            [$id, $slug, $flags['consultar'], $flags['inserir'], $flags['alterar'], $flags['excluir']]);
-        $salvas++;
-    }
-    return $salvas;
 }
 
 function gerar_senha_provisoria(): string
@@ -153,15 +108,15 @@ function acao_usuario(int $id, string $acao): array
         $status = $acao === 'liberar' ? 'ativo' : 'bloqueado';
         execute('UPDATE msoft.Usuarios SET Status = ?, LiberadoEm = GETDATE() WHERE Id = ?', [$status, $id]);
         $extra = '';
-        // so grava as telas quando o formulario enviou o campo de permissoes
-        if ($acao === 'liberar' && isset($_POST['telas_enviadas'])) {
-            $extra = ', com acesso a ' . definir_telas($id, (array) ($_POST['perm'] ?? [])) . ' tela(s)';
+        // so grava os grupos quando o formulario enviou o campo de grupos
+        if ($acao === 'liberar' && isset($_POST['grupos_enviados'])) {
+            $extra = ', em ' . ug_definir_grupos($id, (array) ($_POST['grupos'] ?? [])) . ' grupo(s)';
         }
         return ['tipo' => 'ok', 'html' => "$nome agora esta <strong>$status</strong>$extra."];
     }
-    if ($acao === 'telas') {
-        $n = definir_telas($id, (array) ($_POST['perm'] ?? []));
-        return ['tipo' => 'ok', 'html' => "Permissoes de $nome atualizadas ($n tela(s) liberada(s))."];
+    if ($acao === 'grupos') {
+        $n = ug_definir_grupos($id, (array) ($_POST['grupos'] ?? []));
+        return ['tipo' => 'ok', 'html' => "Grupos de $nome atualizados ($n grupo(s))."];
     }
     if ($acao === 'gerar-senha') {
         $senha = gerar_senha_provisoria();

@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 /**
- * Cria as tabelas de links de senha e de permissoes por tela (rodar 1x, linha de comando):
+ * Cria a tabela de tokens de senha (rodar 1x, linha de comando):
  *   php scripts/migrar_acesso_email.php
- * Usuarios ativos que ja existiam recebem acesso a tela Pedidos (mantem o acesso que ja tinham).
+ * Historico: esta migracao tambem criava msoft.UsuarioTelas (permissoes
+ * individuais). Esse modelo foi substituido em 2026-10-14 por grupos —
+ * ver scripts/migrar_grupos_usuarios.php. Nao recriar UsuarioTelas aqui.
  */
 if (PHP_SAPI !== 'cli') {
     exit("Somente linha de comando.\n");
@@ -22,19 +24,5 @@ IF OBJECT_ID('msoft.TokensSenha') IS NULL
         UsadoEm    DATETIME     NULL,
         IpOrigem   VARCHAR(45)  NULL
     );
-IF OBJECT_ID('msoft.UsuarioTelas') IS NULL
-    CREATE TABLE msoft.UsuarioTelas (
-        UsuarioId  INT          NOT NULL REFERENCES msoft.Usuarios(Id) ON DELETE CASCADE,
-        Tela       VARCHAR(50)  NOT NULL,
-        PRIMARY KEY (UsuarioId, Tela)
-    );
 ");
-echo "Tabelas msoft.TokensSenha e msoft.UsuarioTelas verificadas/criadas.\n";
-
-$n = execute("
-INSERT INTO msoft.UsuarioTelas (UsuarioId, Tela)
-SELECT u.Id, 'pedidos' FROM msoft.Usuarios u
-WHERE u.Status = 'ativo' AND u.Admin = 0
-  AND NOT EXISTS (SELECT 1 FROM msoft.UsuarioTelas t WHERE t.UsuarioId = u.Id)
-");
-echo "Permissao 'pedidos' concedida a $n usuario(s) ativo(s) existente(s).\n";
+echo "Tabela msoft.TokensSenha verificada/criada.\n";

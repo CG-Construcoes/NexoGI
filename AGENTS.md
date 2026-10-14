@@ -87,9 +87,10 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - `/definir-senha`: token via GET; POST grava `SenhaHashPHP` (+Nome no 1o acesso). Token invalido/
   usado/expirado mostra tela propria. `/cadastro` agora redireciona para `/acesso`
   (`solicitar_acesso()` e `views/cadastro.php` ficaram sem uso)
-- **Permissao por tela** (`msoft.UsuarioTelas`): admin ve tudo; demais usuarios so as telas marcadas.
-  `telas_disponiveis()` = itens do menu sem flag admin. Tela Usuarios tem checkboxes: ao liberar um
-  pendente ("Liberar com estas telas") e na coluna "Telas" dos demais ("Salvar telas")
+- **Permissao por GRUPO** (ver secao "Permissoes por GRUPO de usuarios"): admin ve tudo;
+  demais usuarios so as telas somadas dos grupos. `telas_disponiveis()` = itens do menu sem
+  flag admin. Tela Usuarios tem checkboxes de GRUPOS por usuario; a matriz Tela x acao fica
+  na tela Grupos de Usuarios (permColuna marca a coluna inteira).
 - Menu (layout_app.php e views/menu.php) so mostra itens permitidos via `usuario_pode()`
 - **Bloqueio de rota**: mapa `$ROTAS_TELA` no topo de `public/index.php` (ANTES do switch) aplica
   `exigir_tela()` — sem tocar nos cases das telas travadas; quem nao tem permissao recebe 403
@@ -115,19 +116,32 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Testes automatizados (Windows): `H:\Meu Drive\Msoft\msoft-setup\testar_login.ps1` e `testar_usuarios.ps1`
 - [x] Telas travadas convertidas (2026-09-30, com 3 confirmacoes) — ver secao abaixo
 
-## Permissoes por acao (2026-10-05)
-- `msoft.UsuarioTelas` tem colunas `P_Consultar`, `P_Inserir`, `P_Alterar`, `P_Excluir`
-  (bit). Migracao: grants antigos viraram Consultar=1, demais=0.
-- `app/auth.php`: constante `PERM_ACOES`; `permissoes_usuario()` retorna
-  slug => mapa de acoes; `usuario_pode(slug, acao='consultar')`;
-  `exigir_tela(slug, acao='consultar')`. Rotas de escrita futuras usam
-  `exigir_tela('slug', 'inserir'|'alterar'|'excluir')`; views podem ocultar
-  botoes com `usuario_pode('slug', 'acao')`.
-- `definir_telas()` em `app/usuarios.php` recebe `perm[slug][acao]` do form;
-  tela sem Consultar nao e gravada (nao aparece no menu do usuario).
-- `views/usuarios.php` renderiza a matriz Tela x acao pela funcao local
-  `tabela_permissoes()`; checkbox no cabecalho marca a coluna inteira (permColuna).
-- `/usuarios` ja era `exigir_admin()` — restrito a administradores.
+## Permissoes por GRUPO de usuarios (2026-10-14 — substitui o modelo individual)
+- Permissao vem APENAS de grupos; usuario pode estar em VARIOS grupos;
+  efetiva = UNIAO (MAX) das P_* dos grupos. Permissoes individuais foram
+  DESCARTADAS: `msoft.UsuarioTelas` foi DROPADA por
+  `scripts/migrar_grupos_usuarios.php` (rodar no NexoGI ao subir).
+- Tabelas (msoft): `UsuarioGrupo` (UsGrupo_Id identity, Nome, Descricao),
+  `UsuarioGrupoTelas` (UsGrupo_Id + Tela char(40) + P_Consultar/P_Inserir/
+  P_Alterar/P_Excluir, PK composta, FK cascade), `UsuarioGrupoMembro`
+  (UsGrupo_Id + UsuarioId FK->msoft.Usuarios cascade, PK composta).
+- `app/usuario_grupos.php`: ug_listar/ug_get/ug_validar/ug_inserir/ug_atualizar/
+  ug_excluir/ug_telas/ug_salvar_telas/ug_membros/ug_mapa_grupos/ug_definir_grupos.
+- `permissoes_usuario()` em `app/auth.php` le os grupos (JOIN membro+telas,
+  MAX por tela). `usuario_pode()`/`exigir_tela()` inalterados — admin ve tudo.
+- Tela **Configuracoes > Grupos de Usuarios** (`/grupos-usuarios`, admin):
+  mesmo layout de fluxo-caixa-grupos — form topo, lista clicavel, botao
+  direito Editar/Excluir; painel inferior = matriz Tela x (Acesso/Inclusao/
+  Alteracao/Excluir) do grupo + lista de membros.
+- Tela **Usuarios** (`/usuarios`, admin, layout novo em 2026-10-14):
+  filtro de usuario (input "contem" filtra `.us-row` via data-texto) +
+  grid unico (pendentes primeiro; acoes na linha com stopPropagation:
+  Liberar/Reativar/Bloquear/Gerar senha) — clique na linha -> `?usuario=<id>`
+  abre embaixo filtro de grupo + checkboxes `grupos[]` (acao `grupos`,
+  volta para `usuarios?usuario=<id>`). `usuario_get($id)` novo;
+  `listar_usuarios()` devolve 'usuarios' unico + 'gruposDisp'/'gruposMapa'.
+- ATENCAO pos-migracao: usuarios nao-admin ficam SEM nenhuma tela ate serem
+  atribuidos a grupos (permissoes individuais foram descartadas).
 
 ## Matriz de Prioridades (2026-10-05)
 - Suprimentos > Solicitacoes > Matriz de Prioridades (rota `matriz-prioridades`, permissao propria).
@@ -257,24 +271,42 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `msoft.FluxoCaixa_Centros` (FCGrupo_Id + Centro_CodC char(9), PK
   composta, FK ON DELETE CASCADE). Script: `scripts/migrar_fluxo_caixa.php`
   (ja rodado 2026-10-13).
-- Centro_CodC = Empresa+Filial+Centro (9 chars), reaproveita `mp_centros()`
-  (centros ativos de dbMGA+dbConv, filtra Centro_Inativo <> 'S').
+- Centro_CodC = Empresa+Filial+Centro (9 chars). NESTA tela a lista usa
+  `fc_centros()` (2026-10-14): centros ATIVOS e INATIVOS de dbMGA+dbConv
+  (331 no total; inativos marcados "(inativo)" no rotulo). `mp_centros()`
+  segue so com ativos (usada pela Matriz de Prioridades).
 - Fluxo (layout v3, 2026-10-13): topo = form novo/editar grupo; meio =
   lista de grupos (linha `.fc-grupo-row` clicavel, selecionada = `.fc-sel`);
-  rodape = painel "Centros do grupo": combobox datalist (busca contem) para
-  ADICIONAR centro (acao `incluir_centro`, dedup via IF NOT EXISTS) +
-  tabela dos centros do grupo com botao Remover por linha (acao
-  `excluir_centro`) — sem "salvar" em lote. Clique na linha -> `?centros=<id>`
-  (so com perm alterar). Botao DIREITO na linha abre menu de contexto
-  `.fc-menu` com Editar (-> `?editar=<id>`, form do topo vira edicao) e
-  Excluir (form oculto `#fcFormExcluir` + confirm). `fc_codc` normaliza
-  "CODC - Nome" e valida contra mp_centros().
-- PENDENTE (pedido do usuario, 2026-10-13 — lembrar amanha): regra de
-  unicidade do centro ENTRE grupos — um Centro_CodC nao pode pertencer a
-  mais de um grupo ao mesmo tempo. Hoje `fc_incluir_centro` so impede
-  duplicata dentro do mesmo grupo. Ao implementar: checar se o CodC ja
-  esta em outro FCGrupo_Id (aviso dizendo em qual grupo) e, se valer,
-  mostrar na combobox/lista o grupo atual de cada centro.
+  rodape = painel "Centros do grupo": combobox CUSTOMIZADO (input +
+  `.fc-combo-lista`, busca contem via JS em `data-texto`) para ADICIONAR
+  centro (acao `incluir_centro`) + tabela dos centros do grupo com botao
+  Remover por linha (acao `excluir_centro`) — sem "salvar" em lote.
+  Clique na linha -> `?centros=<id>` (so com perm alterar). Botao DIREITO
+  na linha abre menu de contexto `.fc-menu` com Editar (-> `?editar=<id>`,
+  form do topo vira edicao) e Excluir (form oculto `#fcFormExcluir` +
+  confirm). `fc_codc` normaliza "CODC - Nome" e valida contra fc_centros().
+- REGRA IMPLEMENTADA (2026-10-14): centro nao se repete ENTRE grupos.
+  `fc_centros_em_grupos()` = mapa Centro_CodC => grupo ocupante;
+  `fc_incluir_centro` rejeita com InvalidArgumentException ("ja pertence
+  ao grupo X" / "ja esta neste grupo"). Na combobox, os ocupados aparecem
+  em CINZA (`.fc-ocupado`, cursor not-allowed, nao clicaveis) com tooltip
+  `title` indicando o grupo + selo "grupo: NOME" a direita do item.
+- Relatorio (2026-10-14): rota `fluxo-caixa-grupos/relatorio` (mesmo slug
+  de permissao) + `views/fluxo_caixa_relatorio.php` — listagem
+  "Agrupamento de Centros de Custo por Grupo": linha `.rel-secao` por
+  grupo (ID - Nome — Descricao (qtde)), centros abaixo, total de
+  grupos/centros no fim; botao "Visualizar / Imprimir listagem" ao lado
+  de "Grupos cadastrados"; Imprimir = window.print() (.filtros some).
+  `fc_relatorio()` monta grupos => ['centros'=>[{codc,rotulo}]].
+- Multi-selecao (2026-10-14): itens livres da combobox tem checkbox
+  `centros[]`; clicar no item alterna a marca e a lista fica aberta;
+  contador "(N selecionados)" no label; botao "Adicionar selecionados"
+  envia o lote (+ campo digitado) para `fc_incluir_centros()`, que pula
+  ocupados/duplicados e devolve ['ok','erros'] para o aviso.
+  Protecao NO BANCO: `CONSTRAINT UQ_FluxoCaixa_Centros_Centro UNIQUE
+  (Centro_CodC)` em msoft.FluxoCaixa_Centros (migracao idempotente em
+  `scripts/migrar_fluxo_caixa.php`, ja aplicada) — rodar a migracao no
+  servidor NexoGI ao subir esta versao.
 
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
@@ -298,6 +330,28 @@ alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes d
    (tela de parametros + relatorio + tela de carregamento), entrada de menu de 3 niveis
    em `app/modules.php` e renderizacao aninhada em `views/layout_app.php`,
    `views/menu.php` e `app/usuarios.php`, estilos `.rel-econ-*` em `style.css`.
+6. **Relatorio Financeiro** (Financeiro > Relatorios, TRAVADO em 2026-10-14) — rota
+   `relatorio-financeiro` em `public/index.php`, `app/relatorio_financeiro.php`
+   (spMovFinLancamentosDetalhe + secoes RDZ + Resumo por Agente),
+   `views/relatorio_financeiro.php`
+7. **Posicao de Contas** (Financeiro > Caixas e Bancos, TRAVADO em 2026-10-14) —
+   rota `posicao-contas` em `public/index.php`, `app/posicao_contas.php`,
+   `views/posicao_contas.php`
+8. **Grupos de Centros** (Financeiro > Fluxo de Caixa, TRAVADO em 2026-10-14) —
+   rotas `fluxo-caixa-grupos` e `fluxo-caixa-grupos/relatorio` em
+   `public/index.php`, `app/fluxo_caixa.php`, `views/fluxo_caixa_grupos.php`,
+   `views/fluxo_caixa_relatorio.php`, `scripts/migrar_fluxo_caixa.php`,
+   estilos `.fc-*`/`.fc-combo-*` em `style.css`. ATENCAO: a constraint
+   UQ_FluxoCaixa_Centros_Centro e a regra "centro nao se repete entre
+   grupos" fazem parte do comportamento travado.
+9. **Usuarios** (Configuracoes, admin, TRAVADO em 2026-10-14) — rota `usuarios`
+   e `usuarios/<id>/(liberar|bloquear|gerar-senha|grupos)` em `public/index.php`,
+   `app/usuarios.php`, `views/usuarios.php`, estilo `.us-row` em `style.css`
+10. **Grupos de Usuarios** (Configuracoes, admin, TRAVADO em 2026-10-14) — rota
+    `grupos-usuarios` em `public/index.php`, `app/usuario_grupos.php`,
+    `views/grupos_usuarios.php`, `scripts/migrar_grupos_usuarios.php`,
+    modelo de permissao por grupo (UsuarioGrupo/Telas/Membro + uniao em
+    `permissoes_usuario()` em `app/auth.php`)
 
 Notas do porte (fidelidade ao Python):
 - O `<script>` de `views/pedidos.php` e o `<style>` de `views/pedido_impressao.php` sao copias identicas do Python

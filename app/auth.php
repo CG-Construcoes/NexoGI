@@ -37,10 +37,11 @@ function exigir_admin(): void
     }
 }
 
-/** Acoes de permissao por tela (colunas P_* em msoft.UsuarioTelas). */
+/** Acoes de permissao por tela (colunas P_* em msoft.UsuarioGrupoTelas). */
 const PERM_ACOES = ['consultar', 'inserir', 'alterar', 'excluir'];
 
-/** Permissoes do usuario logado: slug => ['consultar'=>bool,'inserir'=>bool,...]. */
+/** Permissoes do usuario logado: slug => ['consultar'=>bool,'inserir'=>bool,...].
+ *  Efetiva = UNIAO das permissoes de todos os grupos dos quais o usuario participa. */
 function permissoes_usuario(): array
 {
     static $cache = null;
@@ -53,9 +54,16 @@ function permissoes_usuario(): array
     }
     try {
         $rows = query(
-            'SELECT t.Tela, t.P_Consultar, t.P_Inserir, t.P_Alterar, t.P_Excluir
-             FROM msoft.UsuarioTelas t JOIN msoft.Usuarios u ON u.Id = t.UsuarioId
-             WHERE u.Email = ?',
+            'SELECT RTRIM(t.Tela) Tela,
+                    MAX(CAST(t.P_Consultar AS INT)) P_Consultar,
+                    MAX(CAST(t.P_Inserir AS INT))   P_Inserir,
+                    MAX(CAST(t.P_Alterar AS INT))   P_Alterar,
+                    MAX(CAST(t.P_Excluir AS INT))   P_Excluir
+             FROM msoft.UsuarioGrupoTelas t
+             JOIN msoft.UsuarioGrupoMembro m ON m.UsGrupo_Id = t.UsGrupo_Id
+             JOIN msoft.Usuarios u ON u.Id = m.UsuarioId
+             WHERE u.Email = ?
+             GROUP BY t.Tela',
             [$_SESSION['usuario']]
         );
         foreach ($rows as $r) {

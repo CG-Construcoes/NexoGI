@@ -36,6 +36,7 @@ require ROOT . '/app/helpers.php';
 require ROOT . '/app/mail.php';
 require ROOT . '/app/auth.php';
 require ROOT . '/app/usuarios.php';
+require ROOT . '/app/usuario_grupos.php';
 require ROOT . '/app/acesso.php';
 require ROOT . '/app/pedidos.php';
 require ROOT . '/app/pedido_impressao.php';

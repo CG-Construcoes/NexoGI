@@ -32,7 +32,10 @@
 <?php endif; ?>
 
 <!-- ===================== LISTA DE GRUPOS ===================== -->
-<h2>Grupos cadastrados</h2>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
+    <h2 style="margin:0">Grupos cadastrados</h2>
+    <a href="<?= url('fluxo-caixa-grupos/relatorio') ?>" class="btn btn-secundario">Visualizar / Imprimir listagem</a>
+</div>
 <?php if ($grupos): ?>
 <table class="tabela">
     <thead>
@@ -63,17 +66,24 @@
     <input type="hidden" name="acao" value="incluir_centro">
     <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
     <div class="campo grow">
-        <label for="fc-centro">Adicionar centro de custo</label>
-        <input type="text" id="fc-centro" name="centro" list="fc-centros" required
-               placeholder="Digite para pesquisar" autocomplete="off">
-        <datalist id="fc-centros">
-            <?php foreach ($centros as $codc => $rotulo): ?>
-            <option value="<?= e($rotulo) ?>">
-            <?php endforeach; ?>
-        </datalist>
+        <label for="fc-centro">Adicionar centro de custo <small id="fc-sel-count" class="fc-sel-count"></small></label>
+        <div class="fc-combo">
+            <input type="text" id="fc-centro" name="centro"
+                   placeholder="Digite para pesquisar e marque os centros" autocomplete="off">
+            <div class="fc-combo-lista" id="fc-centro-lista" hidden>
+                <?php foreach ($centros as $codc => $rotulo):
+                    $oc = $ocupados[$codc] ?? null;
+                    $mesmo = $oc && (int) $oc['FCGrupo_Id'] === (int) $grupoCentros['FCGrupo_Id']; ?>
+                <div class="fc-combo-item<?= $oc ? ' fc-ocupado' : '' ?>"
+                     data-texto="<?= e(mb_strtolower($rotulo)) ?>"
+                     <?php if ($oc): ?>title="<?= e($mesmo ? 'Ja esta neste grupo'
+                        : 'Ja pertence ao grupo "' . $oc['FCGrupo_Nome'] . '"') ?>"<?php endif; ?>><input type="checkbox" name="centros[]" value="<?= e($codc) ?>"<?= $oc ? ' disabled' : '' ?>> <?= e($rotulo) ?><?php if ($oc && !$mesmo): ?><span class="fc-combo-grupo">grupo: <?= e($oc['FCGrupo_Nome']) ?></span><?php endif; ?></div>
+                <?php endforeach; ?>
+            </div>
+        </div>
     </div>
     <div class="campo acoes">
-        <button type="submit" class="btn">Adicionar</button>
+        <button type="submit" class="btn">Adicionar selecionados</button>
         <a href="<?= url('fluxo-caixa-grupos') ?>" class="btn btn-secundario">Voltar</a>
     </div>
 </form>
@@ -108,6 +118,51 @@
 <?php else: ?>
 <p class="vazio">Nenhum centro de custo no grupo.</p>
 <?php endif; ?>
+<script>
+(function () {
+    var input = document.getElementById('fc-centro');
+    var lista = document.getElementById('fc-centro-lista');
+    var contador = document.getElementById('fc-sel-count');
+    var itens = lista.querySelectorAll('.fc-combo-item');
+    function filtrar() {
+        var t = input.value.toLowerCase().trim();
+        var visiveis = 0;
+        itens.forEach(function (it) {
+            var ok = t === '' || it.dataset.texto.indexOf(t) !== -1;
+            it.style.display = ok ? '' : 'none';
+            if (ok) { visiveis++; }
+        });
+        lista.hidden = visiveis === 0;
+    }
+    function contar() {
+        var n = lista.querySelectorAll('input[type=checkbox]:checked').length;
+        contador.textContent = n ? '(' + n + ' selecionado' + (n > 1 ? 's' : '') + ')' : '';
+    }
+    input.addEventListener('focus', filtrar);
+    input.addEventListener('input', filtrar);
+    input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') { lista.hidden = true; }
+    });
+    lista.addEventListener('change', function (ev) {
+        if (ev.target.type === 'checkbox') { contar(); }
+    });
+    lista.addEventListener('mousedown', function (ev) {
+        var it = ev.target.closest('.fc-combo-item');
+        if (!it || it.classList.contains('fc-ocupado')) { return; }
+        if (ev.target.type === 'checkbox') { return; }
+        ev.preventDefault();
+        var cb = it.querySelector('input[type=checkbox]');
+        if (cb) {
+            cb.checked = !cb.checked;
+            contar();
+        }
+    });
+    input.addEventListener('blur', function () {
+        setTimeout(function () { lista.hidden = true; }, 150);
+    });
+    contar();
+})();
+</script>
 <?php endif; ?>
 
 <!-- ===================== MENU DE CONTEXTO (botao direito) ===================== -->
