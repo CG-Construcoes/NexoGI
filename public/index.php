@@ -399,14 +399,24 @@ switch ($rota) {
                 redirecionar('fluxo-caixa');
             }
             $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
+            $ini = trim((string) ($_POST['data_ini'] ?? ''));
+            $fim = trim((string) ($_POST['data_fim'] ?? ''));
             if (!$ids) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
+            } elseif ($ini === '' || $fim === '') {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
+            } elseif ($ini > $fim) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Data inicial maior que a final.']);
             } else {
                 exigir_tela('fluxo-caixa', 'alterar');
-                // Rotina de calculo do saldo sera definida na proxima etapa.
-                definir_aviso(['tipo' => 'ok', 'html' => count($ids) === 1
-                    ? 'Atualizacao solicitada para 1 grupo.'
-                    : 'Atualizacao solicitada para ' . count($ids) . ' grupos.']);
+                set_time_limit(600); // a proc roda 2x por centro do grupo
+                $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim);
+                $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
+                                     : $r['ok'] . ' grupos atualizados.';
+                if ($r['erros']) {
+                    $msg .= ' Falhas: ' . e(implode(' | ', $r['erros']));
+                }
+                definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
             }
             redirecionar('fluxo-caixa');
         }

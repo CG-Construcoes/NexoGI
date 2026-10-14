@@ -8,7 +8,13 @@
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
         <h2 style="margin:0">Grupos</h2>
         <?php if ($podeAtualizar): ?>
-        <button type="submit" class="btn">Atualizar</button>
+        <div style="display:flex; align-items:center; gap:6px">
+            <label for="fcs-ini" style="font-size:13px; color:#445">De</label>
+            <input type="date" id="fcs-ini" name="data_ini" required>
+            <label for="fcs-fim" style="font-size:13px; color:#445">a</label>
+            <input type="date" id="fcs-fim" name="data_fim" required>
+            <button type="submit" class="btn">Atualizar</button>
+        </div>
         <?php endif; ?>
     </div>
 
@@ -45,8 +51,8 @@
                     </span>
                 </td>
                 <td><?= (int) $g['QtdeCentros'] ?></td>
-                <td class="col-valor"><?= $g['SaldoCentro'] !== null
-                    ? number_format((float) $g['SaldoCentro'], 2, ',', '.') : '&mdash;' ?></td>
+                <td class="col-valor"><?= $g['SaldoGrupo'] !== null
+                    ? number_format((float) $g['SaldoGrupo'], 2, ',', '.') : '&mdash;' ?></td>
                 <td><?= $g['UltimaAtualizacao']
                     ? e(data_br((string) $g['UltimaAtualizacao'], true)) : '&mdash;' ?></td>
             </tr>

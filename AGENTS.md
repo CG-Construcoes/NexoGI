@@ -352,18 +352,26 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `views/fluxo_caixa.php` (NAO confundir com `fluxo_caixa.php` = Grupos de
   Centros, tela travada). Item novo no subgrupo "Fluxo de Caixa" do menu.
 - Tabela `msoft.GruposSaldos`: `FCGrupo_Id` int PK/FK->FluxoCaixa_Grupo
-  (ON DELETE CASCADE), `UltimaAtualizacao` datetime NULL, `SaldoCentro`
+  (ON DELETE CASCADE), `UltimaAtualizacao` datetime NULL, `SaldoGrupo`
   numeric(14,2) NULL. Script: `scripts/migrar_grupos_saldos.php`
-  (rodar no NexoGI ao subir).
+  (rodar no NexoGI ao subir; renomeia SaldoCentro->SaldoGrupo se a versao
+  anterior ja existir).
 - Listagem: checkbox por grupo + checkbox "selecionar todos" no titulo
   (JS com indeterminate), nome do grupo com tooltip `.fcs-tip` listando os
   centros (fc_centros + FluxoCaixa_Centros), qtde de centros, Saldo do
   Grupo e Ultima Atualizacao (LEFT JOIN GruposSaldos — NULL mostra "-").
-- Botao "Atualizar" (perm `alterar`) POSTa `grupos[]`; por ora so avisa
-  quantos foram selecionados — a rotina de calculo do SaldoCentro sera
-  definida pelo usuario na proxima etapa.
-- `fcs_listar()` (grupos+qtde+saldo) e `fcs_centros_por_grupo()`
-  (mapa FCGrupo_Id => rotulos para o tooltip).
+- Botao "Atualizar" (perm `alterar`) + campos De/a (data_ini/data_fim,
+  obrigatorios, ini<=fim): POSTa `grupos[]` e recalcula cada grupo —
+  `fcs_saldo_grupo()` roda `relatorio_financeiro_dados()` por
+  (base, empresa) dos centros do grupo (CodC = Empresa3+Filial2+Centro4;
+  `fcs_codcs_base()` decide dbMGA/dbConv — CVC/CVJ/CVP existem NAS DUAS e
+  somam nos dois lados) com filtros fixos: apenas_periodo, secoes
+  receitas+despesas+outros, resumo_agente. SaldoGrupo = soma de `per` das
+  secoes receitas+despesas (a linha SALDO do relatorio); UltimaAtualizacao
+  = GETDATE() da gravacao. `set_time_limit(600)` — a proc leva ~7s/centro.
+- `fcs_listar()`, `fcs_centros_por_grupo()` (tooltip), `fcs_codcs_base()`,
+  `fcs_saldo_grupo()`, `fcs_atualizar_saldos()` (UPSERT via SELECT
+  EXISTS + UPDATE/INSERT).
 
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para

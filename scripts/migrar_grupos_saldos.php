@@ -19,7 +19,12 @@ IF OBJECT_ID('msoft.GruposSaldos') IS NULL
         FCGrupo_Id         INT            NOT NULL PRIMARY KEY
             REFERENCES msoft.FluxoCaixa_Grupo(FCGrupo_Id) ON DELETE CASCADE,
         UltimaAtualizacao  DATETIME       NULL,
-        SaldoCentro        NUMERIC(14,2)  NULL
+        SaldoGrupo         NUMERIC(14,2)  NULL
     );
+
+-- Renomeia coluna de quem rodou a versao anterior (SaldoCentro -> SaldoGrupo).
+IF COL_LENGTH('msoft.GruposSaldos', 'SaldoCentro') IS NOT NULL
+   AND COL_LENGTH('msoft.GruposSaldos', 'SaldoGrupo') IS NULL
+    EXEC sp_rename 'msoft.GruposSaldos.SaldoCentro', 'SaldoGrupo', 'COLUMN';
 ");
 echo "Tabela msoft.GruposSaldos verificada/criada.\n";
