@@ -255,7 +255,9 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
     situacoes sem mexer no servidor.
   - Telas ja corrigidas: Posicao de Contas (10af8a9), Relatorio Economico e
     Relatorio Financeiro (CONVERT nos selects de Centro/Nucleo/Empresa/cabecalho;
-    os EXEC das procs funcionam normal no ODBC — 2026-10-14, 3 confirmacoes).
+    os EXEC das procs funcionam normal no ODBC — 2026-10-14, 3 confirmacoes) e
+    Indicador Pedidos no Prazo (CONVERT em Centro_Nome/Cre_RazSoc — RTRIM nao
+    bastava pois o tamanho declarado segue grande).
     ATENCAO: outras telas com selects de colunas char do ERP (pedidos etc.)
     podem ter o mesmo problema no servidor.
   - Fix definitivo do servidor: instalar pdo_sqlsrv (igual dev — PECL 5.13.3) —
