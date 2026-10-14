@@ -30,10 +30,11 @@
                     <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
                     <?php endif; ?>
                 </th>
-                <th style="width:36px" title="Selecionar para imprimir">
+                <th style="min-width:36px" title="Selecionar para imprimir">
                     <?php if ($podeAtualizar): ?>
                     <input type="checkbox" id="fcs-imp-todos" title="Selecionar todos para imprimir">
                     <?php endif; ?>
+                    Imprimir
                 </th>
                 <th>Grupo</th>
                 <th>Centros</th>
@@ -86,7 +87,9 @@
         <span id="fcs-texto" class="fcs-texto"></span>
     </div>
     <div class="fcs-anim"><span class="fcs-spin"></span>
-        <span class="fcs-anim-txt">Os cálculos estão sendo processados. Por gentileza não feche esta tela!</span></div>
+        <span class="fcs-anim-txt">Os cálculos estão sendo processados. Por gentileza não feche esta tela!</span>
+        <button type="button" id="fcs-stop" class="btn btn-sm btn-danger fcs-stop">Interromper Cálculo</button>
+    </div>
 </div>
 <script>
 (function () {
@@ -173,18 +176,42 @@
         var t0 = null;
         var falhas = [];
         var concluidos = [];
+        var cancelar = false;
+        var btnStop = document.getElementById('fcs-stop');
+        btnStop.addEventListener('click', function () {
+            if (cancelar) { return; }
+            cancelar = true;
+            btnStop.disabled = true;
+            texto.textContent = 'Cancelando — aguarde a conclusão do grupo atual...';
+            alert('O cálculo será cancelado.\nAguarde a conclusão do grupo atual.');
+        });
         var i = 0;
+        function tempoDecorrido() {
+            var seg = Math.round((performance.now() - t0) / 1000);
+            return seg >= 60
+                ? Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s'
+                : seg + ' s';
+        }
         function proximo() {
+            if (cancelar) {
+                texto.textContent = 'Interrompido.';
+                var msgStop = 'Os cálculos foram interrompidos.'
+                    + '\n\nGrupos atualizados:\n - '
+                    + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
+                    + '\n\nTempo: ' + tempoDecorrido();
+                if (falhas.length) {
+                    msgStop += '\n\nFalharam:\n - ' + falhas.join('\n - ');
+                }
+                alert(msgStop);
+                location.reload();
+                return;
+            }
             if (i >= marcados.length) {
                 fill.style.width = '100%';
-                var seg = Math.round((performance.now() - t0) / 1000);
-                var tempo = seg >= 60
-                    ? Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s'
-                    : seg + ' s';
                 texto.textContent = 'Concluído.';
                 var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
                     + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
-                    + '\n\nTempo total: ' + tempo;
+                    + '\n\nTempo total: ' + tempoDecorrido();
                 if (falhas.length) {
                     msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
                 }

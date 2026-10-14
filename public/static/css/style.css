@@ -754,7 +754,9 @@ a.card-modulo { text-decoration: none; color: inherit; }
     transition: width .4s; }
 .fcs-texto { position: absolute; inset: 0; display: flex; align-items: center;
     justify-content: center; font-size: 13px; font-weight: 600; color: #1e3a5f; }
-.fcs-anim { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.fcs-anim { display: flex; align-items: center; justify-content: center; gap: 8px;
+    position: relative; }
+.fcs-stop { position: absolute; right: 0; }
 .fcs-spin { width: 16px; height: 16px; border: 3px solid #c8d2e0;
     border-top-color: #2e6fb0; border-radius: 50%;
     animation: fcs-girar .9s linear infinite; }
