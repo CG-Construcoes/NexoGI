@@ -20,7 +20,8 @@ function relatorio_financeiro_centros(string $base, bool $incluirInativos = fals
 {
     $where = $incluirInativos ? '' : "WHERE ISNULL(RTRIM(Centro_Inativo), 'N') <> 'S'";
     return query(
-        "SELECT Centro_Cod, Centro_Nome FROM dbo.Centro_de_Custo $where ORDER BY Centro_Nome",
+        "SELECT Centro_Cod, CONVERT(varchar(4000), Centro_Nome) Centro_Nome
+         FROM dbo.Centro_de_Custo $where ORDER BY Centro_Nome",
         [], banco_da_base($base));
 }
 
@@ -28,7 +29,8 @@ function relatorio_financeiro_nucleos(string $base): array
 {
     try {
         return query(
-            "SELECT Nucleo_Cod, Nucleo_Nome FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
+            "SELECT Nucleo_Cod, CONVERT(varchar(4000), Nucleo_Nome) Nucleo_Nome
+             FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
             [], banco_da_base($base));
     } catch (Throwable $t) {
         return [];
@@ -39,7 +41,8 @@ function relatorio_financeiro_empresas(string $base): array
 {
     try {
         return query(
-            "SELECT Empresa_Cod, Empresa_Nome FROM dbo.Empresa ORDER BY Empresa_Cod",
+            "SELECT Empresa_Cod, CONVERT(varchar(4000), Empresa_Nome) Empresa_Nome
+             FROM dbo.Empresa ORDER BY Empresa_Cod",
             [], banco_da_base($base));
     } catch (Throwable $t) {
         return [['Empresa_Cod' => 'CGC', 'Empresa_Nome' => 'C. G. Construcoes']];
@@ -198,7 +201,8 @@ function relatorio_financeiro_dados(string $base, array $o): array
     $cnpj = '';
     try {
         $emp = query(
-            "SELECT TOP 1 e.Empresa_Nome, f.Filial_CGC FROM dbo.Empresa e
+            "SELECT TOP 1 CONVERT(varchar(4000), e.Empresa_Nome) Empresa_Nome, f.Filial_CGC
+             FROM dbo.Empresa e
              LEFT JOIN dbo.Filial f ON f.Empresa_Cod = e.Empresa_Cod
              WHERE e.Empresa_Cod = ? ORDER BY f.Filial_CGC",
             [$o['empresa']], $banco);

@@ -253,6 +253,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   - Batch `DECLARE/EXEC ... OUTPUT` nao devolve resultado. Usar SELECTs puros.
   - `DB_FORCE_ODBC=1` (env) forca o caminho ODBC no dev para testar essas
     situacoes sem mexer no servidor.
+  - Telas ja corrigidas: Posicao de Contas (10af8a9), Relatorio Economico e
+    Relatorio Financeiro (CONVERT nos selects de Centro/Nucleo/Empresa/cabecalho;
+    os EXEC das procs funcionam normal no ODBC — 2026-10-14, 3 confirmacoes).
+    ATENCAO: outras telas com selects de colunas char do ERP (pedidos etc.)
+    podem ter o mesmo problema no servidor.
   - Fix definitivo do servidor: instalar pdo_sqlsrv (igual dev — PECL 5.13.3) —
     conexao() ja prefere sqlsrv automaticamente quando a extensao existe.
 - Debitos/Creditos = movs `MovFin_DataConciliado = data` (`Cancelado='N'`,

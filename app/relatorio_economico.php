@@ -22,7 +22,8 @@ function relatorio_economico_centros(string $base, bool $incluirInativos = false
 {
     $where = $incluirInativos ? '' : "WHERE ISNULL(RTRIM(Centro_Inativo), 'N') <> 'S'";
     return query(
-        "SELECT Centro_Cod, Centro_Nome FROM dbo.Centro_de_Custo $where ORDER BY Centro_Nome",
+        "SELECT Centro_Cod, CONVERT(varchar(4000), Centro_Nome) Centro_Nome
+         FROM dbo.Centro_de_Custo $where ORDER BY Centro_Nome",
         [], banco_da_base($base));
 }
 
@@ -30,7 +31,8 @@ function relatorio_economico_nucleos(string $base): array
 {
     try {
         return query(
-            "SELECT Nucleo_Cod, Nucleo_Nome FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
+            "SELECT Nucleo_Cod, CONVERT(varchar(4000), Nucleo_Nome) Nucleo_Nome
+             FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
             [], banco_da_base($base));
     } catch (Throwable $t) {
         return [];
@@ -41,7 +43,8 @@ function relatorio_economico_empresas(string $base): array
 {
     try {
         return query(
-            "SELECT Empresa_Cod, Empresa_Nome FROM dbo.Empresa ORDER BY Empresa_Cod",
+            "SELECT Empresa_Cod, CONVERT(varchar(4000), Empresa_Nome) Empresa_Nome
+             FROM dbo.Empresa ORDER BY Empresa_Cod",
             [], banco_da_base($base));
     } catch (Throwable $t) {
         return [['Empresa_Cod' => 'CGC', 'Empresa_Nome' => 'C. G. Construcoes']];
