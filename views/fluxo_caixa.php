@@ -70,12 +70,19 @@
 </form>
 
 <?php if ($podeAtualizar && $grupos): ?>
+<div id="fcs-inicio" class="fcs-inicio" hidden>
+    <div class="fcs-inicio-box">
+        <div class="fcs-inicio-titulo">Fluxo de Caixa</div>
+        <p>Os cálculos irão iniciar.<br><strong>Não feche esta tela.</strong></p>
+    </div>
+</div>
 <div id="fcs-progresso" class="fcs-progresso" hidden>
     <div class="fcs-barra">
         <div id="fcs-fill" class="fcs-fill"></div>
         <span id="fcs-texto" class="fcs-texto"></span>
     </div>
-    <button type="button" id="fcs-ok" class="btn fcs-ok" hidden>Cálculo concluído — clique para atualizar a lista</button>
+    <div class="fcs-anim"><span class="fcs-spin"></span>
+        <span class="fcs-anim-txt">processando — não feche esta tela</span></div>
 </div>
 <script>
 (function () {
@@ -86,9 +93,9 @@
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
     var prog = document.getElementById('fcs-progresso');
+    var inicio = document.getElementById('fcs-inicio');
     var fill = document.getElementById('fcs-fill');
     var texto = document.getElementById('fcs-texto');
-    var btnOk = document.getElementById('fcs-ok');
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
@@ -112,17 +119,32 @@
         }
         ev.preventDefault();
         btn.disabled = true;
-        prog.hidden = false;
+        inicio.hidden = false;
+        setTimeout(function () {
+            inicio.hidden = true;
+            prog.hidden = false;
+            executar();
+        }, 2000);
+        var t0 = null;
         var falhas = [];
+        var concluidos = [];
         var i = 0;
         function proximo() {
             if (i >= marcados.length) {
                 fill.style.width = '100%';
-                texto.textContent = falhas.length
-                    ? 'Concluído com falhas em ' + falhas.length + ' grupo(s).'
-                    : 'Concluído.';
-                btnOk.hidden = false;
-                btnOk.onclick = function () { location.reload(); };
+                var seg = Math.round((performance.now() - t0) / 1000);
+                var tempo = seg >= 60
+                    ? Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s'
+                    : seg + ' s';
+                texto.textContent = 'Concluído.';
+                var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
+                    + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
+                    + '\n\nTempo total: ' + tempo;
+                if (falhas.length) {
+                    msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
+                }
+                alert(msg);
+                location.reload();
                 return;
             }
             var cb = marcados[i];
@@ -136,7 +158,8 @@
             fetch(form.action, { method: 'POST', body: corpo })
                 .then(function (r) { return r.json(); })
                 .then(function (j) {
-                    if (!j.ok) { falhas.push(nome + ': ' + (j.erro || 'erro')); }
+                    if (j.ok) { concluidos.push(nome); }
+                    else { falhas.push(nome + ': ' + (j.erro || 'erro')); }
                 })
                 .catch(function () { falhas.push(nome + ': falha de rede'); })
                 .finally(function () {
@@ -145,7 +168,10 @@
                     proximo();
                 });
         }
-        proximo();
+        function executar() {
+            t0 = performance.now();
+            proximo();
+        }
     });
 })();
 </script>

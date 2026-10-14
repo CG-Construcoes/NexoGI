@@ -362,11 +362,14 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   Grupo e Ultima Atualizacao (LEFT JOIN GruposSaldos — NULL mostra "-").
 - Botao "Atualizar" (perm `alterar`) + campos De/a (data_ini/data_fim,
   obrigatorios, ini<=fim) sob o rotulo "Periodo". JS: periodo >30 dias ->
-  confirm("O Período selecionado é muito grande..."); depois envia UM fetch
-  por grupo (`ajax=1` + `grupo` -> JSON `{ok,erro}`), com barra de progresso
-  fixa no rodape (`.fcs-progresso`/`.fcs-fill`, texto "Calculando: NOME i/N"
-  dentro da barra) e, ao fim, botao "Calculo concluido" que recarrega a
-  lista. Sem JS cai no POST unico de `grupos[]` que recalcula em lote —
+  confirm("O Período selecionado é muito grande..."); depois overlay
+  `.fcs-inicio` por 2s ("Os cálculos irão iniciar. Não feche esta tela.")
+  e UM fetch por grupo (`ajax=1` + `grupo` -> JSON `{ok,erro}`), com barra
+  de progresso fixa no rodape (`.fcs-progresso`/`.fcs-fill`, texto
+  "Calculando: NOME i/N" dentro da barra + spinner `.fcs-spin` abaixo) e,
+  ao fim, alert() listando os grupos atualizados, as falhas e o tempo
+  total — depois recarrega a lista. Sem JS cai no POST unico de
+  `grupos[]` que recalcula em lote —
   `fcs_saldo_grupo()` roda `relatorio_financeiro_dados()` por
   (base, empresa) dos centros do grupo (CodC = Empresa3+Filial2+Centro4;
   `fcs_codcs_base()` decide dbMGA/dbConv — CVC/CVJ/CVP existem NAS DUAS e
