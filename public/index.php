@@ -398,9 +398,23 @@ switch ($rota) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
                 redirecionar('fluxo-caixa');
             }
-            $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
             $ini = trim((string) ($_POST['data_ini'] ?? ''));
             $fim = trim((string) ($_POST['data_fim'] ?? ''));
+            // Chamada AJAX da barra de progresso: um grupo por requisicao.
+            if (!empty($_POST['ajax'])) {
+                header('Content-Type: application/json; charset=utf-8');
+                $id = (int) ($_POST['grupo'] ?? 0);
+                if (!$id || $ini === '' || $fim === '' || $ini > $fim) {
+                    echo json_encode(['ok' => false, 'erro' => 'Parametros invalidos.']);
+                    exit;
+                }
+                exigir_tela('fluxo-caixa', 'alterar');
+                set_time_limit(600); // a proc roda 2x por centro do grupo
+                $r = fcs_atualizar_saldos([$id], $ini, $fim);
+                echo json_encode(['ok' => $r['ok'] > 0, 'erro' => $r['erros'][0] ?? null]);
+                exit;
+            }
+            $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
             if (!$ids) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
             } elseif ($ini === '' || $fim === '') {

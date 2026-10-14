@@ -8,12 +8,15 @@
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
         <h2 style="margin:0">Grupos</h2>
         <?php if ($podeAtualizar): ?>
-        <div style="display:flex; align-items:center; gap:6px">
-            <label for="fcs-ini" style="font-size:13px; color:#445">De</label>
-            <input type="date" id="fcs-ini" name="data_ini" required>
-            <label for="fcs-fim" style="font-size:13px; color:#445">a</label>
-            <input type="date" id="fcs-fim" name="data_fim" required>
-            <button type="submit" class="btn">Atualizar</button>
+        <div class="fcs-periodo">
+            <span class="fcs-periodo-label">Período</span>
+            <div style="display:flex; align-items:center; gap:6px">
+                <label for="fcs-ini" style="font-size:13px; color:#445">De</label>
+                <input type="date" id="fcs-ini" name="data_ini" required>
+                <label for="fcs-fim" style="font-size:13px; color:#445">a</label>
+                <input type="date" id="fcs-fim" name="data_fim" required>
+                <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
+            </div>
         </div>
         <?php endif; ?>
     </div>
@@ -39,7 +42,8 @@
             <tr>
                 <td>
                     <input type="checkbox" name="grupos[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
-                           class="fcs-check"<?= $podeAtualizar ? '' : ' disabled' ?>>
+                           class="fcs-check" data-nome="<?= e($g['FCGrupo_Nome']) ?>"
+                           <?= $podeAtualizar ? '' : ' disabled' ?>>
                 </td>
                 <td>
                     <span class="fcs-grupo"><?= e($g['FCGrupo_Nome']) ?>
@@ -66,19 +70,82 @@
 </form>
 
 <?php if ($podeAtualizar && $grupos): ?>
+<div id="fcs-progresso" class="fcs-progresso" hidden>
+    <div class="fcs-barra">
+        <div id="fcs-fill" class="fcs-fill"></div>
+        <span id="fcs-texto" class="fcs-texto"></span>
+    </div>
+    <button type="button" id="fcs-ok" class="btn fcs-ok" hidden>Cálculo concluído — clique para atualizar a lista</button>
+</div>
 <script>
 (function () {
     var todos = document.getElementById('fcs-todos');
-    var checks = document.querySelectorAll('.fcs-check');
+    var form = todos.closest('form');
+    var checks = form.querySelectorAll('.fcs-check');
+    var btn = document.getElementById('fcs-btn');
+    var iniEl = document.getElementById('fcs-ini');
+    var fimEl = document.getElementById('fcs-fim');
+    var prog = document.getElementById('fcs-progresso');
+    var fill = document.getElementById('fcs-fill');
+    var texto = document.getElementById('fcs-texto');
+    var btnOk = document.getElementById('fcs-ok');
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
     checks.forEach(function (cb) {
         cb.addEventListener('change', function () {
-            var marcados = document.querySelectorAll('.fcs-check:checked').length;
+            var marcados = form.querySelectorAll('.fcs-check:checked').length;
             todos.checked = marcados === checks.length;
             todos.indeterminate = marcados > 0 && marcados < checks.length;
         });
+    });
+    form.addEventListener('submit', function (ev) {
+        var marcados = Array.prototype.slice.call(
+            form.querySelectorAll('.fcs-check:checked'));
+        if (!marcados.length || !iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
+            return; // deixa o POST normal validar no servidor
+        }
+        var dias = (Date.parse(fimEl.value) - Date.parse(iniEl.value)) / 86400000;
+        if (dias > 30 && !confirm('O Período selecionado é muito grande, o relatório irá demorar alguns instantes')) {
+            ev.preventDefault();
+            return;
+        }
+        ev.preventDefault();
+        btn.disabled = true;
+        prog.hidden = false;
+        var falhas = [];
+        var i = 0;
+        function proximo() {
+            if (i >= marcados.length) {
+                fill.style.width = '100%';
+                texto.textContent = falhas.length
+                    ? 'Concluído com falhas em ' + falhas.length + ' grupo(s).'
+                    : 'Concluído.';
+                btnOk.hidden = false;
+                btnOk.onclick = function () { location.reload(); };
+                return;
+            }
+            var cb = marcados[i];
+            var nome = cb.dataset.nome;
+            texto.textContent = 'Calculando: ' + nome
+                + ' (' + (i + 1) + ' de ' + marcados.length + ')';
+            var corpo = new URLSearchParams(new FormData(form));
+            corpo.set('ajax', '1');
+            corpo.delete('grupos[]');
+            corpo.set('grupo', cb.value);
+            fetch(form.action, { method: 'POST', body: corpo })
+                .then(function (r) { return r.json(); })
+                .then(function (j) {
+                    if (!j.ok) { falhas.push(nome + ': ' + (j.erro || 'erro')); }
+                })
+                .catch(function () { falhas.push(nome + ': falha de rede'); })
+                .finally(function () {
+                    i++;
+                    fill.style.width = Math.round(i / marcados.length * 100) + '%';
+                    proximo();
+                });
+        }
+        proximo();
     });
 })();
 </script>

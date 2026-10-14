@@ -741,6 +741,21 @@ a.card-modulo { text-decoration: none; color: inherit; }
 .fcs-grupo:hover .fcs-tip { display: block; }
 .fcs-tip-item { display: block; padding: 4px 12px; font-size: 12px; color: #22344d;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcs-periodo { text-align: center; }
+.fcs-periodo-label { display: block; font-size: 12px; font-weight: 600;
+    color: #445; margin-bottom: 3px; }
+.fcs-progresso { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9500;
+    background: #fff; border-top: 1px solid #c8d2e0;
+    box-shadow: 0 -4px 16px rgba(30,58,95,.15); padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px; }
+.fcs-barra { position: relative; flex: 1; height: 30px; background: #e8edf3;
+    border: 1px solid #b8c4d0; border-radius: 15px; overflow: hidden; }
+.fcs-fill { height: 100%; width: 0; background: #7db3e0;
+    transition: width .4s; }
+.fcs-texto { position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; font-weight: 600; color: #1e3a5f;
+    mix-blend-mode: normal; }
+.fcs-ok { white-space: nowrap; }
 
 /* ---------- Usuarios (selecao por linha + filtro) ---------- */
 .us-row { cursor: pointer; }
