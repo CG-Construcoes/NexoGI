@@ -29,11 +29,26 @@ declare(strict_types=1);
  * conciliacao (query nao muda entre os modos).
  */
 
+/** Adiciona "AND <col> = ?" so quando ha valor — o padrao "? IS NULL" misturado
+ *  com params nao-nulos quebra no PDO_ODBC do servidor (SQLSTATE 22018). */
+function pc_filtro(string $col, ?string $val, string &$where, array &$params): void
+{
+    if ($val !== null) {
+        $where .= " AND $col = ?";
+        $params[] = $val;
+    }
+}
+
+/* CONVERT(varchar(4000)) nas colunas char de texto: PDO_ODBC aloca buffer pelo
+ * tamanho declarado, mas converte para UTF-8 (acento = 2 bytes) e estoura
+ * (SQLSTATE 01004). No pdo_sqlsrv o resultado e identico. */
 function posicao_contas_empresas(string $banco): array
 {
     try {
         return query(
-            "SELECT Empresa_Cod, Empresa_Nome FROM dbo.Empresa ORDER BY Empresa_Cod",
+            "SELECT Empresa_Cod,
+                    CONVERT(varchar(4000), Empresa_Nome) Empresa_Nome
+             FROM dbo.Empresa ORDER BY Empresa_Cod",
             [], $banco);
     } catch (Throwable $t) {
         return [['Empresa_Cod' => 'CGC', 'Empresa_Nome' => 'C. G. Construcoes']];
@@ -44,7 +59,8 @@ function posicao_contas_tipos(string $banco): array
 {
     try {
         return query(
-            "SELECT AgenteFinanceiroTipo_Cod, AgenteFinanceiroTipo_Titulo
+            "SELECT AgenteFinanceiroTipo_Cod,
+                    CONVERT(varchar(4000), AgenteFinanceiroTipo_Titulo) AgenteFinanceiroTipo_Titulo
              FROM dbo.AgenteFinanceiroTipo ORDER BY AgenteFinanceiroTipo_Titulo",
             [], $banco);
     } catch (Throwable $t) {
@@ -56,7 +72,8 @@ function posicao_contas_nucleos(string $banco): array
 {
     try {
         return query(
-            "SELECT Nucleo_Cod, Nucleo_Nome FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
+            "SELECT Nucleo_Cod, CONVERT(varchar(4000), Nucleo_Nome) Nucleo_Nome
+             FROM dbo.Nucleo_de_Negocio ORDER BY Nucleo_Nome",
             [], $banco);
     } catch (Throwable $t) {
         return [];
@@ -68,13 +85,14 @@ function posicao_contas_agentes(string $banco, string $tipo): array
 {
     try {
         return query(
-            "SELECT DISTINCT a.AgenteFinanceiro_Cod, a.AgenteFinanceiro_RazaoSocial
+            "SELECT DISTINCT a.AgenteFinanceiro_Cod,
+                    CONVERT(varchar(4000), a.AgenteFinanceiro_RazaoSocial) AgenteFinanceiro_RazaoSocial
              FROM dbo.AgenteFinanceiro a
              WHERE a.AgenteFinanceiroTipo_Cod = ?
                AND EXISTS (SELECT 1 FROM dbo.AgenteFinanceiroConta c
                            WHERE c.AgenteFinanceiroTipo_Cod = a.AgenteFinanceiroTipo_Cod
                              AND c.AgenteFinanceiro_Cod = a.AgenteFinanceiro_Cod)
-             ORDER BY a.AgenteFinanceiro_RazaoSocial",
+             ORDER BY AgenteFinanceiro_RazaoSocial",
             [$tipo], $banco);
     } catch (Throwable $t) {
         return [];
@@ -93,43 +111,43 @@ function pc_saldo_dia(PDO $pdo, string $proc, string $tipo, string $ag, string $
     $cd   = $con ? 'MovFin_DataConciliado' : 'MovFin_Data';
     $fc   = $con ? "AND MF.MovFin_Conciliado = 'C'" : '';
     $fc2  = $con ? "AND MF2.MovFin_Conciliado = 'C'" : '';
-    $fENg = $con ? '' : "AND (MF.Empresa_Cod = ? OR ? IS NULL)
-                          AND (MF.Nucleo_Cod = ? OR ? IS NULL)";
     $impS = $con ? 'AgeFin_ImpSaldoConciliado' : 'AgeFin_ImpSaldoRazao';
     $impD = $con ? 'AgeFin_ImpDataSaldoConciliado' : 'AgeFin_ImpDataSaldoRazao';
 
+    $wBase = "MF.AgenteFinanceiroTipo_Cod = ? AND MF.AgenteFinanceiro_Cod = ?
+              AND MF.AgeFin_ContaNumero = ? AND MF.MovFin_Cancelado <> 'S'";
+    $pBase = [$tipo, $ag, $conta];
+
     // gate da proc: EXISTS usa MovFin_Data; so o modo razao filtra empresa/nucleo
-    $params = [$tipo, $ag, $conta, $data];
+    $wg = "$wBase AND MF.MovFin_Data < ? $fc";
+    $pg = array_merge($pBase, [$data]);
     if (!$con) {
-        $params = array_merge($params, [$empresa, $empresa, $nucleo, $nucleo]);
+        pc_filtro('MF.Empresa_Cod', $empresa, $wg, $pg);
+        pc_filtro('MF.Nucleo_Cod', $nucleo, $wg, $pg);
     }
     $st = $pdo->prepare("SELECT 1 x WHERE EXISTS(
-        SELECT * FROM dbo.Movimento_Financeiro MF
-        WHERE MF.AgenteFinanceiroTipo_Cod = ? AND MF.AgenteFinanceiro_Cod = ?
-          AND MF.AgeFin_ContaNumero = ? AND MF.MovFin_Cancelado <> 'S'
-          AND MF.MovFin_Data < ? $fc $fENg)");
-    $st->execute($params);
+        SELECT * FROM dbo.Movimento_Financeiro MF WHERE $wg)");
+    $st->execute($pg);
     $existe = (bool) $st->fetch(PDO::FETCH_ASSOC);
     $st->closeCursor();
 
     $r = null;
     if ($existe) {
+        $w = "$wBase AND MF.$cd < ? $fc";
+        $pp = array_merge($pBase, [$data]);
+        pc_filtro('MF.Empresa_Cod', $empresa, $w, $pp);
+        pc_filtro('MF.Nucleo_Cod', $nucleo, $w, $pp);
         $st = $pdo->prepare(
             "SELECT TOP 1 S.$cs AS saldo, CONVERT(varchar(23), MF.$cd, 121) AS dt
              FROM $tab S JOIN dbo.Movimento_Financeiro MF ON MF.MovFin_Numero = S.MovFin_Numero
-             WHERE MF.AgenteFinanceiroTipo_Cod = ? AND MF.AgenteFinanceiro_Cod = ?
-               AND MF.AgeFin_ContaNumero = ? AND MF.MovFin_Cancelado <> 'S'
-               AND MF.$cd < ?
-               AND (MF.Empresa_Cod = ? OR ? IS NULL)
-               AND (MF.Nucleo_Cod = ? OR ? IS NULL) $fc
+             WHERE $w
                AND MF.$cd = (SELECT MAX(MF2.$cd) FROM dbo.Movimento_Financeiro MF2
                    WHERE MF2.AgenteFinanceiroTipo_Cod = ? AND MF2.AgenteFinanceiro_Cod = ?
                      AND MF2.AgeFin_ContaNumero = ? AND MF2.MovFin_Cancelado <> 'S'
                      AND MF2.$cd < ? $fc2)
              ORDER BY MF.$cd DESC, MF.MovFin_Numero DESC"
         );
-        $st->execute([$tipo, $ag, $conta, $data, $empresa, $empresa, $nucleo, $nucleo,
-                      $tipo, $ag, $conta, $data]);
+        $st->execute(array_merge($pp, [$tipo, $ag, $conta, $data]));
         $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
         $st->closeCursor();
     }
@@ -154,18 +172,20 @@ function pc_mov_dia(PDO $pdo, bool $con, string $tipo, string $ag, string $conta
 {
     $campoData = $con ? 'MovFin.MovFin_DataConciliado' : 'MovFin.MovFin_Data';
     $filtroCon = $con ? "AND MovFin.MovFin_Conciliado = 'C'" : '';
+    $where = "MovFin.MovFin_Cancelado = 'N' $filtroCon
+           AND MovFin.AgenteFinanceiroTipo_Cod = ?
+           AND MovFin.AgenteFinanceiro_Cod = ?
+           AND MovFin.AgeFin_ContaNumero = ?
+           AND $campoData = ?";
+    $params = [$tipo, $ag, $conta, $data];
+    pc_filtro('MovFin.Empresa_Cod', $empresa, $where, $params);
+    pc_filtro('MovFin.Nucleo_Cod', $nucleo, $where, $params);
     $st = $pdo->prepare(
         "SELECT SUM(CASE WHEN MovFin.MovFin_DC = 'C' THEN MovFin.MovFin_Valor ELSE 0 END) AS cred,
                 SUM(CASE WHEN MovFin.MovFin_DC = 'D' THEN MovFin.MovFin_Valor ELSE 0 END) AS deb
          FROM dbo.Movimento_Financeiro MovFin
-         WHERE MovFin.MovFin_Cancelado = 'N' $filtroCon
-           AND MovFin.AgenteFinanceiroTipo_Cod = ?
-           AND MovFin.AgenteFinanceiro_Cod = ?
-           AND MovFin.AgeFin_ContaNumero = ?
-           AND $campoData = ?
-           AND (MovFin.Empresa_Cod = ? OR ? IS NULL)
-           AND (MovFin.Nucleo_Cod = ? OR ? IS NULL)");
-    $st->execute([$tipo, $ag, $conta, $data, $empresa, $empresa, $nucleo, $nucleo]);
+         WHERE $where");
+    $st->execute($params);
     $r = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     $st->closeCursor();
     return ['cred' => (float) ($r['cred'] ?? 0), 'deb' => (float) ($r['deb'] ?? 0)];
@@ -190,6 +210,13 @@ function pc_valor_aplicado(PDO $pdo, string $tipo, string $ag, string $conta,
                            string $data, ?string $empresa, ?string $nucleo): float
 {
     $tipos = "'01','02','03','04','05','06','07','09','12','13','16'";
+    $where = "A.AgenteFinanceiroTipo_Cod = ? AND A.AgenteFinanceiro_Cod = ?
+           AND A.AgeFin_ContaNumero = ?";
+    $params = [$data, $data, $tipo, $ag, $conta];
+    $filtroEN = '';
+    $pEN = [];
+    pc_filtro('A.Empresa_Cod', $empresa, $filtroEN, $pEN);
+    pc_filtro('A.Nucleo_Cod', $nucleo, $filtroEN, $pEN);
     $st = $pdo->prepare(
         "SELECT A.Apl_Numero,
             COALESCE((SELECT SUM(B.AplMov_Valor) FROM Aplicacao_Financeira_Movimento B
@@ -199,12 +226,9 @@ function pc_valor_aplicado(PDO $pdo, string $tipo, string $ag, string $conta,
                 WHERE C.MovFinTipo_Cod IN ($tipos) AND C.AplMov_DC = 'C'
                   AND C.Apl_Numero = A.Apl_Numero AND C.AplMov_Data <= ?), 0) AS SaldoAplicado
          FROM dbo.Aplicacao_Financeira A
-         WHERE A.AgenteFinanceiroTipo_Cod = ? AND A.AgenteFinanceiro_Cod = ?
-           AND A.AgeFin_ContaNumero = ?
-           AND (A.Empresa_Cod = ? OR ? IS NULL)
-           AND (A.Nucleo_Cod = ? OR ? IS NULL)
+         WHERE $where $filtroEN
          GROUP BY A.Apl_Numero");
-    $st->execute([$data, $data, $tipo, $ag, $conta, $empresa, $empresa, $nucleo, $nucleo]);
+    $st->execute(array_merge($params, $pEN));
     $total = 0.0;
     while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
         $total += (float) $r['SaldoAplicado'];
@@ -230,33 +254,31 @@ function posicao_contas_dados(string $base, array $o): array
     $proc   = $con ? 'spGetSaldoDiaAnteriorCon' : 'spGetSaldoDiaAnterior';
     $diaSeguinte = date('Y-m-d', strtotime("$data +1 day"));
 
-    $filtroEmp = '';
-    $params = [$tipo, $agente, $agente];
+    $where  = "Conta.AgenteFinanceiroTipo_Cod = ?";
+    $params = [$tipo];
+    pc_filtro('Conta.AgenteFinanceiro_Cod', $agente, $where, $params);
     if ($empresas) {
-        $filtroEmp = 'AND Conta.Empresa_Cod IN ('
+        $where .= ' AND Conta.Empresa_Cod IN ('
             . implode(',', array_fill(0, count($empresas), '?')) . ')';
         $params = array_merge($params, $empresas);
     }
-    $params[] = $nucleo;
-    $params[] = $nucleo;
+    pc_filtro('Conta.Nucleo_Cod', $nucleo, $where, $params);
+    $where .= " AND (Conta.AgeFin_SuspendeImpressao <> 'S' OR Conta.AgeFin_SuspendeImpressao IS NULL)
+                AND Conta.AgeFin_ImpDataSaldoRazao <= ?";
     $params[] = $data;
 
     $contas = query(
         "SELECT Conta.AgenteFinanceiroTipo_Cod, Conta.AgenteFinanceiro_Cod,
                 Conta.AgeFin_ContaNumero, Conta.AgeFin_LimitedeCredito,
                 Conta.AgeFinAgencia_Cod, Conta.Empresa_Cod,
-                Agente.AgenteFinanceiro_RazaoSocial, Emp.Empresa_Nome
+                CONVERT(varchar(4000), Agente.AgenteFinanceiro_RazaoSocial) AgenteFinanceiro_RazaoSocial,
+                CONVERT(varchar(4000), Emp.Empresa_Nome) Empresa_Nome
          FROM dbo.AgenteFinanceiroConta Conta
          INNER JOIN dbo.AgenteFinanceiro Agente
              ON Conta.AgenteFinanceiroTipo_Cod = Agente.AgenteFinanceiroTipo_Cod
             AND Conta.AgenteFinanceiro_Cod = Agente.AgenteFinanceiro_Cod
          INNER JOIN dbo.Empresa Emp ON Emp.Empresa_Cod = Conta.Empresa_Cod
-         WHERE Conta.AgenteFinanceiroTipo_Cod = ?
-           AND (Conta.AgenteFinanceiro_Cod = ? OR ? IS NULL)
-           $filtroEmp
-           AND (Conta.Nucleo_Cod = ? OR ? IS NULL)
-           AND (Conta.AgeFin_SuspendeImpressao <> 'S' OR Conta.AgeFin_SuspendeImpressao IS NULL)
-           AND Conta.AgeFin_ImpDataSaldoRazao <= ?
+         WHERE $where
          ORDER BY Conta.Empresa_Cod, Conta.AgenteFinanceiroTipo_Cod,
                   Conta.AgenteFinanceiro_Cod, Conta.AgeFinAgencia_Cod, Conta.AgeFin_ContaNumero",
         $params, $banco);

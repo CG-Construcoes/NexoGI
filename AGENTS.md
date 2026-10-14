@@ -223,7 +223,7 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   = Saldo Anterior; a mesma proc com `data+1` = Saldo Atual. A proc le
   `Movimento_Financeiro_SaldosCon.MovFin_SaldoConciliado` da ultima
   `MovFin_DataConciliado < data`; sem movs -> `AgeFin_ImpSaldoConciliado` da conta.
-- Compatibilidade ODBC (2026-10-15, 3 confirmacoes): `pc_saldo_dia` NAO chama mais
+- Compatibilidade ODBC (2026-10-14, 3 confirmacoes): `pc_saldo_dia` NAO chama mais
   as procs via EXEC — o batch `DECLARE/EXEC/OUTPUT` nao funciona no PDO_ODBC do
   NexoGI (sem pdo_sqlsrv) e o relatorio vinha vazio. A funcao replica a logica
   exata das procs com SELECTs puros (gate EXISTS por MovFin_Data; TOP 1 na data
@@ -231,6 +231,22 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   filtra empresa/nucleo). Equivalencia validada no dev: 180 comparacoes
   proc-vs-SELECT, 0 divergencias. Relatorio-reportado OK: MGA/todas/BC/14-10-2026
   = 12 empresas, 33 contas.
+- Quirks PDO_ODBC descobertos (NexoGI, Driver 18) — valem para TODAS as telas:
+  - SQLSTATE 01004 "String data, right truncated" no fetch de colunas `char(n)`
+    com acentos: o driver aloca buffer de n bytes mas converte para UTF-8
+    (acento=2 bytes) e o padding do char enche ate n — estoura. Solucao nas
+    queries: `CONVERT(varchar(4000), col) AS col` nas colunas char de texto.
+    Nenhum atributo PDO resolve (testados ATTR_MAX_COLUMN_LEN, STRINGIFY_FETCHES,
+    EMULATE_PREPARES, CURSOR_*).
+  - SQLSTATE 22018 "Invalid character value for cast specification" com params
+    NULL misturados a nao-nulos no padrao `(col = ? OR ? IS NULL)` — todos-null
+    funciona, misto falha. Solucao: montar `AND col = ?` condicionalmente em PHP
+    (helper `pc_filtro()`), nunca passar param NULL pra filtro.
+  - Batch `DECLARE/EXEC ... OUTPUT` nao devolve resultado. Usar SELECTs puros.
+  - `DB_FORCE_ODBC=1` (env) forca o caminho ODBC no dev para testar essas
+    situacoes sem mexer no servidor.
+  - Fix definitivo do servidor: instalar pdo_sqlsrv (igual dev — PECL 5.13.3) —
+    conexao() ja prefere sqlsrv automaticamente quando a extensao existe.
 - Debitos/Creditos = movs `MovFin_DataConciliado = data` (`Cancelado='N'`,
   `Conciliado='C'`). ATENCAO: no trace o param aparece como datetime2 com fracao
   ('2026-10-06 00:00:00.195...'), mas a semantica e a data pura — o literal com

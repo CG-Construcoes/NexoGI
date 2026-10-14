@@ -11,7 +11,9 @@ function conexao(?string $banco = null): PDO
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ];
-        if (extension_loaded('pdo_sqlsrv')) {
+        // DB_FORCE_ODBC=1 forca o caminho ODBC (diagnostico do servidor, que
+        // nao tem pdo_sqlsrv)
+        if (extension_loaded('pdo_sqlsrv') && env('DB_FORCE_ODBC') !== '1') {
             $dsn = sprintf(
                 'sqlsrv:Server=%s;Database=%s;Encrypt=yes;TrustServerCertificate=yes;LoginTimeout=10',
                 env('DB_SERVER'),
