@@ -73,6 +73,14 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Senhas: coluna `msoft.Usuarios.SenhaHashPHP` (`password_hash`). A coluna `SenhaHash` (scrypt) e do Python
 - Depois de mudar codigo: `bash scripts/verificar_sintaxe.sh` e rodar o backup para o Drive
 
+## Fluxo Git (2026-10-14)
+- Repositorio local = `H:\Meu Drive\Msoft-PHP` (o git pull/commit/push roda aqui;
+  /var/www/msoft NAO e um repo — o backup ps1 espelha WSL -> Drive).
+- **NUNCA fazer push direto na `main`** sem pedido explicito do usuario. Commits
+  vao para `Misrain/meu-ambiente` (branch de trabalho); o usuario cria branches
+  e faz merge/PR manualmente pelo site do GitHub.
+- Nao criar branches novas sem autorizacao.
+
 ## Acesso por e-mail, senha e permissoes (2026-09-30)
 - Rota `/acesso` ("Primeiro acesso ou esqueci a senha", link no login): resposta sempre neutra
   (MSG_ACESSO_NEUTRA), nao revela se o e-mail existe.
