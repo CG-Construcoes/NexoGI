@@ -34,3 +34,4 @@
     </div>
     <?php endforeach; ?>
 </div>
+<div class="versao-app" title="Ultima alteracao no sistema">v. <?= e(versao_app()) ?></div>

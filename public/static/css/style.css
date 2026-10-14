@@ -795,3 +795,8 @@ a.card-modulo { text-decoration: none; color: inherit; }
 .tabela-permissoes { font-size: 12px; margin-top: 6px; }
 .tabela-permissoes th, .tabela-permissoes td { padding: 3px 8px; }
 .tabela-permissoes .td-check { text-align: center; width: 64px; }
+
+/* ---------- Versao do app (rodape do menu principal) ---------- */
+.versao-app { position: fixed; right: 12px; bottom: 8px; font-size: 11px;
+    color: #9aa0a6; pointer-events: none; }
+@media print { .versao-app { display: none; } }

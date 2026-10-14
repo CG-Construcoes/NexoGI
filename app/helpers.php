@@ -70,6 +70,22 @@ function consumir_aviso(): ?array
     return $aviso;
 }
 
+/** Versao do app: data/hora da ultima alteracao nos fontes (rodape do menu). */
+function versao_app(): string
+{
+    static $v = null;
+    if ($v === null) {
+        $t = 0;
+        foreach (['app/*.php', 'views/*.php', 'public/*.php', 'public/static/css/*.css'] as $padrao) {
+            foreach (glob(ROOT . "/$padrao") ?: [] as $f) {
+                $t = max($t, (int) filemtime($f));
+            }
+        }
+        $v = date('d/m/Y H:i', $t ?: time());
+    }
+    return $v;
+}
+
 function tela_pronta(string $slug): bool
 {
     foreach (MODULES as $g) {
