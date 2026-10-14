@@ -194,7 +194,7 @@
         }
         function proximo() {
             if (cancelar) {
-                texto.textContent = 'Interrompido.';
+                prog.hidden = true;
                 var msgStop = 'Os cálculos foram interrompidos.'
                     + '\n\nGrupos atualizados:\n - '
                     + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
@@ -207,8 +207,7 @@
                 return;
             }
             if (i >= marcados.length) {
-                fill.style.width = '100%';
-                texto.textContent = 'Concluído.';
+                prog.hidden = true;
                 var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
                     + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
                     + '\n\nTempo total: ' + tempoDecorrido();
