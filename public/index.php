@@ -23,6 +23,7 @@ $ROTAS_TELA = [
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
     'fluxo-caixa' => 'fluxo-caixa',
+    'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
 ];
 if (isset($ROTAS_TELA[$rota])) {
@@ -415,22 +416,31 @@ switch ($rota) {
                 exit;
             }
             $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
-            if (!$ids) {
+            $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
+            if (!$ids && !$impIds) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
             } elseif ($ini === '' || $fim === '') {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
             } elseif ($ini > $fim) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Data inicial maior que a final.']);
             } else {
-                exigir_tela('fluxo-caixa', 'alterar');
-                set_time_limit(600); // a proc roda 2x por centro do grupo
-                $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim);
-                $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
-                                     : $r['ok'] . ' grupos atualizados.';
-                if ($r['erros']) {
-                    $msg .= ' Falhas: ' . e(implode(' | ', $r['erros']));
+                $destino = 'fluxo-caixa';
+                if ($ids) {
+                    exigir_tela('fluxo-caixa', 'alterar');
+                    set_time_limit(600); // a proc roda 2x por centro do grupo
+                    $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim);
+                    $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
+                                         : $r['ok'] . ' grupos atualizados.';
+                    if ($r['erros']) {
+                        $msg .= ' Falhas: ' . e(implode(' | ', $r['erros']));
+                    }
+                    definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
                 }
-                definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
+                if ($impIds) {
+                    $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
+                        . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim);
+                }
+                redirecionar($destino);
             }
             redirecionar('fluxo-caixa');
         }
@@ -439,6 +449,27 @@ switch ($rota) {
             'grupos' => fcs_listar(),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
+        break;
+
+    case 'fluxo-caixa/imprimir':
+        exigir_login();
+        $idsImp = array_values(array_filter(array_map('intval',
+            explode(',', (string) ($_GET['grupos'] ?? '')))));
+        $iniImp = trim((string) ($_GET['data_ini'] ?? ''));
+        $fimImp = trim((string) ($_GET['data_fim'] ?? ''));
+        $relatorios = [];
+        $erro = '';
+        if (!$idsImp || $iniImp === '' || $fimImp === '' || $iniImp > $fimImp) {
+            $erro = 'Parametros invalidos.';
+        } else {
+            set_time_limit(600);
+            try {
+                $relatorios = fcs_relatorio_impressao($idsImp, $iniImp, $fimImp);
+            } catch (Throwable $t) {
+                $erro = 'Erro ao gerar os relatorios: ' . $t->getMessage();
+            }
+        }
+        require ROOT . '/views/fluxo_caixa_impressao.php';
         break;
 
     case 'fluxo-caixa-grupos/relatorio':

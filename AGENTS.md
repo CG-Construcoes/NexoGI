@@ -368,7 +368,21 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   "Calculando: NOME i/N" dentro da barra + spinner `.fcs-spin` abaixo) e,
   ao fim, alert() listando os grupos atualizados, as falhas e o tempo
   total — depois recarrega a lista. Sem JS cai no POST unico de
-  `grupos[]` que recalcula em lote —
+  `grupos[]` que recalcula em lote.
+- Impressao (2026-10-14): segunda coluna de checkbox `imprimir[]` ao lado
+  da de atualizar (header select-all proprio). Ao concluir o calculo, os
+  relatorios financeiros dos grupos marcados sao impressos: JS grava a URL
+  em sessionStorage, recarrega e abre `/fluxo-caixa/imprimir` num iframe
+  oculto que dispara `contentWindow.print()` (evita bloqueio de popup).
+  Marcando SO impressao (sem atualizar), imprime direto sem calcular.
+  Rota `fluxo-caixa/imprimir` (GET grupos=csv+data_ini+data_fim) renderiza
+  `views/fluxo_caixa_impressao.php` (pagina propria, link style.css,
+  layout replica o bloco do Relatorio Financeiro — view travada nao
+  alterada; auto window.print() apenas em janela top, com botao Imprimir).
+  `fcs_relatorio_impressao()` monta um relatorio por (base,empresa) dos
+  centros de cada grupo via `relatorio_financeiro_dados()`;
+  `fcs_alvos_grupo()`/`fcs_opcoes_relatorio()` compartilhados com o
+  calculo de saldo.
   `fcs_saldo_grupo()` roda `relatorio_financeiro_dados()` por
   (base, empresa) dos centros do grupo (CodC = Empresa3+Filial2+Centro4;
   `fcs_codcs_base()` decide dbMGA/dbConv — CVC/CVJ/CVP existem NAS DUAS e

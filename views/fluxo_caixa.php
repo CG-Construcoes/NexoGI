@@ -25,9 +25,14 @@
     <table class="tabela">
         <thead>
             <tr>
-                <th style="width:36px">
+                <th style="width:36px" title="Selecionar para atualizar">
                     <?php if ($podeAtualizar): ?>
-                    <input type="checkbox" id="fcs-todos" title="Selecionar todos">
+                    <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
+                    <?php endif; ?>
+                </th>
+                <th style="width:36px" title="Selecionar para imprimir">
+                    <?php if ($podeAtualizar): ?>
+                    <input type="checkbox" id="fcs-imp-todos" title="Selecionar todos para imprimir">
                     <?php endif; ?>
                 </th>
                 <th>Grupo</th>
@@ -43,6 +48,11 @@
                 <td>
                     <input type="checkbox" name="grupos[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
                            class="fcs-check" data-nome="<?= e($g['FCGrupo_Nome']) ?>"
+                           title="Atualizar" <?= $podeAtualizar ? '' : ' disabled' ?>>
+                </td>
+                <td>
+                    <input type="checkbox" name="imprimir[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
+                           class="fcs-imp" title="Imprimir relatorio"
                            <?= $podeAtualizar ? '' : ' disabled' ?>>
                 </td>
                 <td>
@@ -80,9 +90,35 @@
 </div>
 <script>
 (function () {
+    var urlImpBase = '<?= e(url('fluxo-caixa/imprimir')) ?>';
+
+    // Retorno do reload pos-calculo: imprime os relatorios pendentes.
+    var pendente = sessionStorage.getItem('fcs_imprimir');
+    if (pendente) {
+        sessionStorage.removeItem('fcs_imprimir');
+        abrirImpressao(pendente);
+    }
+    function abrirImpressao(u) {
+        var f = document.createElement('iframe');
+        f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+        f.onload = function () {
+            f.contentWindow.focus();
+            f.contentWindow.print();
+        };
+        f.src = u;
+        document.body.appendChild(f);
+    }
+    function urlImpressao(ids, ini, fim) {
+        return urlImpBase + '?grupos=' + ids.join(',')
+            + '&data_ini=' + encodeURIComponent(ini)
+            + '&data_fim=' + encodeURIComponent(fim);
+    }
+
     var todos = document.getElementById('fcs-todos');
     var form = todos.closest('form');
     var checks = form.querySelectorAll('.fcs-check');
+    var impTodos = document.getElementById('fcs-imp-todos');
+    var impChecks = form.querySelectorAll('.fcs-imp');
     var btn = document.getElementById('fcs-btn');
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
@@ -92,17 +128,28 @@
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
+    impTodos.addEventListener('change', function () {
+        impChecks.forEach(function (cb) { cb.checked = impTodos.checked; });
+    });
+    function parcial(cbs, mestre) {
+        var marcados = 0;
+        cbs.forEach(function (cb) { if (cb.checked) { marcados++; } });
+        mestre.checked = marcados === cbs.length;
+        mestre.indeterminate = marcados > 0 && marcados < cbs.length;
+    }
     checks.forEach(function (cb) {
-        cb.addEventListener('change', function () {
-            var marcados = form.querySelectorAll('.fcs-check:checked').length;
-            todos.checked = marcados === checks.length;
-            todos.indeterminate = marcados > 0 && marcados < checks.length;
-        });
+        cb.addEventListener('change', function () { parcial(checks, todos); });
+    });
+    impChecks.forEach(function (cb) {
+        cb.addEventListener('change', function () { parcial(impChecks, impTodos); });
     });
     form.addEventListener('submit', function (ev) {
         var marcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-check:checked'));
-        if (!marcados.length || !iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
+        var impMarcados = Array.prototype.slice.call(
+            form.querySelectorAll('.fcs-imp:checked'));
+        if ((!marcados.length && !impMarcados.length)
+                || !iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
             return; // deixa o POST normal validar no servidor
         }
         var dias = (Date.parse(fimEl.value) - Date.parse(iniEl.value)) / 86400000;
@@ -111,6 +158,15 @@
             return;
         }
         ev.preventDefault();
+        var urlImp = impMarcados.length
+            ? urlImpressao(impMarcados.map(function (c) { return c.value; }),
+                           iniEl.value, fimEl.value)
+            : null;
+        if (!marcados.length) {
+            // so impressao: sem calculo, abre direto
+            abrirImpressao(urlImp);
+            return;
+        }
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
         btn.disabled = true;
         prog.hidden = false;
@@ -132,6 +188,9 @@
                 if (falhas.length) {
                     msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
                 }
+                if (urlImp) {
+                    sessionStorage.setItem('fcs_imprimir', urlImp);
+                }
                 alert(msg);
                 location.reload();
                 return;
@@ -143,6 +202,7 @@
             var corpo = new URLSearchParams(new FormData(form));
             corpo.set('ajax', '1');
             corpo.delete('grupos[]');
+            corpo.delete('imprimir[]');
             corpo.set('grupo', cb.value);
             fetch(form.action, { method: 'POST', body: corpo })
                 .then(function (r) { return r.json(); })
