@@ -70,12 +70,6 @@
 </form>
 
 <?php if ($podeAtualizar && $grupos): ?>
-<div id="fcs-inicio" class="fcs-inicio" hidden>
-    <div class="fcs-inicio-box">
-        <div class="fcs-inicio-titulo">Fluxo de Caixa</div>
-        <p>Os cálculos irão iniciar.<br><strong>Não feche esta tela.</strong></p>
-    </div>
-</div>
 <div id="fcs-progresso" class="fcs-progresso" hidden>
     <div class="fcs-barra">
         <div id="fcs-fill" class="fcs-fill"></div>
@@ -93,7 +87,6 @@
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
     var prog = document.getElementById('fcs-progresso');
-    var inicio = document.getElementById('fcs-inicio');
     var fill = document.getElementById('fcs-fill');
     var texto = document.getElementById('fcs-texto');
     todos.addEventListener('change', function () {
@@ -118,13 +111,9 @@
             return;
         }
         ev.preventDefault();
+        alert('Os cálculos irão iniciar.\nNão feche esta tela.');
         btn.disabled = true;
-        inicio.hidden = false;
-        setTimeout(function () {
-            inicio.hidden = true;
-            prog.hidden = false;
-            executar();
-        }, 2000);
+        prog.hidden = false;
         var t0 = null;
         var falhas = [];
         var concluidos = [];
@@ -172,6 +161,7 @@
             t0 = performance.now();
             proximo();
         }
+        executar();
     });
 })();
 </script>

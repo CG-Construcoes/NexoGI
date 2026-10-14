@@ -362,9 +362,8 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   Grupo e Ultima Atualizacao (LEFT JOIN GruposSaldos — NULL mostra "-").
 - Botao "Atualizar" (perm `alterar`) + campos De/a (data_ini/data_fim,
   obrigatorios, ini<=fim) sob o rotulo "Periodo". JS: periodo >30 dias ->
-  confirm("O Período selecionado é muito grande..."); depois overlay
-  `.fcs-inicio` por 2s ("Os cálculos irão iniciar. Não feche esta tela.")
-  e UM fetch por grupo (`ajax=1` + `grupo` -> JSON `{ok,erro}`), com barra
+  confirm("O Período selecionado é muito grande..."); depois alert()
+  "Os cálculos irão iniciar. Não feche esta tela." e UM fetch por grupo (`ajax=1` + `grupo` -> JSON `{ok,erro}`), com barra
   de progresso fixa no rodape (`.fcs-progresso`/`.fcs-fill`, texto
   "Calculando: NOME i/N" dentro da barra + spinner `.fcs-spin` abaixo) e,
   ao fim, alert() listando os grupos atualizados, as falhas e o tempo
