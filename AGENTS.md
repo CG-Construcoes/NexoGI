@@ -223,6 +223,14 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   = Saldo Anterior; a mesma proc com `data+1` = Saldo Atual. A proc le
   `Movimento_Financeiro_SaldosCon.MovFin_SaldoConciliado` da ultima
   `MovFin_DataConciliado < data`; sem movs -> `AgeFin_ImpSaldoConciliado` da conta.
+- Compatibilidade ODBC (2026-10-15, 3 confirmacoes): `pc_saldo_dia` NAO chama mais
+  as procs via EXEC — o batch `DECLARE/EXEC/OUTPUT` nao funciona no PDO_ODBC do
+  NexoGI (sem pdo_sqlsrv) e o relatorio vinha vazio. A funcao replica a logica
+  exata das procs com SELECTs puros (gate EXISTS por MovFin_Data; TOP 1 na data
+  maxima; ELSE -> saldo de implantacao da conta; no modo razao o EXISTS tambem
+  filtra empresa/nucleo). Equivalencia validada no dev: 180 comparacoes
+  proc-vs-SELECT, 0 divergencias. Relatorio-reportado OK: MGA/todas/BC/14-10-2026
+  = 12 empresas, 33 contas.
 - Debitos/Creditos = movs `MovFin_DataConciliado = data` (`Cancelado='N'`,
   `Conciliado='C'`). ATENCAO: no trace o param aparece como datetime2 com fracao
   ('2026-10-06 00:00:00.195...'), mas a semantica e a data pura — o literal com
