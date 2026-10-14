@@ -731,6 +731,17 @@ a.card-modulo { text-decoration: none; color: inherit; }
 .fc-combo-grupo { float: right; color: #b6bec8; font-size: 11px; font-style: italic;
     padding-left: 12px; }
 
+/* ---------- Fluxo de Caixa (listagem de grupos com saldo) ---------- */
+.fcs-grupo { position: relative; }
+.fcs-grupo:hover { text-decoration: underline dotted; }
+.fcs-tip { display: none; position: absolute; left: 0; top: 100%; z-index: 9000;
+    min-width: 260px; max-width: 420px; max-height: 240px; overflow-y: auto;
+    background: #fff; border: 1px solid #b8c4d0; border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(30,58,95,.18); padding: 6px 0; font-weight: normal; }
+.fcs-grupo:hover .fcs-tip { display: block; }
+.fcs-tip-item { display: block; padding: 4px 12px; font-size: 12px; color: #22344d;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* ---------- Usuarios (selecao por linha + filtro) ---------- */
 .us-row { cursor: pointer; }
 .us-row:hover td { background: #eef3fa; }

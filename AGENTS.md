@@ -347,6 +347,24 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `scripts/migrar_fluxo_caixa.php`, ja aplicada) — rodar a migracao no
   servidor NexoGI ao subir esta versao.
 
+## Financeiro > Fluxo de Caixa > Fluxo de Caixa (2026-10-14)
+- Rota `fluxo-caixa`, permissao propria; `app/fluxo_caixa_saldos.php` +
+  `views/fluxo_caixa.php` (NAO confundir com `fluxo_caixa.php` = Grupos de
+  Centros, tela travada). Item novo no subgrupo "Fluxo de Caixa" do menu.
+- Tabela `msoft.GruposSaldos`: `FCGrupo_Id` int PK/FK->FluxoCaixa_Grupo
+  (ON DELETE CASCADE), `UltimaAtualizacao` datetime NULL, `SaldoCentro`
+  numeric(14,2) NULL. Script: `scripts/migrar_grupos_saldos.php`
+  (rodar no NexoGI ao subir).
+- Listagem: checkbox por grupo + checkbox "selecionar todos" no titulo
+  (JS com indeterminate), nome do grupo com tooltip `.fcs-tip` listando os
+  centros (fc_centros + FluxoCaixa_Centros), qtde de centros, Saldo do
+  Grupo e Ultima Atualizacao (LEFT JOIN GruposSaldos — NULL mostra "-").
+- Botao "Atualizar" (perm `alterar`) POSTa `grupos[]`; por ora so avisa
+  quantos foram selecionados — a rotina de calculo do SaldoCentro sera
+  definida pelo usuario na proxima etapa.
+- `fcs_listar()` (grupos+qtde+saldo) e `fcs_centros_por_grupo()`
+  (mapa FCGrupo_Id => rotulos para o tooltip).
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.

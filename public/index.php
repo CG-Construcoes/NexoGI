@@ -22,6 +22,7 @@ $ROTAS_TELA = [
     'posicao-contas' => 'posicao-contas',
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
+    'fluxo-caixa' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
 ];
 if (isset($ROTAS_TELA[$rota])) {
@@ -388,6 +389,32 @@ switch ($rota) {
             'podeInserir' => usuario_pode('fluxo-caixa-grupos', 'inserir'),
             'podeAlterar' => usuario_pode('fluxo-caixa-grupos', 'alterar'),
             'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
+        break;
+
+    case 'fluxo-caixa':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('fluxo-caixa');
+            }
+            $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
+            if (!$ids) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
+            } else {
+                exigir_tela('fluxo-caixa', 'alterar');
+                // Rotina de calculo do saldo sera definida na proxima etapa.
+                definir_aviso(['tipo' => 'ok', 'html' => count($ids) === 1
+                    ? 'Atualizacao solicitada para 1 grupo.'
+                    : 'Atualizacao solicitada para ' . count($ids) . ' grupos.']);
+            }
+            redirecionar('fluxo-caixa');
+        }
+        render('fluxo_caixa', ['titulo' => 'Fluxo de Caixa',
+            'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
+            'grupos' => fcs_listar(),
+            'centrosPorGrupo' => fcs_centros_por_grupo(),
+            'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
         break;
 
     case 'fluxo-caixa-grupos/relatorio':
