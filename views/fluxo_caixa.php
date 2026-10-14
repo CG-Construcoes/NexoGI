@@ -76,7 +76,7 @@
         <span id="fcs-texto" class="fcs-texto"></span>
     </div>
     <div class="fcs-anim"><span class="fcs-spin"></span>
-        <span class="fcs-anim-txt">processando — não feche esta tela</span></div>
+        <span class="fcs-anim-txt">Os cálculos estão sendo processados. Por gentileza não feche esta tela!</span></div>
 </div>
 <script>
 (function () {
