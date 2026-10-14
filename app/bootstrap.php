@@ -30,6 +30,44 @@ function env(string $chave, string $padrao = ''): string
 carregar_env(ROOT . '/.env');
 date_default_timezone_set('America/Fortaleza');
 
+// Polyfill mbstring (UTF-8 via PCRE) para hosts sem a extensao php-mbstring —
+// o servidor NexoGI nao a tinha e a pagina morria no primeiro mb_strtolower().
+if (!function_exists('mb_strtolower')) {
+    function mb_strtolower(string $s, ?string $e = null): string
+    {
+        return strtolower($s); // fallback simples: acentos nao sao dobrados
+    }
+    function mb_strtoupper(string $s, ?string $e = null): string
+    {
+        return strtoupper($s);
+    }
+    function mb_strlen(string $s, ?string $e = null): int
+    {
+        return (int) preg_match_all('/./us', $s);
+    }
+    function mb_substr(string $s, int $start, ?int $len = null, ?string $e = null): string
+    {
+        $c = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+        $c = array_slice($c, $start, $len);
+        return implode('', $c);
+    }
+    function mb_strrpos(string $s, string $n, int $off = 0, ?string $e = null): int|false
+    {
+        $c = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY);
+        for ($i = count($c) - 1; $i >= $off; $i--) {
+            if ($c[$i] === $n) {
+                return $i;
+            }
+        }
+        return false;
+    }
+    function mb_str_split(string $s, int $len = 1, ?string $e = null): array
+    {
+        $c = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        return $len === 1 ? $c : array_map('implode', array_chunk($c, $len));
+    }
+}
+
 require ROOT . '/app/db.php';
 require ROOT . '/app/modules.php';
 require ROOT . '/app/helpers.php';
