@@ -19,7 +19,7 @@ function mp_centros(): array
     foreach (['dbMGA', 'dbConv'] as $base) {
         try {
             $rows = query("SELECT RTRIM(Empresa_Cod) Empresa_Cod, RTRIM(Filial_Cod) Filial_Cod,
-                                  RTRIM(Centro_Cod) Centro_Cod, RTRIM(Centro_Nome) Centro_Nome
+                                  RTRIM(Centro_Cod) Centro_Cod, CONVERT(varchar(4000), RTRIM(Centro_Nome)) Centro_Nome
                            FROM $base.dbo.Centro_de_Custo
                            WHERE ISNULL(RTRIM(Centro_Inativo), 'N') <> 'S'
                            ORDER BY Centro_Nome");
