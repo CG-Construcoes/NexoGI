@@ -380,7 +380,8 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   layout replica o bloco do Relatorio Financeiro — view travada nao
   alterada; auto window.print() apenas em janela top, com botao Imprimir).
   `fcs_relatorio_impressao()` monta um relatorio por (base,empresa) dos
-  centros de cada grupo via `relatorio_financeiro_dados()`;
+  centros de cada grupo via `relatorio_financeiro_dados()` e inclui a
+  lista de centros do grupo sob o titulo;
   `fcs_alvos_grupo()`/`fcs_opcoes_relatorio()` compartilhados com o
   calculo de saldo.
   `fcs_saldo_grupo()` roda `relatorio_financeiro_dados()` por

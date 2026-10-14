@@ -12,7 +12,9 @@
     .fcs-imp-grupo { page-break-before: always; }
     .fcs-imp-grupo:first-child { page-break-before: auto; }
     .fcs-imp-titulo { font-size: 16px; font-weight: 700; color: #1e3a5f;
-        margin: 18px 0 10px; }
+        margin: 18px 0 4px; }
+    .fcs-imp-centros { font-size: 11px; color: #445; margin-bottom: 10px;
+        line-height: 1.5; }
     .fcs-imp-erro { color: #b3261e; font-size: 13px; margin: 6px 0; }
     .fcs-imp-btn { margin: 10px 0 14px; }
     @media print { .fcs-imp-btn { display: none; } }
@@ -35,6 +37,9 @@
     foreach ($relatorios as $rel): ?>
 <div class="fcs-imp-grupo">
     <div class="fcs-imp-titulo">Grupo: <?= e($rel['grupo']) ?></div>
+    <?php if ($rel['centros']): ?>
+    <div class="fcs-imp-centros">Centros de custo: <?= e(implode(' | ', $rel['centros'])) ?></div>
+    <?php endif; ?>
     <?php foreach ($rel['erros'] as $msg): ?>
     <div class="fcs-imp-erro"><?= e($msg) ?></div>
     <?php endforeach; ?>

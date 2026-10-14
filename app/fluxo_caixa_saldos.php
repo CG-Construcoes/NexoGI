@@ -137,8 +137,16 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim): array
         if (!$g) {
             continue;
         }
-        $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'dados' => [], 'erros' => []];
-        foreach (fcs_alvos_grupo(fc_centros_do_grupo((int) $id)) as $base => $empresas) {
+        $codcs = fc_centros_do_grupo((int) $id);
+        $labels = fc_centros();
+        $centros = [];
+        foreach ($codcs as $codc) {
+            $centros[] = $labels[$codc] ?? $codc;
+        }
+        sort($centros);
+        $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'centros' => $centros,
+                'dados' => [], 'erros' => []];
+        foreach (fcs_alvos_grupo($codcs) as $base => $empresas) {
             foreach ($empresas as $emp => $centros) {
                 try {
                     $rel['dados'][] = relatorio_financeiro_dados(
