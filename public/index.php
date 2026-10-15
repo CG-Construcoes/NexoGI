@@ -92,11 +92,27 @@ switch ($rota) {
             'erro' => $erro, 'status' => $status, 'nome' => $nome], 'base');
         break;
 
+    case 'configuracoes':
     case 'usuarios':
         exigir_admin();
+        if ($metodo === 'POST' && ($_POST['acao'] ?? '') === 'criar_usuario') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('configuracoes');
+            }
+            $res = criar_usuario_sistema($_POST);
+            definir_aviso($res);
+            $dest = !empty($res['id']) ? 'configuracoes?usuario=' . (int) $res['id'] : 'configuracoes';
+            redirecionar($dest);
+        }
         $usuarioSel = isset($_GET['usuario']) ? usuario_get((int) $_GET['usuario']) : null;
-        render('usuarios', ['titulo' => 'Usuarios do sistema', 'active' => 'usuarios',
-            'aviso' => consumir_aviso(), 'usuarioSel' => $usuarioSel] + listar_usuarios());
+        render('configuracoes', [
+            'titulo' => 'Configuracoes · Usuarios e Permissoes',
+            'active' => $rota,
+            'aviso' => consumir_aviso(),
+            'usuarioSel' => $usuarioSel,
+            'telasDisp' => telas_disponiveis(),
+        ] + listar_usuarios());
         break;
 
     case 'grupos-usuarios':
@@ -518,12 +534,13 @@ switch ($rota) {
         break;
 
     default:
-        if ($metodo === 'POST' && preg_match('#^usuarios/(\d+)/(liberar|bloquear|gerar-senha|grupos)$#', $rota, $m)) {
+        if ($metodo === 'POST' && preg_match('#^usuarios/(\d+)/(liberar|bloquear|gerar-senha|definir-senha|grupos|permissoes)$#', $rota, $m)) {
             exigir_admin();
             definir_aviso(csrf_valido()
                 ? acao_usuario((int) $m[1], $m[2])
                 : ['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
-            redirecionar($m[2] === 'grupos' ? 'usuarios?usuario=' . (int) $m[1] : 'usuarios');
+            $manterSel = in_array($m[2], ['grupos', 'permissoes', 'definir-senha'], true);
+            redirecionar($manterSel ? 'configuracoes?usuario=' . (int) $m[1] : 'configuracoes');
         }
         http_response_code(404);
         render('erro404', ['titulo' => 'Pagina nao encontrada'], 'base');

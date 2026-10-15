@@ -1,6 +1,6 @@
 <div class="login-page">
     <div class="login-card">
-        <div class="login-logo">Msoft</div>
+        <div class="login-logo">nouvellesobra</div>
         <p class="login-sub">Solicitacao de acesso ao sistema</p>
         <?php if ($sucesso): ?>
         <div class="alert-ok">
