@@ -36,8 +36,9 @@ const MODULES = [
         ['slug' => 'indicadores-suprimentos',   'nome' => 'Suprimentos',   'pronto' => true],
     ]],
     ['nome' => 'Configuracoes', 'icone' => '⚙️', 'itens' => [
-        ['slug' => 'usuarios', 'nome' => 'Usuarios', 'pronto' => true, 'admin' => true],
-        ['slug' => 'grupos-usuarios', 'nome' => 'Grupos de Usuarios', 'pronto' => true, 'admin' => true],
+        ['slug' => 'configuracoes', 'nome' => 'Painel de Configuracoes', 'pronto' => true],
+        ['slug' => 'usuarios', 'nome' => 'Usuarios e Acessos', 'pronto' => true],
+        ['slug' => 'grupos-usuarios', 'nome' => 'Grupos de Permissao', 'pronto' => true],
     ]],
 ];
 

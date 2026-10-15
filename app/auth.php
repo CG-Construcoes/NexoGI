@@ -19,7 +19,33 @@ function usuario_logado(): bool
 
 function is_admin(): bool
 {
-    return !empty($_SESSION['admin']);
+    if (!empty($_SESSION['admin'])) {
+        return true;
+    }
+    if (!usuario_logado()) {
+        return false;
+    }
+    static $checado = null;
+    if ($checado !== null) {
+        return $checado;
+    }
+    try {
+        $rows = query(
+            "SELECT TOP 1 1 AS ok
+             FROM msoft.Usuarios u
+             LEFT JOIN msoft.UsuarioGrupoMembro m ON m.UsuarioId = u.Id
+             LEFT JOIN msoft.UsuarioGrupo g ON g.UsGrupo_Id = m.UsGrupo_Id
+             WHERE u.Email = ? AND (u.Admin = 1 OR RTRIM(g.UsGrupo_Nome) IN ('Suporte', 'Administrador', 'Admin'))",
+            [$_SESSION['usuario']]
+        );
+        $checado = !empty($rows);
+        if ($checado) {
+            $_SESSION['admin'] = true;
+        }
+        return $checado;
+    } catch (Throwable $e) {
+        return $checado = false;
+    }
 }
 
 function exigir_login(): void
@@ -32,7 +58,7 @@ function exigir_login(): void
 function exigir_admin(): void
 {
     exigir_login();
-    if (!is_admin()) {
+    if (!is_admin() && !usuario_pode('configuracoes') && !usuario_pode('usuarios') && !usuario_pode('grupos-usuarios')) {
         redirecionar('menu');
     }
 }
