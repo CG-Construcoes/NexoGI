@@ -1,0 +1,4 @@
+{
+    // PHP 8.5 (CLI) instalado em C:\Users\Usuario\php para o lint do editor.
+    "php.validate.executablePath": "C:\\Users\\Usuario\\php\\php.exe"
+}
