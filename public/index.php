@@ -26,6 +26,7 @@ $ROTAS_TELA = [
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
     'medicoes' => 'medicoes',
+    'contas-pagar' => 'contas-pagar',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -161,7 +162,7 @@ switch ($rota) {
         render('grupos_usuarios', ['titulo' => 'Grupos de Usuarios',
             'active' => 'grupos-usuarios', 'aviso' => consumir_aviso(),
             'grupos' => ug_listar(), 'edicao' => $edicao, 'grupoSel' => $grupoSel,
-            'telasDisp' => telas_disponiveis(),
+            'telasGrp' => telas_disponiveis_agrupadas(),
             'permGrupo' => $grupoSel ? ug_telas((int) $grupoSel['UsGrupo_Id']) : [],
             'membros' => $grupoSel ? ug_membros((int) $grupoSel['UsGrupo_Id']) : []]);
         break;
@@ -689,6 +690,82 @@ switch ($rota) {
             'active' => 'relatorio-financeiro', 'gerado' => $gerado, 'opcoes' => $opcoes,
             'centros' => $centros ?? [], 'nucleos' => $nucleos ?? [],
             'empresas' => $empresas ?? [], 'dados' => $dados, 'erro' => $erro]);
+        break;
+
+    case 'contas-pagar':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
+        $gerado = isset($_GET['gerar']);
+        set_time_limit(600);
+        $o = [
+            'empresa'      => trim((string) ($_GET['empresa'] ?? '')),
+            'ini'          => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_ini'] ?? ''))
+                              ? $_GET['data_ini'] : '',
+            'fim'          => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_fim'] ?? ''))
+                              ? $_GET['data_fim'] : '',
+            'ck_venc'      => isset($_GET['ck_venc']) || !$gerado,
+            'ck_agenda'    => isset($_GET['ck_agenda']) || !$gerado,
+            'ck_autor'     => isset($_GET['ck_autor']),
+            'atrasadas'    => isset($_GET['atrasadas']),
+            'pendente'     => isset($_GET['pendente']),
+            'inc_ep'       => isset($_GET['inc_ep']) || !$gerado,
+            'inc_ed'       => isset($_GET['inc_ed']) || !$gerado,
+            'apenas_ep'    => ($_GET['apenas_ep_ed'] ?? '') === 'EP',
+            'apenas_ed'    => ($_GET['apenas_ep_ed'] ?? '') === 'ED',
+            'centro'       => ($_GET['centro_op'] ?? 'todos') === 'apenas'
+                              ? strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '',
+                                  (string) ($_GET['centro'] ?? '')), 0, 9)) : '',
+            'classificacao' => trim((string) ($_GET['classificacao'] ?? '')),
+            'doc_op'       => (string) ($_GET['doc_op'] ?? 'todos'),
+            'doc_sel'      => array_values(array_filter(
+                array_map('trim', (array) ($_GET['doc_sel'] ?? [])))),
+            'esp_op'       => (string) ($_GET['esp_op'] ?? 'todos'),
+            'esp_sel'      => array_values(array_filter(
+                array_map('trim', (array) ($_GET['esp_sel'] ?? [])))),
+            'credor'       => strtoupper(substr(trim(explode(' - ',
+                                  (string) ($_GET['credor'] ?? ''))[0]), 0, 6)),
+            'nucleo'       => trim((string) ($_GET['nucleo'] ?? '')),
+            'grupo_nucleo' => trim((string) ($_GET['grupo_nucleo'] ?? '')),
+            'excl_aclass'  => isset($_GET['excl_aclass']),
+            'so_autor'     => isset($_GET['so_autor']),
+            'so_nautor'    => isset($_GET['so_nautor']),
+            'exibe_obs'    => isset($_GET['exibe_obs']),
+            'suprime'      => isset($_GET['suprime']),
+            'tot_dia'      => isset($_GET['tot_dia']),
+            'tot_quinzena' => isset($_GET['tot_quinzena']),
+            'tot_mes'      => isset($_GET['tot_mes']),
+            'agrupar'      => array_key_exists((string) ($_GET['agrupar'] ?? 'agenda'), CP_AGRUP)
+                              ? (string) $_GET['agrupar'] : 'agenda',
+        ];
+        $grupos = [];
+        $erro = '';
+        if ($gerado) {
+            if ($o['ini'] === '' || $o['fim'] === '' || $o['ini'] > $o['fim']) {
+                $erro = 'Informe o período (De / a) corretamente.';
+            } else {
+                try {
+                    $r = cp_dados($base, $o);
+                    $erro = $r['erro'];
+                    $grupos = $r['erro'] === '' ? cp_agrupar($r['linhas'], $o['agrupar']) : [];
+                } catch (Throwable $t) {
+                    $erro = 'Erro ao gerar o relatorio: ' . $t->getMessage();
+                }
+            }
+            $empNome = '';
+            foreach (cp_empresas($base) as $emp) {
+                if (trim($emp['Empresa_Cod']) === $o['empresa']) {
+                    $empNome = trim((string) $emp['Empresa_Nome']);
+                }
+            }
+            $o['empresa_nome'] = $empNome;
+        }
+        render('contas_pagar', ['titulo' => 'Relatorio de Contas a Pagar',
+            'active' => 'contas-pagar', 'base' => $base, 'gerado' => $gerado,
+            'o' => $o, 'grupos' => $grupos, 'erro' => $erro,
+            'empresas' => cp_empresas($base), 'centros' => mp_centros(),
+            'credores' => cp_credores($base), 'especies' => cp_especies($base),
+            'doctipos' => cp_doctipos($base), 'nucleos' => cp_nucleos($base),
+            'gruposNucleo' => cp_grupos_nucleo($base)]);
         break;
 
     case 'posicao-contas':

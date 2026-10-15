@@ -455,6 +455,45 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - `med_valor()` aceita "1.234,56"/"1234.56"/negativo; `med_data()`
   valida YYYY-MM-DD; `med_codc()` extrai os 9 chars iniciais.
 
+## Financeiro > Contas a Pagar > Relatorio de Contas a Pagar (2026-10-15)
+- Rota `contas-pagar`, permissao propria; `app/contas_pagar.php` +
+  `views/contas_pagar.php`. Subgrupo novo "Contas a Pagar" em MODULES.
+- Replica o relatorio do Informakon (trace `traces/Rel_contasapagarEdeEP.trc`,
+  PDF `Relatorios/RelContasAPagarEDeEP.pdf`): query direta sobre
+  Titulos_a_Pagar + Documento_de_Entrada + Credor + Centro_de_Custo +
+  Nucleo_de_Negocio + AgenteFinanceiro na base ERP — conexao DIRETA na base
+  via `banco_da_base($base)` ('MGA'|'CONV' -> DB_ERP_*), tabelas SEM prefixo
+  (convencao dos demais relatorios).
+- Bloco do periodo = OR das datas marcadas (Vencimento=DataVencimentoFluxo,
+  Data Agenda=DataAgendaFin, Data autorizacao=Instrucao_Data), cada ramo com
+  sua condicao de situacao (A, ou L paga depois de hoje com doc>emissao);
+  "Atrasadas" (vencFluxo < ini) e "Pendente" (Pag_Pendente='S') sao ramos
+  extras do mesmo OR. Exclui titulos com pagamento ja conciliado
+  (NOT EXISTS MovFin_Conciliado='C').
+- Valor = Valor + Encargos + Multa + Acrescimos - Descontos - DescAdiantamento
+  (coluna "Valor" do PDF = valor liquido; "Principal" = TitaPag_Valor).
+- Parcela impressa = Par + ('/'+SPar se houver) + '/' + nParc (nParc =
+  count de titulos do mesmo Ent_Numero). PDF corta em ~8 chars ("001/002/").
+- Atraso = DATEDIFF(TitaPag_DataVencimentoOrig, hoje); exibido so quando >0.
+- Agrupamentos (const CP_AGRUP): agenda/vencimento = so ORDENAM (1 grupo
+  sem rotulo — subtotal por dia sai so dos checkboxes Totaliza, baldes
+  cp_balde dia<quinzena<mes); demais quebram em grupos com "Total <grupo>".
+  credor_val ordena grupos pelo total (TotCredor do trace, calculado em PHP).
+- ATENCAO: `foreach ($grupos as &$g)` em cp_agrupar precisa do `unset($g)`
+  depois — sem ele o foreach seguinte corrompe o ultimo grupo (bug
+  encontrado: linhas duplicadas na soma).
+- Combos: credores limitados a quem tem Titulos_a_Pagar (EXISTS) — ainda
+  ~20k na MGA; especies de Especie_de_Titulos_Apagar (coluna EspTit_Titulo,
+  NAO EspTit_Descricao); Especie_de_Titulo/EntDocTipo NAO existem como tabelas.
+- Validado vs PDF: CCJ + centro CCJ010001 + 01/10/2026..31/12/2050 + EP+ED =
+  547 linhas, totais identicos nas 7 colunas (liq 11.345.474,30; principal
+  11.756.979,97; descontos 411.009,90; D.Adiantam 495,77). Sem filtro de
+  centro a CCJ da 12.555.977,17 — o PDF foi gerado com o centro filtrado.
+- Filtros testados: EP/ED apenas/inclusao/exclusao, especie, tipo doc,
+  credor, classificacao (Ent_Natureza LIKE), autorizadas/nao, atrasadas,
+  pendente, nucleo/grupo de nucleo. Opcao "Inclui Corretagens" existe no
+  original e esta desabilitada (nao implementada).
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.

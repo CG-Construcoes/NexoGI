@@ -2043,6 +2043,45 @@ body.sidebar-fixa .pedidos-rodape {
     width: 72px;
 }
 
+/* Linhas de agrupamento (menu/submenu) na matriz de permissoes */
+.tabela-permissoes tr.perm-grupo td {
+    background: var(--primary-800);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 7px 10px;
+}
+
+.tabela-permissoes tr.perm-grupo:hover td {
+    background: var(--primary-800);
+}
+
+.tabela-permissoes tr.perm-sub td {
+    background: var(--primary-100);
+    color: var(--primary-800);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 5px 10px 5px 24px;
+}
+
+.tabela-permissoes tr.perm-sub:hover td {
+    background: var(--primary-100);
+}
+
+.tabela-permissoes td.perm-tela-sub {
+    padding-left: 38px;
+}
+
+.perm-grupo-label,
+.perm-sub-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
 /* ---------- Versao do App ---------- */
 .versao-app {
     position: fixed;
@@ -2510,3 +2549,24 @@ tr.fcs-over.fcs-over-fim td { box-shadow: inset 0 -3px 0 #2d6bb5; }
     line-height: 1; cursor: pointer; padding: 0; margin: 0 1px; }
 .fcs-ord-btn:hover { background: #d9e6f5; }
 .fcs-ord-btn:disabled { opacity: .5; cursor: default; }
+
+/* ---------- Contas a Pagar (relatorio) ---------- */
+.cp-head { display: flex; justify-content: space-between; font-weight: 600;
+    color: #1e3a5f; margin-bottom: 2px; }
+.cp-impresso { font-weight: normal; font-size: 12px; color: #556; }
+.cp-titulo { font-size: 13px; color: #333; margin-bottom: 10px; }
+.cp-tab { font-size: 11px; }
+.cp-tab th { white-space: nowrap; }
+.cp-tab td { vertical-align: top; }
+.cp-credor { min-width: 160px; }
+.cp-cgc { display: block; color: #667; font-size: 10px; }
+tr.cp-grupo td { background: #dfe8f3; font-weight: 700; color: #1e3a5f; }
+tr.cp-total td { background: #f0f3f7; font-weight: 600; border-top: 1px solid #b8c4d0; }
+tr.cp-total-grupo td { background: #e2e9f2; }
+tr.cp-total-geral td { background: #d3dfeb; font-weight: 700;
+    border-top: 2px solid #2d6bb5; }
+tr.cp-obs td { color: #667; font-size: 10px; }
+@media print {
+    .rel-econ-botoes { display: none; }
+    .cp-tab { font-size: 9px; }
+}

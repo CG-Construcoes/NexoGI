@@ -83,6 +83,39 @@ function telas_disponiveis(): array
     return $telas;
 }
 
+/** Mesmas telas de telas_disponiveis(), agrupadas por menu e submenu (ordem do MODULES).
+ *  Retorno: [ ['grupo' => nome do menu, 'subs' => [ ['nome' => submenu|null, 'telas' => [itens]] ]] ]
+ *  Telas diretas do menu ficam num sub com nome = null, sempre antes dos submenus. */
+function telas_disponiveis_agrupadas(): array
+{
+    $grupos = [];
+    foreach (MODULES as $g) {
+        $subs = [];
+        foreach ($g['itens'] as $item) {
+            if (isset($item['itens'])) {
+                $telas = array_values(array_filter(
+                    $item['itens'],
+                    static fn (array $t): bool => empty($t['admin'])
+                ));
+                if ($telas) {
+                    $subs[] = ['nome' => $item['nome'], 'telas' => $telas];
+                }
+                continue;
+            }
+            if (empty($item['admin'])) {
+                if (!$subs || $subs[0]['nome'] !== null) {
+                    array_unshift($subs, ['nome' => null, 'telas' => []]);
+                }
+                $subs[0]['telas'][] = $item;
+            }
+        }
+        if ($subs) {
+            $grupos[] = ['grupo' => $g['nome'], 'subs' => $subs];
+        }
+    }
+    return $grupos;
+}
+
 function gerar_senha_provisoria(): string
 {
     $alfabeto = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';

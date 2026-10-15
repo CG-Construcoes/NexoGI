@@ -15,6 +15,9 @@ const MODULES = [
         ['nome' => 'Caixas e Bancos', 'itens' => [
             ['slug' => 'posicao-contas', 'nome' => 'Posição de Contas', 'pronto' => true],
         ]],
+        ['nome' => 'Contas a Pagar', 'itens' => [
+            ['slug' => 'contas-pagar', 'nome' => 'Relatório de Contas a Pagar', 'pronto' => true],
+        ]],
         ['nome' => 'Fluxo de Caixa', 'itens' => [
             ['slug' => 'fluxo-caixa-grupos', 'nome' => 'Grupos de Centros', 'pronto' => true],
             ['slug' => 'fluxo-caixa', 'nome' => 'Fluxo de Caixa', 'pronto' => true],
