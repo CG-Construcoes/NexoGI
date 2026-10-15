@@ -5,7 +5,11 @@ declare(strict_types=1);
 const MODULES = [
     ['nome' => 'Comercial',     'icone' => '📈', 'itens' => []],
     ['nome' => 'Contabilidade', 'icone' => '🧮', 'itens' => []],
-    ['nome' => 'Engenharia',    'icone' => '🏗️', 'itens' => []],
+    ['nome' => 'Engenharia',    'icone' => '🏗️', 'itens' => [
+        ['nome' => 'Previsões', 'itens' => [
+            ['slug' => 'medicoes', 'nome' => 'Medições', 'pronto' => true],
+        ]],
+    ]],
     ['nome' => 'Estoque',       'icone' => '📦', 'itens' => []],
     ['nome' => 'Financeiro',    'icone' => '💰', 'itens' => [
         ['nome' => 'Caixas e Bancos', 'itens' => [

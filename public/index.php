@@ -25,6 +25,7 @@ $ROTAS_TELA = [
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
+    'medicoes' => 'medicoes',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -333,6 +334,58 @@ switch ($rota) {
             'podeInserir' => usuario_pode('matriz-prioridades', 'inserir'),
             'podeAlterar' => usuario_pode('matriz-prioridades', 'alterar'),
             'podeExcluir' => usuario_pode('matriz-prioridades', 'excluir')]);
+        break;
+
+    case 'medicoes':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('medicoes');
+            }
+            $acao = (string) ($_POST['acao'] ?? '');
+            $id = (int) ($_POST['id'] ?? 0);
+            $destino = 'medicoes';
+            try {
+                if ($acao === 'incluir_centro') {
+                    exigir_tela('medicoes', 'inserir');
+                    $novo = med_incluir_centro((string) ($_POST['centro'] ?? ''));
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Centro de custo incluido na previsao.']);
+                    $destino = 'medicoes?centro=' . $novo;
+                } elseif ($acao === 'excluir_centro') {
+                    exigir_tela('medicoes', 'excluir');
+                    med_excluir_centro($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Centro de custo removido da previsao.']);
+                } elseif ($acao === 'incluir_medicao') {
+                    exigir_tela('medicoes', 'inserir');
+                    med_incluir_medicao($id, $_POST);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao incluida.']);
+                    $destino = 'medicoes?centro=' . $id;
+                } elseif ($acao === 'excluir_medicao') {
+                    exigir_tela('medicoes', 'excluir');
+                    med_excluir_medicao($id, (int) ($_POST['medicao_id'] ?? 0));
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao excluida.']);
+                    $destino = 'medicoes?centro=' . $id;
+                } else {
+                    definir_aviso(['tipo' => 'erro', 'html' => 'Acao invalida.']);
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+                if ($id) { $destino = 'medicoes?centro=' . $id; }
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $centroAberto = isset($_GET['centro']) ? med_get_centro((int) $_GET['centro']) : null;
+        render('medicoes', ['titulo' => 'Previsao de Medicoes',
+            'active' => 'medicoes', 'aviso' => consumir_aviso(),
+            'centros' => med_listar(), 'centrosDisp' => mp_centros(),
+            'centroAberto' => $centroAberto,
+            'medicoes' => $centroAberto
+                ? med_medicoes((int) $centroAberto['PMedC_Id']) : [],
+            'podeInserir' => usuario_pode('medicoes', 'inserir'),
+            'podeExcluir' => usuario_pode('medicoes', 'excluir')]);
         break;
 
     case 'fluxo-caixa-grupos':

@@ -435,6 +435,26 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   09/2026 calculado −1.952.870,99 (0107: −1.200.606,71 + 0116:
   −752.264,28), gravado −1.218.975,67 era de outro periodo.
 
+## Engenharia > Previsoes > Medicoes (2026-10-15)
+- Rota `medicoes`, permissao propria; `app/medicoes.php` +
+  `views/medicoes.php`. Submenu novo "Previsoes" em MODULES dentro de
+  Engenharia (1a tela do grupo).
+- Tabelas (script `scripts/migrar_previsao_medicoes.php`, idempotente —
+  rodar no NexoGI ao subir):
+  `msoft.PrevisaoMedicaoCentro` (PMedC_Id identity PK, Centro_CodC
+  char(9) UNIQUE, CriadoEm) e `msoft.PrevisaoMedicao` (PMed_Id PK,
+  PMedC_Id FK cascade, Med_Descricao varchar(120), Med_Valor
+  numeric(14,2), Med_EmissaoNF date NULL — opcional, Med_Previsao date
+  NOT NULL, CriadoEm).
+- Tela: datalist inclui centro na previsao (centros = `mp_centros()`,
+  so ativos; ja incluidos saem do combo); lista de centros com
+  QtdeMedicoes + TotalLiquido (SUM) ao lado; clique na linha abre o
+  painel de medicoes do centro (`?centro=<PMedC_Id>`) com form
+  (descricao, valor, emissao opcional, previsao obrigatoria) e tabela
+  com linha de Total. Remover centro exclui as medicoes em cascade.
+- `med_valor()` aceita "1.234,56"/"1234.56"/negativo; `med_data()`
+  valida YYYY-MM-DD; `med_codc()` extrai os 9 chars iniciais.
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.
