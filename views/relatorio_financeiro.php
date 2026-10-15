@@ -79,7 +79,7 @@
             <?php endforeach; ?>
         </datalist>
         <label><input type="radio" name="nucleo_op" value="selecionados" id="nucleoSel"> Selecionados:</label>
-        <div class="rel-econ-centros-lista">
+        <div class="rel-econ-centros-lista" id="listaNucleosCheck">
             <?php foreach ($nucleos as $n): ?>
             <label><input type="checkbox" name="nucleos_sel[]"
                    value="<?= e(trim($n['Nucleo_Cod']) . ' - ' . trim($n['Nucleo_Nome'])) ?>"
@@ -119,6 +119,23 @@
         <a href="<?= url() ?>" class="btn btn-secundario">Cancela</a>
     </div>
 </form>
+<script>
+// Digitar no campo "Apenas" filtra a lista de checkboxes "Selecionados" (contem).
+(function () {
+    var pares = [['centro', 'listaCentrosCheck'], ['nucleo', 'listaNucleosCheck']];
+    pares.forEach(function (p) {
+        var inp = document.querySelector('input[name="' + p[0] + '"]');
+        var lista = document.getElementById(p[1]);
+        if (!inp || !lista) { return; }
+        inp.addEventListener('input', function () {
+            var t = inp.value.toLowerCase();
+            lista.querySelectorAll('label').forEach(function (l) {
+                l.style.display = l.textContent.toLowerCase().indexOf(t) !== -1 ? '' : 'none';
+            });
+        });
+    });
+})();
+</script>
 
 <?php else: ?>
 <!-- ===================== RELATORIO ===================== -->

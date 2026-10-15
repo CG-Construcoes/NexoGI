@@ -29,7 +29,8 @@
             <?= $opcoes['empresa_op'] === 'todas' ? 'checked' : '' ?>> Todas</label>
         <label><input type="radio" name="empresa_op" value="selecionadas" id="empresaSel"
             <?= $opcoes['empresa_op'] !== 'todas' ? 'checked' : '' ?>> Selecionadas:</label>
-        <div class="rel-econ-centros-lista">
+        <input type="text" id="pcFiltroEmp" placeholder="filtrar empresas..." autocomplete="off">
+        <div class="rel-econ-centros-lista" id="listaEmpresasCheck">
             <?php foreach ($empresas as $emp): $cod = trim((string) $emp['Empresa_Cod']); ?>
             <label><input type="checkbox" name="empresas_sel[]" value="<?= e($cod) ?>"
                    <?= in_array($cod, $opcoes['empresas_sel'], true) ? 'checked' : '' ?>
@@ -95,6 +96,20 @@
         <a href="<?= url() ?>" class="btn btn-secundario">Cancela</a>
     </div>
 </form>
+<script>
+// Digitar no campo de filtro exibe so as empresas que contem o texto.
+(function () {
+    var inp = document.getElementById('pcFiltroEmp');
+    var lista = document.getElementById('listaEmpresasCheck');
+    if (!inp || !lista) { return; }
+    inp.addEventListener('input', function () {
+        var t = inp.value.toLowerCase();
+        lista.querySelectorAll('label').forEach(function (l) {
+            l.style.display = l.textContent.toLowerCase().indexOf(t) !== -1 ? '' : 'none';
+        });
+    });
+})();
+</script>
 
 <?php else: ?>
 <!-- ===================== RELATORIO ===================== -->
