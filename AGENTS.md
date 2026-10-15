@@ -418,11 +418,14 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   mostra Total dos relatorios + cada avulso + Saldo do Grupo.
 - Ordenacao (2026-10-15): tabela `msoft.FluxoCaixa_GrupoOrdem`
   (FCGrupo_Id PK/FK cascade, Ordem int, semeada alfabetica em passos de
-  10). Script: `scripts/migrar_grupo_ordem.php`. Setas subir/descer
-  (`.fcs-ord-btn`) na 1a coluna da listagem — POST `acao=mover` +
-  `dir=up|down` (AJAX); `fcs_mover()` troca e renumera; grupo novo cai
-  no fim. A ordem vale para listagem E impressao (os ids seguem a
-  ordem do DOM).
+  10). Script: `scripts/migrar_grupo_ordem.php`. Reordenacao por
+  ARRASTAR E SOLTAR (2026-10-15): grip `.fcs-grip` na 1a coluna habilita
+  `draggable` na `tr[data-gid]`; no drop o JS move a linha (+ sua
+  `.fcs-av-row`) no DOM e POSTa `acao=reordenar` + `ordem[]` com todos
+  os ids na nova sequencia — `fcs_reordenar()` renumera em passos de
+  10 e grupos ausentes na lista vao para o fim (nunca se perde grupo).
+  `fcs_mover()`/`acao=mover` continuam existindo (fallback). Grupo
+  novo cai no fim. A ordem vale para listagem E impressao.
 - Saldo via relatorio (2026-10-15): `fcs_saldo_relatorio($dados)` le a
   linha SALDO de um retorno de `relatorio_financeiro_dados()` (mesma
   formula da view travada: Receitas+Despesas da coluna Periodo) —

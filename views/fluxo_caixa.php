@@ -51,14 +51,11 @@
                 $avulsos = $avulsosPorGrupo[$gid] ?? [];
                 $avPendente = (bool) array_filter($avulsos,
                     function ($a) { return $a['valor'] === null; }); ?>
-            <tr<?= $avulsos ? ' data-av="' . $gid . '"'
-                . ($avPendente ? ' class="fcs-pend"' : '') : '' ?>>
+            <tr data-gid="<?= $gid ?>"<?= $avulsos ? ' data-av="' . $gid . '"' : ''
+                . ($avPendente ? ' class="fcs-pend"' : '') ?>>
                 <td class="fcs-ord">
                     <?php if ($podeAtualizar): ?>
-                    <button type="button" class="fcs-ord-btn" data-id="<?= $gid ?>"
-                            data-dir="up" title="Mover para cima">&#9650;</button>
-                    <button type="button" class="fcs-ord-btn" data-id="<?= $gid ?>"
-                            data-dir="down" title="Mover para baixo">&#9660;</button>
+                    <span class="fcs-grip" title="Arrastar para reordenar">&#x2807;&#x2807;</span>
                     <?php endif; ?>
                 </td>
                 <td>
@@ -193,19 +190,63 @@
     impChecks.forEach(function (cb) {
         cb.addEventListener('change', function () { parcial(impChecks, impTodos); });
     });
-    // Setas de ordenacao: POST acao=mover e recarrega
+    // Arrastar e soltar: reordena as linhas e grava a ordem completa
     var csrfTok = form.querySelector('input[name="csrf"]').value;
-    form.querySelectorAll('.fcs-ord-btn').forEach(function (b) {
-        b.addEventListener('click', function () {
+    var tbody = form.querySelector('tbody');
+    var dragTr = null;
+    function linhaApos(tr) { // depois do par linha + linha de avulsos
+        var n = tr.nextElementSibling;
+        if (n && n.classList.contains('fcs-av-row')) { n = n.nextElementSibling; }
+        return n;
+    }
+    form.querySelectorAll('tr[data-gid]').forEach(function (tr) {
+        var grip = tr.querySelector('.fcs-grip');
+        if (grip) {
+            grip.addEventListener('mousedown', function () { tr.draggable = true; });
+            grip.addEventListener('mouseup', function () { tr.draggable = false; });
+        }
+        tr.addEventListener('dragstart', function (ev) {
+            dragTr = tr;
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', tr.dataset.gid);
+            tr.classList.add('fcs-drag');
+        });
+        tr.addEventListener('dragend', function () {
+            tr.draggable = false;
+            tr.classList.remove('fcs-drag');
+            form.querySelectorAll('.fcs-over').forEach(function (o) {
+                o.classList.remove('fcs-over', 'fcs-over-fim');
+            });
+            dragTr = null;
+        });
+        tr.addEventListener('dragover', function (ev) {
+            if (!dragTr || dragTr === tr) { return; }
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = 'move';
+            var r = tr.getBoundingClientRect();
+            tr.classList.add('fcs-over');
+            tr.classList.toggle('fcs-over-fim',
+                ev.clientY >= r.top + r.height / 2);
+        });
+        tr.addEventListener('dragleave', function () {
+            tr.classList.remove('fcs-over', 'fcs-over-fim');
+        });
+        tr.addEventListener('drop', function (ev) {
+            ev.preventDefault();
+            if (!dragTr || dragTr === tr) { return; }
+            var r = tr.getBoundingClientRect();
+            var ref = ev.clientY >= r.top + r.height / 2 ? linhaApos(tr) : tr;
+            var av = form.querySelector(
+                '.fcs-av-row[data-grupo="' + dragTr.dataset.gid + '"]');
+            tbody.insertBefore(dragTr, ref);
+            if (av) { tbody.insertBefore(av, dragTr.nextElementSibling); }
             var corpo = new URLSearchParams();
             corpo.set('csrf', csrfTok);
-            corpo.set('acao', 'mover');
-            corpo.set('id', b.dataset.id);
-            corpo.set('dir', b.dataset.dir);
-            corpo.set('ajax', '1');
-            b.disabled = true;
-            fetch(form.action, { method: 'POST', body: corpo })
-                .finally(function () { location.reload(); });
+            corpo.set('acao', 'reordenar');
+            tbody.querySelectorAll('tr[data-gid]').forEach(function (l) {
+                corpo.append('ordem[]', l.dataset.gid);
+            });
+            fetch(form.action, { method: 'POST', body: corpo });
         });
     });
     // Botao "Avulso": abre/fecha a linha de campos do grupo

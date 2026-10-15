@@ -72,6 +72,26 @@ function fcs_mover(int $id, string $dir): void
 }
 
 /**
+ * Reordena todos os grupos pela sequencia de ids recebida (arrastar e
+ * soltar). Grupos existentes ausentes da lista vao para o fim, na ordem
+ * atual — assim a chamada nunca perde grupo.
+ */
+function fcs_reordenar(array $ids): void
+{
+    $atuais = array_map(fn($r) => (int) $r['FCGrupo_Id'],
+        query('SELECT FCGrupo_Id FROM msoft.FluxoCaixa_Grupo'));
+    $nova = array_values(array_intersect(array_map('intval', $ids), $atuais));
+    $nova = array_merge($nova, array_values(array_diff($atuais, $nova)));
+    foreach ($nova as $pos => $gid) {
+        execute('IF EXISTS (SELECT 1 FROM msoft.FluxoCaixa_GrupoOrdem WHERE FCGrupo_Id = ?)
+                     UPDATE msoft.FluxoCaixa_GrupoOrdem SET Ordem = ? WHERE FCGrupo_Id = ?
+                 ELSE
+                     INSERT INTO msoft.FluxoCaixa_GrupoOrdem (FCGrupo_Id, Ordem) VALUES (?, ?)',
+                [$gid, ($pos + 1) * 10, $gid, $gid, ($pos + 1) * 10]);
+    }
+}
+
+/**
  * FCGrupo_Id => [rotulos dos centros do grupo] — para o tooltip que lista
  * os centros ao passar o mouse sobre o nome do grupo.
  */

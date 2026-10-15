@@ -439,6 +439,14 @@ switch ($rota) {
                 }
                 redirecionar('fluxo-caixa');
             }
+            // Arrastar e soltar: recebe a ordem completa das linhas.
+            if (($_POST['acao'] ?? '') === 'reordenar') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_reordenar((array) ($_POST['ordem'] ?? []));
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true]);
+                exit;
+            }
             $ini = trim((string) ($_POST['data_ini'] ?? ''));
             $fim = trim((string) ($_POST['data_fim'] ?? ''));
             // Chamada AJAX da barra de progresso: um grupo por requisicao.
