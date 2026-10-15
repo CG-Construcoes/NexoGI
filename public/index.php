@@ -457,6 +457,7 @@ switch ($rota) {
                         $avMap[(int) $aid] = fcs_valor($v);
                     }
                 }
+                fcs_salvar_avulsos($avMap);
                 $r = fcs_atualizar_saldos([$id], $ini, $fim, [$id => $avMap]);
                 echo json_encode(['ok' => $r['ok'] > 0, 'erro' => $r['erros'][0] ?? null]);
                 exit;
@@ -479,6 +480,11 @@ switch ($rota) {
                         }
                     }
                 }
+                $avFlat = [];
+                foreach ($avPost as $vals) {
+                    $avFlat += $vals;
+                }
+                fcs_salvar_avulsos($avFlat);
                 $destino = 'fluxo-caixa';
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
@@ -536,6 +542,7 @@ switch ($rota) {
                         $avPar[(int) $m[1]] = fcs_valor($m[2]);
                     }
                 }
+                fcs_salvar_avulsos($avPar);
                 $avPorGrupo = [];
                 if ($avPar) {
                     $gidDoAvulso = [];

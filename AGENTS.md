@@ -397,23 +397,25 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Valor Avulso (2026-10-15, 3 confirmacoes p/ telas travadas): tabela
   `msoft.GrupoCentro_Avulso` (`Avulso_Id` int IDENTITY PK + `FCGrupo_Id`
   FK->FluxoCaixa_Grupo cascade + `Avulso_Descricao` char(60) NOT NULL —
-  nome do item, pedido na inclusao; VARIOS por grupo). Script:
-  `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao subir;
-  idempotente — adiciona a coluna em tabela ja existente).
+  nome do item, pedido na inclusao; VARIOS por grupo + `Avulso_Valor`
+  numeric(14,2) NULL — valor PERSISTIDO, gravado no submit do Atualizar
+  por `fcs_salvar_avulsos()`; digitado prevalece, senao usa o gravado;
+  avulso sem nenhum dos dois faz `fcs_saldo_grupo()` falhar o grupo).
+  Script: `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao
+  subir; idempotente — adiciona as colunas em tabela ja existente).
   `fc_avulso_rotulo()` = nome ou "Valor Avulso #id" (fallback).
-  O valor NAO e gravado: e digitado na hora do calculo e SOMADO ao
-  SaldoGrupo. Em Grupos de Centros, botao "Incluir Valor Avulso" no painel
-  de centros (acao `incluir_avulso`); itens aparecem na lista como
-  "Valor Avulso #id" (`fc_avulsos_do_grupo`/`fc_incluir_avulso`/
-  `fc_excluir_avulso`, remocao com `avulso_id`). Na listagem
-  `/fluxo-caixa`: linha do grupo com avulso fica VERMELHA (`.fcs-pend`)
-  ate todos os valores preenchidos; coluna "Avulso" com botao
-  `Avulso (N)` que abre `.fcs-av-row` com input por avulso
-  (`avulso[grupo][avulso_id]`, normalizado por `fcs_valor` — aceita
-  "1.234,56" e "1234.56"). Atualizar sem preencher bloqueia com alert.
-  Na impressao, `av=aid:valor,...` na URL; itens constam na linha de
-  centros e um resumo no fim do bloco do grupo mostra Total dos
-  relatorios + cada avulso + Saldo do Grupo.
+  O valor e SOMADO ao SaldoGrupo. Em Grupos de Centros, botao "Incluir
+  Valor Avulso" no painel de centros (acao `incluir_avulso`); itens
+  aparecem na lista como "Valor Avulso #id" (`fc_avulsos_do_grupo`/
+  `fc_incluir_avulso`/`fc_excluir_avulso`, remocao com `avulso_id`).
+  Na listagem `/fluxo-caixa`: linha do grupo com avulso sem valor fica
+  VERMELHA (`.fcs-pend`) ate todos os valores gravados; inputs vem
+  preenchidos com o valor salvo; coluna "Avulso" com botao `Avulso (N)`
+  que abre `.fcs-av-row` com input por avulso (`avulso[grupo][avulso_id]`,
+  normalizado por `fcs_valor` — aceita "1.234,56" e "1234.56").
+  Na impressao, `av=aid:valor,...` na URL prevalece sobre o gravado;
+  itens constam na linha de centros e um resumo no fim do bloco do grupo
+  mostra Total dos relatorios + cada avulso + Saldo do Grupo.
 - Ordenacao (2026-10-15): tabela `msoft.FluxoCaixa_GrupoOrdem`
   (FCGrupo_Id PK/FK cascade, Ordem int, semeada alfabetica em passos de
   10). Script: `scripts/migrar_grupo_ordem.php`. Setas subir/descer

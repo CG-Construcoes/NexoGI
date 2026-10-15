@@ -26,4 +26,11 @@ ELSE IF COL_LENGTH('msoft.GrupoCentro_Avulso', 'Avulso_Descricao') IS NULL
     ALTER TABLE msoft.GrupoCentro_Avulso
         ADD Avulso_Descricao CHAR(60) NOT NULL DEFAULT '';
 ");
+
+// valor avulso persistido: preenchido na tela Fluxo de Caixa e reutilizado
+execute("
+IF COL_LENGTH('msoft.GrupoCentro_Avulso', 'Avulso_Valor') IS NULL
+    ALTER TABLE msoft.GrupoCentro_Avulso
+        ADD Avulso_Valor NUMERIC(14,2) NULL;
+");
 echo "Tabela msoft.GrupoCentro_Avulso verificada/criada.\n";

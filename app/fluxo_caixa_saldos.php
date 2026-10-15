@@ -94,17 +94,28 @@ function fcs_centros_por_grupo(): array
     return $map;
 }
 
-/** FCGrupo_Id => [['id'=>Avulso_Id, 'nome'=>descricao], ...] por grupo. */
+/** FCGrupo_Id => [['id'=>, 'nome'=>, 'valor'=>float|null], ...] por grupo. */
 function fcs_avulsos_por_grupo(): array
 {
     $map = [];
     foreach (query('SELECT Avulso_Id, FCGrupo_Id,
-                          CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao
+                          CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao,
+                          Avulso_Valor
                     FROM msoft.GrupoCentro_Avulso ORDER BY Avulso_Id') as $r) {
         $map[(int) $r['FCGrupo_Id']][] = ['id' => (int) $r['Avulso_Id'],
-            'nome' => fc_avulso_rotulo($r)];
+            'nome' => fc_avulso_rotulo($r),
+            'valor' => $r['Avulso_Valor'] !== null ? (float) $r['Avulso_Valor'] : null];
     }
     return $map;
+}
+
+/** Grava os valores avulsos digitados (mapa Avulso_Id => valor). */
+function fcs_salvar_avulsos(array $vals): void
+{
+    foreach ($vals as $aid => $v) {
+        execute('UPDATE msoft.GrupoCentro_Avulso SET Avulso_Valor = ?
+                 WHERE Avulso_Id = ?', [$v, (int) $aid]);
+    }
 }
 
 /** CodC => true dos centros existentes em $banco (cache por banco). */
@@ -188,6 +199,18 @@ function fcs_saldo_relatorio(array $dados): float
  */
 function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos = []): float
 {
+    // Valor digitado prevalece; sem ele, usa o gravado. Avulso sem nenhum
+    // dos dois impede o calculo do grupo (a tela marca a linha em vermelho).
+    foreach (fc_avulsos_do_grupo($grupoId) as $row) {
+        $aid = (int) $row['Avulso_Id'];
+        if (!isset($avulsos[$aid])) {
+            if ($row['Avulso_Valor'] === null) {
+                throw new RuntimeException('Preencha o valor avulso "'
+                    . fc_avulso_rotulo($row) . '".');
+            }
+            $avulsos[$aid] = (float) $row['Avulso_Valor'];
+        }
+    }
     $saldo = array_sum($avulsos);
     foreach (fcs_alvos_grupo(fc_centros_do_grupo($grupoId)) as $base => $empresas) {
         foreach ($empresas as $emp => $centros) {
@@ -222,10 +245,11 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $av
         $lista = [];
         foreach (fc_avulsos_do_grupo((int) $id) as $row) {
             $aid = (int) $row['Avulso_Id'];
-            $lista[] = ['id' => $aid, 'nome' => fc_avulso_rotulo($row),
-                        'valor' => $av[$aid] ?? null];
-            $centros[] = 'Avulso: ' . fc_avulso_rotulo($row) . (isset($av[$aid])
-                ? ' — ' . number_format($av[$aid], 2, ',', '.') : '');
+            $v = $av[$aid] ?? ($row['Avulso_Valor'] !== null
+                ? (float) $row['Avulso_Valor'] : null);
+            $lista[] = ['id' => $aid, 'nome' => fc_avulso_rotulo($row), 'valor' => $v];
+            $centros[] = 'Avulso: ' . fc_avulso_rotulo($row) . ($v !== null
+                ? ' — ' . number_format($v, 2, ',', '.') : '');
         }
         $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'centros' => $centros,
                 'avulsos' => $lista, 'dados' => [], 'erros' => []];

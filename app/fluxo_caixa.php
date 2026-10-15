@@ -187,7 +187,8 @@ function fc_excluir_centro(int $id, string $centro): void
 function fc_avulsos_do_grupo(int $id): array
 {
     return query("SELECT Avulso_Id, FCGrupo_Id,
-                         CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao
+                         CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao,
+                         Avulso_Valor
                   FROM msoft.GrupoCentro_Avulso
                   WHERE FCGrupo_Id = ? ORDER BY Avulso_Id", [$id]);
 }

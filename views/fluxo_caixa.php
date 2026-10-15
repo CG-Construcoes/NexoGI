@@ -48,8 +48,11 @@
             <?php foreach ($grupos as $g):
                 $gid = (int) $g['FCGrupo_Id'];
                 $centros = $centrosPorGrupo[$gid] ?? [];
-                $avulsos = $avulsosPorGrupo[$gid] ?? []; ?>
-            <tr<?= $avulsos ? ' class="fcs-pend" data-av="' . $gid . '"' : '' ?>>
+                $avulsos = $avulsosPorGrupo[$gid] ?? [];
+                $avPendente = (bool) array_filter($avulsos,
+                    function ($a) { return $a['valor'] === null; }); ?>
+            <tr<?= $avulsos ? ' data-av="' . $gid . '"'
+                . ($avPendente ? ' class="fcs-pend"' : '') : '' ?>>
                 <td class="fcs-ord">
                     <?php if ($podeAtualizar): ?>
                     <button type="button" class="fcs-ord-btn" data-id="<?= $gid ?>"
@@ -97,6 +100,8 @@
                     <label class="fcs-av-lab"><?= e($a['nome']) ?>
                         <input type="text" name="avulso[<?= $gid ?>][<?= (int) $a['id'] ?>]"
                                class="fcs-av" data-grupo="<?= $gid ?>"
+                               value="<?= $a['valor'] !== null
+                                   ? e(number_format($a['valor'], 2, ',', '.')) : '' ?>"
                                placeholder="0,00" size="12"></label>
                     <?php endforeach; ?>
                 </td>
