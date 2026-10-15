@@ -19,6 +19,7 @@ function ug_listar(): array
                          (SELECT COUNT(*) FROM msoft.UsuarioGrupoTelas t
                           WHERE t.UsGrupo_Id = g.UsGrupo_Id) QtdeTelas
                   FROM msoft.UsuarioGrupo g
+                  WHERE ISNULL(RTRIM(g.UsGrupo_Descricao), '') NOT LIKE '__INDIVIDUAL_USER_%'
                   ORDER BY g.UsGrupo_Nome");
 }
 
@@ -131,17 +132,22 @@ function ug_mapa_grupos(array $usuarioIds): array
     foreach (query("SELECT m.UsuarioId, m.UsGrupo_Id, RTRIM(g.UsGrupo_Nome) UsGrupo_Nome
                     FROM msoft.UsuarioGrupoMembro m
                     JOIN msoft.UsuarioGrupo g ON g.UsGrupo_Id = m.UsGrupo_Id
-                    WHERE m.UsuarioId IN ($ph) ORDER BY g.UsGrupo_Nome", $usuarioIds) as $r) {
+                    WHERE m.UsuarioId IN ($ph)
+                      AND ISNULL(RTRIM(g.UsGrupo_Descricao), '') NOT LIKE '__INDIVIDUAL_USER_%'
+                    ORDER BY g.UsGrupo_Nome", $usuarioIds) as $r) {
         $mapa[(int) $r['UsuarioId']][(int) $r['UsGrupo_Id']] = $r['UsGrupo_Nome'];
     }
     return $mapa;
 }
 
-/** Substitui os grupos do usuario pelos marcados. Retorna a quantidade gravada. */
+/** Substitui os grupos do usuario pelos marcados (preservando permissoes individuais). Retorna a quantidade gravada. */
 function ug_definir_grupos(int $usuarioId, array $grupoIds): int
 {
     $validos = array_map('intval', array_column(ug_listar(), 'UsGrupo_Id'));
-    execute('DELETE FROM msoft.UsuarioGrupoMembro WHERE UsuarioId = ?', [$usuarioId]);
+    execute("DELETE m FROM msoft.UsuarioGrupoMembro m
+             JOIN msoft.UsuarioGrupo g ON g.UsGrupo_Id = m.UsGrupo_Id
+             WHERE m.UsuarioId = ?
+               AND ISNULL(RTRIM(g.UsGrupo_Descricao), '') NOT LIKE '__INDIVIDUAL_USER_%'", [$usuarioId]);
     $salvos = 0;
     foreach (array_unique(array_map('intval', $grupoIds)) as $gid) {
         if (!in_array($gid, $validos, true)) {
@@ -152,4 +158,55 @@ function ug_definir_grupos(int $usuarioId, array $grupoIds): int
         $salvos++;
     }
     return $salvos;
+}
+
+/** Retorna as permissoes efetivas de um usuario especifico (uniao de grupos + individual). */
+function ug_permissoes_efetivas_usuario(int $usuarioId): array
+{
+    $mapa = [];
+    $rows = query(
+        'SELECT RTRIM(t.Tela) Tela,
+                MAX(CAST(t.P_Consultar AS INT)) P_Consultar,
+                MAX(CAST(t.P_Inserir AS INT))   P_Inserir,
+                MAX(CAST(t.P_Alterar AS INT))   P_Alterar,
+                MAX(CAST(t.P_Excluir AS INT))   P_Excluir
+         FROM msoft.UsuarioGrupoTelas t
+         JOIN msoft.UsuarioGrupoMembro m ON m.UsGrupo_Id = t.UsGrupo_Id
+         WHERE m.UsuarioId = ?
+         GROUP BY t.Tela',
+        [$usuarioId]
+    );
+    foreach ($rows as $r) {
+        $mapa[$r['Tela']] = [
+            'consultar' => (bool) $r['P_Consultar'],
+            'inserir'   => (bool) $r['P_Inserir'],
+            'alterar'   => (bool) $r['P_Alterar'],
+            'excluir'   => (bool) $r['P_Excluir'],
+        ];
+    }
+    return $mapa;
+}
+
+/** Salva permissoes individuais de telas e acoes diretamente para um usuario. */
+function ug_salvar_permissoes_usuario(int $usuarioId, array $perm): int
+{
+    $marcador = '__INDIVIDUAL_USER_' . $usuarioId;
+    $row = query('SELECT UsGrupo_Id FROM msoft.UsuarioGrupo WHERE RTRIM(UsGrupo_Descricao) = ?', [$marcador])[0] ?? null;
+    if (!$row) {
+        $ins = query(
+            'INSERT INTO msoft.UsuarioGrupo (UsGrupo_Nome, UsGrupo_Descricao) OUTPUT INSERTED.UsGrupo_Id VALUES (?, ?)',
+            ['Individual #' . $usuarioId, $marcador]
+        );
+        $gid = (int) ($ins[0]['UsGrupo_Id'] ?? 0);
+    } else {
+        $gid = (int) $row['UsGrupo_Id'];
+    }
+    if ($gid <= 0) {
+        return 0;
+    }
+    $temMembro = query('SELECT 1 AS ok FROM msoft.UsuarioGrupoMembro WHERE UsGrupo_Id = ? AND UsuarioId = ?', [$gid, $usuarioId]);
+    if (!$temMembro) {
+        execute('INSERT INTO msoft.UsuarioGrupoMembro (UsGrupo_Id, UsuarioId) VALUES (?, ?)', [$gid, $usuarioId]);
+    }
+    return ug_salvar_telas($gid, $perm);
 }

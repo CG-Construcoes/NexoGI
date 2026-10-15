@@ -93,10 +93,62 @@ function gerar_senha_provisoria(): string
     return $senha;
 }
 
-/** Executa liberar/bloquear/gerar-senha. Retorna ['tipo' => 'ok'|'erro', 'html' => mensagem ja escapada]. */
+/** Cria um novo usuario diretamente pelo painel de Configuracoes/Usuarios (ja ativo). */
+function criar_usuario_sistema(array $post): array
+{
+    $nome = trim((string) ($post['nome'] ?? ''));
+    $email = strtolower(trim((string) ($post['email'] ?? '')));
+    $senha = (string) ($post['senha'] ?? '');
+    $admin = !empty($post['admin']) ? 1 : 0;
+    $grupos = (array) ($post['grupos'] ?? []);
+    $perm = (array) ($post['perm'] ?? []);
+
+    if ($nome === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return ['tipo' => 'erro', 'html' => 'Informe o nome completo e um e-mail valido.'];
+    }
+    if (mb_strlen($nome) > 120 || mb_strlen($email) > 120) {
+        return ['tipo' => 'erro', 'html' => 'Nome e e-mail devem ter no maximo 120 caracteres.'];
+    }
+    if (mb_strlen($senha) < 4) {
+        return ['tipo' => 'erro', 'html' => 'A senha deve ter ao menos 4 caracteres.'];
+    }
+
+    $existente = query('SELECT Id FROM msoft.Usuarios WHERE Email = ?', [$email])[0] ?? null;
+    if ($existente) {
+        return ['tipo' => 'erro', 'html' => 'Ja existe um usuario cadastrado com o e-mail <strong>' . e($email) . '</strong>.'];
+    }
+
+    try {
+        $ins = query(
+            "INSERT INTO msoft.Usuarios (Email, Nome, SenhaHash, SenhaHashPHP, Status, Admin, LiberadoEm)
+             OUTPUT INSERTED.Id
+             VALUES (?, ?, ?, ?, 'ativo', ?, GETDATE())",
+            [$email, $nome, SENHA_PYTHON_INDISPONIVEL, password_hash($senha, PASSWORD_DEFAULT), $admin]
+        );
+        $novoId = (int) ($ins[0]['Id'] ?? 0);
+        if ($novoId > 0) {
+            if ($grupos) {
+                ug_definir_grupos($novoId, $grupos);
+            }
+            if ($perm) {
+                ug_salvar_permissoes_usuario($novoId, $perm);
+            }
+        }
+        return [
+            'tipo' => 'ok',
+            'id' => $novoId,
+            'html' => 'Usuario <strong>' . e($nome) . '</strong> (' . e($email) . ') criado e liberado para entrar no sistema.',
+        ];
+    } catch (Throwable $e) {
+        error_log('nouvellesobra criar_usuario: ' . $e->getMessage());
+        return ['tipo' => 'erro', 'html' => 'Erro ao criar usuario: ' . e($e->getMessage())];
+    }
+}
+
+/** Executa liberar/bloquear/gerar-senha/definir-senha/admin/grupos/permissoes. */
 function acao_usuario(int $id, string $acao): array
 {
-    $u = query('SELECT Id, Nome, Email FROM msoft.Usuarios WHERE Id = ?', [$id])[0] ?? null;
+    $u = query('SELECT Id, Nome, Email, Admin FROM msoft.Usuarios WHERE Id = ?', [$id])[0] ?? null;
     if (!$u) {
         return ['tipo' => 'erro', 'html' => 'Usuario nao encontrado.'];
     }
@@ -117,6 +169,25 @@ function acao_usuario(int $id, string $acao): array
     if ($acao === 'grupos') {
         $n = ug_definir_grupos($id, (array) ($_POST['grupos'] ?? []));
         return ['tipo' => 'ok', 'html' => "Grupos de $nome atualizados ($n grupo(s))."];
+    }
+    if ($acao === 'permissoes') {
+        $nGrupos = ug_definir_grupos($id, (array) ($_POST['grupos'] ?? []));
+        $nTelas = ug_salvar_permissoes_usuario($id, (array) ($_POST['perm'] ?? []));
+        $novoAdmin = !empty($_POST['admin']) ? 1 : 0;
+        if (!$novoAdmin && strcasecmp($u['Email'], $_SESSION['usuario'] ?? '') === 0 && !empty($u['Admin'])) {
+            $novoAdmin = 1;
+        }
+        execute('UPDATE msoft.Usuarios SET Admin = ? WHERE Id = ?', [$novoAdmin, $id]);
+        return ['tipo' => 'ok', 'html' => "Acessos e permissoes de <strong>$nome</strong> salvos ($nGrupos grupo(s), $nTelas tela(s) individuais)."];
+    }
+    if ($acao === 'definir-senha') {
+        $novaSenha = (string) ($_POST['nova_senha'] ?? '');
+        if (mb_strlen($novaSenha) < 4) {
+            return ['tipo' => 'erro', 'html' => 'A nova senha deve ter pelo menos 4 caracteres.'];
+        }
+        execute("UPDATE msoft.Usuarios SET SenhaHashPHP = ?, Status = CASE WHEN Status = 'pendente' THEN 'ativo' ELSE Status END WHERE Id = ?",
+            [password_hash($novaSenha, PASSWORD_DEFAULT), $id]);
+        return ['tipo' => 'ok', 'html' => "Nova senha definida com sucesso para <strong>$nome</strong>."];
     }
     if ($acao === 'gerar-senha') {
         $senha = gerar_senha_provisoria();
