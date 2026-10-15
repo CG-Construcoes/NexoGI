@@ -88,7 +88,17 @@
     </div>
 </form>
 
-<?php if ($centrosDoGrupo):
+<?php if ($podeAlterar): ?>
+<form method="post" action="<?= url('fluxo-caixa-grupos') ?>" style="margin-bottom:16px">
+    <?= csrf_campo() ?>
+    <input type="hidden" name="acao" value="incluir_avulso">
+    <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
+    <button type="submit" class="btn btn-secundario">Incluir Valor Avulso</button>
+    <small class="fc-av-hint">(item extra do grupo — o valor e preenchido na hora do calculo)</small>
+</form>
+<?php endif; ?>
+
+<?php if ($centrosDoGrupo || $avulsosDoGrupo):
     $lista = [];
     foreach ($centrosDoGrupo as $codc) {
         $lista[$codc] = $centros[$codc] ?? $codc;
@@ -108,6 +118,21 @@
                     <input type="hidden" name="acao" value="excluir_centro">
                     <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
                     <input type="hidden" name="centro" value="<?= e($codc) ?>">
+                    <button type="submit" class="btn btn-sm btn-danger">Remover</button>
+                </form>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        <?php foreach ($avulsosDoGrupo as $av): ?>
+        <tr class="fc-avulso">
+            <td><em>Valor Avulso #<?= (int) $av['Avulso_Id'] ?></em>
+                <small class="fc-av-hint">— valor informado na hora do calculo</small></td>
+            <td class="acoes">
+                <form method="post" action="<?= url('fluxo-caixa-grupos') ?>" style="display:inline">
+                    <?= csrf_campo() ?>
+                    <input type="hidden" name="acao" value="excluir_avulso">
+                    <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
+                    <input type="hidden" name="avulso_id" value="<?= (int) $av['Avulso_Id'] ?>">
                     <button type="submit" class="btn btn-sm btn-danger">Remover</button>
                 </form>
             </td>

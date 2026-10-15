@@ -38,14 +38,17 @@
                 </th>
                 <th>Grupo</th>
                 <th>Centros</th>
+                <th style="width:90px">Avulso</th>
                 <th class="col-valor">Saldo do Grupo</th>
                 <th>Ultima Atualizacao</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($grupos as $g):
-                $centros = $centrosPorGrupo[(int) $g['FCGrupo_Id']] ?? []; ?>
-            <tr>
+                $gid = (int) $g['FCGrupo_Id'];
+                $centros = $centrosPorGrupo[$gid] ?? [];
+                $avulsos = $avulsosPorGrupo[$gid] ?? []; ?>
+            <tr<?= $avulsos ? ' class="fcs-pend" data-av="' . $gid . '"' : '' ?>>
                 <td>
                     <input type="checkbox" name="grupos[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
                            class="fcs-check" data-nome="<?= e($g['FCGrupo_Nome']) ?>"
@@ -66,11 +69,30 @@
                     </span>
                 </td>
                 <td><?= (int) $g['QtdeCentros'] ?></td>
+                <td>
+                    <?php if ($avulsos): ?>
+                    <button type="button" class="btn btn-sm fcs-av-btn" data-grupo="<?= $gid ?>">
+                        Avulso (<?= count($avulsos) ?>)</button>
+                    <?php endif; ?>
+                </td>
                 <td class="col-valor"><?= $g['SaldoGrupo'] !== null
                     ? number_format((float) $g['SaldoGrupo'], 2, ',', '.') : '&mdash;' ?></td>
                 <td><?= $g['UltimaAtualizacao']
                     ? e(data_br((string) $g['UltimaAtualizacao'], true)) : '&mdash;' ?></td>
             </tr>
+            <?php if ($avulsos): ?>
+            <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
+                <td></td><td></td>
+                <td colspan="4">
+                    <?php foreach ($avulsos as $aid): ?>
+                    <label class="fcs-av-lab">Valor Avulso #<?= (int) $aid ?>
+                        <input type="text" name="avulso[<?= $gid ?>][<?= (int) $aid ?>]"
+                               class="fcs-av" data-grupo="<?= $gid ?>"
+                               placeholder="0,00" size="12"></label>
+                    <?php endforeach; ?>
+                </td>
+            </tr>
+            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
@@ -112,9 +134,20 @@
         document.body.appendChild(f);
     }
     function urlImpressao(ids, ini, fim) {
-        return urlImpBase + '?grupos=' + ids.join(',')
+        var u = urlImpBase + '?grupos=' + ids.join(',')
             + '&data_ini=' + encodeURIComponent(ini)
             + '&data_fim=' + encodeURIComponent(fim);
+        var pares = [];
+        ids.forEach(function (gid) {
+            form.querySelectorAll('.fcs-av[data-grupo="' + gid + '"]').forEach(function (o) {
+                if (o.value.trim() !== '') {
+                    var m = o.name.match(/\[(\d+)\]$/);
+                    if (m) { pares.push(m[1] + ':' + encodeURIComponent(o.value.trim())); }
+                }
+            });
+        });
+        if (pares.length) { u += '&av=' + pares.join(','); }
+        return u;
     }
 
     var todos = document.getElementById('fcs-todos');
@@ -146,6 +179,25 @@
     impChecks.forEach(function (cb) {
         cb.addEventListener('change', function () { parcial(impChecks, impTodos); });
     });
+    // Botao "Avulso": abre/fecha a linha de campos do grupo
+    form.querySelectorAll('.fcs-av-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var row = form.querySelector('.fcs-av-row[data-grupo="' + b.dataset.grupo + '"]');
+            row.hidden = !row.hidden;
+        });
+    });
+    // A linha so deixa de ficar vermelha quando TODOS os avulsos tem valor
+    form.querySelectorAll('.fcs-av').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+            var gid = inp.dataset.grupo;
+            var vazio = false;
+            form.querySelectorAll('.fcs-av[data-grupo="' + gid + '"]').forEach(function (o) {
+                if (o.value.trim() === '') { vazio = true; }
+            });
+            var linha = form.querySelector('tr[data-av="' + gid + '"]');
+            if (linha) { linha.classList.toggle('fcs-pend', vazio); }
+        });
+    });
     form.addEventListener('submit', function (ev) {
         var marcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-check:checked'));
@@ -154,6 +206,20 @@
         if ((!marcados.length && !impMarcados.length)
                 || !iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
             return; // deixa o POST normal validar no servidor
+        }
+        // Grupo marcado para atualizar precisa de todos os valores avulsos
+        var avPendente = null;
+        marcados.forEach(function (cb) {
+            var vazio = false;
+            form.querySelectorAll('.fcs-av[data-grupo="' + cb.value + '"]').forEach(function (o) {
+                if (o.value.trim() === '') { vazio = true; }
+            });
+            if (vazio) { avPendente = cb.dataset.nome; }
+        });
+        if (avPendente) {
+            ev.preventDefault();
+            alert('Preencha o(s) valor(es) avulso(s) do grupo "' + avPendente + '".');
+            return;
         }
         var dias = (Date.parse(fimEl.value) - Date.parse(iniEl.value)) / 86400000;
         if (dias > 30 && !confirm('O Período selecionado é muito grande, o relatório irá demorar alguns instantes')) {
@@ -230,6 +296,14 @@
             corpo.delete('grupos[]');
             corpo.delete('imprimir[]');
             corpo.set('grupo', cb.value);
+            // envia apenas os valores avulsos do grupo em calculo
+            var avKeys = [];
+            corpo.forEach(function (v, k) {
+                if (k.indexOf('avulso[') === 0) { avKeys.push(k); }
+            });
+            avKeys.forEach(function (k) {
+                if (k.indexOf('avulso[' + cb.value + ']') !== 0) { corpo.delete(k); }
+            });
             fetch(form.action, { method: 'POST', body: corpo })
                 .then(function (r) { return r.json(); })
                 .then(function (j) {

@@ -9,7 +9,19 @@ declare(strict_types=1);
  * nos centros do grupo, no periodo informado, e grava a linha "SALDO"
  * (Receitas + Despesas do periodo) em SaldoGrupo + a hora em
  * UltimaAtualizacao.
+ * msoft.GrupoCentro_Avulso: itens "Valor Avulso" do grupo — o valor e
+ * digitado na hora do calculo e entra na soma do SaldoGrupo.
  */
+
+/** Normaliza valor digitado ("1.234,56" ou "1234.56", aceita negativo). */
+function fcs_valor($v): float
+{
+    $s = trim((string) $v);
+    if (strpos($s, ',') !== false) {
+        $s = str_replace(['.', ','], ['', '.'], $s);
+    }
+    return (float) $s;
+}
 
 /**
  * Grupos cadastrados + quantidade de centros + saldo/ultima atualizacao
@@ -21,6 +33,8 @@ function fcs_listar(): array
                          RTRIM(g.FCGrupo_Descricao) FCGrupo_Descricao,
                          (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
                           WHERE c.FCGrupo_Id = g.FCGrupo_Id) QtdeCentros,
+                         (SELECT COUNT(*) FROM msoft.GrupoCentro_Avulso a
+                          WHERE a.FCGrupo_Id = g.FCGrupo_Id) QtdeAvulsos,
                          s.SaldoGrupo, s.UltimaAtualizacao
                   FROM msoft.FluxoCaixa_Grupo g
                   LEFT JOIN msoft.GruposSaldos s ON s.FCGrupo_Id = g.FCGrupo_Id
@@ -39,8 +53,23 @@ function fcs_centros_por_grupo(): array
                     FROM msoft.FluxoCaixa_Centros ORDER BY Centro_CodC') as $r) {
         $map[(int) $r['FCGrupo_Id']][] = $labels[$r['Centro_CodC']] ?? $r['Centro_CodC'];
     }
+    foreach (query('SELECT FCGrupo_Id, Avulso_Id FROM msoft.GrupoCentro_Avulso
+                    ORDER BY Avulso_Id') as $r) {
+        $map[(int) $r['FCGrupo_Id']][] = 'Valor Avulso #' . (int) $r['Avulso_Id'];
+    }
     foreach ($map as &$lista) {
         sort($lista);
+    }
+    return $map;
+}
+
+/** FCGrupo_Id => [Avulso_Id, ...] — itens "Valor Avulso" por grupo. */
+function fcs_avulsos_por_grupo(): array
+{
+    $map = [];
+    foreach (query('SELECT Avulso_Id, FCGrupo_Id FROM msoft.GrupoCentro_Avulso
+                    ORDER BY Avulso_Id') as $r) {
+        $map[(int) $r['FCGrupo_Id']][] = (int) $r['Avulso_Id'];
     }
     return $map;
 }
@@ -104,11 +133,12 @@ function fcs_opcoes_relatorio(string $emp, string $ini, string $fim, array $cent
  * Saldo do grupo no periodo: para cada (base, empresa) dos centros do grupo
  * executa o calculo do Relatorio Financeiro e devolve a soma das secoes
  * Receitas + Despesas da coluna "Periodo" — o mesmo valor da linha SALDO
- * exibida com "Detalhar Apenas Periodo" marcado.
+ * exibida com "Detalhar Apenas Periodo" marcado — mais os Valores Avulsos
+ * informados no calculo (mapa Avulso_Id => valor).
  */
-function fcs_saldo_grupo(int $grupoId, string $ini, string $fim): float
+function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos = []): float
 {
-    $saldo = 0.0;
+    $saldo = array_sum($avulsos);
     foreach (fcs_alvos_grupo(fc_centros_do_grupo($grupoId)) as $base => $empresas) {
         foreach ($empresas as $emp => $centros) {
             $dados = relatorio_financeiro_dados($base, fcs_opcoes_relatorio($emp, $ini, $fim, $centros));
@@ -129,7 +159,7 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim): float
  * [['grupo'=>nome, 'dados'=>[saida de relatorio_financeiro_dados por
  * (base,empresa)], 'erros'=>[...]]].
  */
-function fcs_relatorio_impressao(array $ids, string $ini, string $fim): array
+function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $avulsos = []): array
 {
     $out = [];
     foreach ($ids as $id) {
@@ -144,8 +174,14 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim): array
             $centros[] = $labels[$codc] ?? $codc;
         }
         sort($centros);
+        $av = $avulsos[(int) $id] ?? [];
+        foreach (fc_avulsos_do_grupo((int) $id) as $row) {
+            $aid = (int) $row['Avulso_Id'];
+            $centros[] = 'Valor Avulso #' . $aid . (isset($av[$aid])
+                ? ': ' . number_format($av[$aid], 2, ',', '.') : '');
+        }
         $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'centros' => $centros,
-                'dados' => [], 'erros' => []];
+                'avulsos' => $av, 'dados' => [], 'erros' => []];
         foreach (fcs_alvos_grupo($codcs) as $base => $empresas) {
             foreach ($empresas as $emp => $centros) {
                 try {
@@ -166,15 +202,16 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim): array
 
 /**
  * Recalcula e grava o saldo dos grupos informados.
+ * $avulsos: FCGrupo_Id => [Avulso_Id => valor] digitados na tela.
  * Devolve ['ok' => qtd gravada, 'erros' => [nome => mensagem]].
  */
-function fcs_atualizar_saldos(array $ids, string $ini, string $fim): array
+function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avulsos = []): array
 {
     $ok = 0;
     $erros = [];
     foreach ($ids as $id) {
         try {
-            $saldo = fcs_saldo_grupo((int) $id, $ini, $fim);
+            $saldo = fcs_saldo_grupo((int) $id, $ini, $fim, $avulsos[(int) $id] ?? []);
             if (query('SELECT 1 FROM msoft.GruposSaldos WHERE FCGrupo_Id = ?', [(int) $id])) {
                 execute('UPDATE msoft.GruposSaldos
                          SET SaldoGrupo = ?, UltimaAtualizacao = GETDATE()

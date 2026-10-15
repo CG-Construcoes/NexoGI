@@ -183,6 +183,24 @@ function fc_excluir_centro(int $id, string $centro): void
             [$id, strtoupper(trim($centro))]);
 }
 
+/** Itens "Valor Avulso" do grupo (valor digitado na hora do calculo). */
+function fc_avulsos_do_grupo(int $id): array
+{
+    return query('SELECT Avulso_Id, FCGrupo_Id FROM msoft.GrupoCentro_Avulso
+                  WHERE FCGrupo_Id = ? ORDER BY Avulso_Id', [$id]);
+}
+
+function fc_incluir_avulso(int $id): void
+{
+    execute('INSERT INTO msoft.GrupoCentro_Avulso (FCGrupo_Id) VALUES (?)', [$id]);
+}
+
+function fc_excluir_avulso(int $id, int $avulsoId): void
+{
+    execute('DELETE FROM msoft.GrupoCentro_Avulso WHERE FCGrupo_Id = ? AND Avulso_Id = ?',
+            [$id, $avulsoId]);
+}
+
 /**
  * Dados do relatorio "Agrupamento de centros de custo":
  * lista de grupos, cada um com ['centros' => [rotulos ordenados]].

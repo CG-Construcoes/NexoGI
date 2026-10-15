@@ -763,6 +763,14 @@ a.card-modulo { text-decoration: none; color: inherit; }
     animation: fcs-girar .9s linear infinite; }
 .fcs-anim-txt { font-size: 12px; color: #4a6a8a; }
 @keyframes fcs-girar { to { transform: rotate(360deg); } }
+.fcs-pend td { background: #fbdede; }
+tr.fcs-av-row td { background: #fbf3e0; }
+.fcs-av-lab { display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #445; margin: 2px 14px 2px 0; }
+.fcs-av-lab input { padding: 3px 6px; font-size: 12px; width: 110px;
+    text-align: right; }
+.fc-av-hint { color: #778; font-size: 12px; }
+tr.fc-avulso td { background: #fbf3e0; }
 
 /* ---------- Usuarios (selecao por linha + filtro) ---------- */
 .us-row { cursor: pointer; }

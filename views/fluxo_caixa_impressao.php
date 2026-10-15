@@ -123,6 +123,31 @@
     <?php endif; ?>
 </div>
     <?php endforeach; ?>
+    <?php if (!empty($rel['avulsos'])):
+        $totRel = 0.0;
+        foreach ($rel['dados'] as $d2) {
+            foreach ($d2['blocos'] as $secs2) {
+                foreach ($secs2 as $s3) {
+                    if ($s3['id'] === 'receitas' || $s3['id'] === 'despesas') {
+                        $totRel += $s3['per'];
+                    }
+                }
+            }
+        } ?>
+    <table class="tabela rel-econ-tab" style="max-width:520px; margin-top:14px">
+        <tbody>
+            <tr><td>Total dos relatórios financeiros</td>
+                <td class="col-valor"><?= e(number_format($totRel, 2, ',', '.')) ?></td></tr>
+            <?php foreach ($rel['avulsos'] as $aid => $val): ?>
+            <tr><td>Valor Avulso #<?= (int) $aid ?></td>
+                <td class="col-valor"><?= e(number_format($val, 2, ',', '.')) ?></td></tr>
+            <?php endforeach; ?>
+            <tr class="rel-total"><td><strong>Saldo do Grupo</strong></td>
+                <td class="col-valor"><strong><?= e(number_format(
+                    $totRel + array_sum($rel['avulsos']), 2, ',', '.')) ?></strong></td></tr>
+        </tbody>
+    </table>
+    <?php endif; ?>
 </div>
     <?php endforeach; endif; ?>
 
