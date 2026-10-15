@@ -394,6 +394,38 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - `fcs_listar()`, `fcs_centros_por_grupo()` (tooltip), `fcs_codcs_base()`,
   `fcs_saldo_grupo()`, `fcs_atualizar_saldos()` (UPSERT via SELECT
   EXISTS + UPDATE/INSERT).
+- Valor Avulso (2026-10-15, 3 confirmacoes p/ telas travadas): tabela
+  `msoft.GrupoCentro_Avulso` (`Avulso_Id` int IDENTITY PK + `FCGrupo_Id`
+  FK->FluxoCaixa_Grupo cascade; VARIOS por grupo). Script:
+  `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao subir).
+  O valor NAO e gravado: e digitado na hora do calculo e SOMADO ao
+  SaldoGrupo. Em Grupos de Centros, botao "Incluir Valor Avulso" no painel
+  de centros (acao `incluir_avulso`); itens aparecem na lista como
+  "Valor Avulso #id" (`fc_avulsos_do_grupo`/`fc_incluir_avulso`/
+  `fc_excluir_avulso`, remocao com `avulso_id`). Na listagem
+  `/fluxo-caixa`: linha do grupo com avulso fica VERMELHA (`.fcs-pend`)
+  ate todos os valores preenchidos; coluna "Avulso" com botao
+  `Avulso (N)` que abre `.fcs-av-row` com input por avulso
+  (`avulso[grupo][avulso_id]`, normalizado por `fcs_valor` — aceita
+  "1.234,56" e "1234.56"). Atualizar sem preencher bloqueia com alert.
+  Na impressao, `av=aid:valor,...` na URL; itens constam na linha de
+  centros e um resumo no fim do bloco do grupo mostra Total dos
+  relatorios + cada avulso + Saldo do Grupo.
+- Ordenacao (2026-10-15): tabela `msoft.FluxoCaixa_GrupoOrdem`
+  (FCGrupo_Id PK/FK cascade, Ordem int, semeada alfabetica em passos de
+  10). Script: `scripts/migrar_grupo_ordem.php`. Setas subir/descer
+  (`.fcs-ord-btn`) na 1a coluna da listagem — POST `acao=mover` +
+  `dir=up|down` (AJAX); `fcs_mover()` troca e renumera; grupo novo cai
+  no fim. A ordem vale para listagem E impressao (os ids seguem a
+  ordem do DOM).
+- Saldo via relatorio (2026-10-15): `fcs_saldo_relatorio($dados)` le a
+  linha SALDO de um retorno de `relatorio_financeiro_dados()` (mesma
+  formula da view travada: Receitas+Despesas da coluna Periodo) —
+  usada pelo calculo do grupo e pela impressao (`$rel['saldo']`,
+  sempre impresso como "Saldo do Grupo" no fim do bloco). A divergencia
+  reportada em Lavras era de PERIODO/comparacao, nao de formula:
+  09/2026 calculado −1.952.870,99 (0107: −1.200.606,71 + 0116:
+  −752.264,28), gravado −1.218.975,67 era de outro periodo.
 
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para

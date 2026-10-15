@@ -412,6 +412,17 @@ switch ($rota) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
                 redirecionar('fluxo-caixa');
             }
+            // Setas de ordenacao (acao=mover) — nao precisam de periodo.
+            if (($_POST['acao'] ?? '') === 'mover') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_mover((int) ($_POST['id'] ?? 0), (string) ($_POST['dir'] ?? ''));
+                if (!empty($_POST['ajax'])) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['ok' => true]);
+                    exit;
+                }
+                redirecionar('fluxo-caixa');
+            }
             $ini = trim((string) ($_POST['data_ini'] ?? ''));
             $fim = trim((string) ($_POST['data_fim'] ?? ''));
             // Chamada AJAX da barra de progresso: um grupo por requisicao.

@@ -25,6 +25,7 @@
     <table class="tabela">
         <thead>
             <tr>
+                <th style="width:60px" title="Ordem de exibição e impressão"></th>
                 <th style="width:36px" title="Selecionar para atualizar">
                     <?php if ($podeAtualizar): ?>
                     <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
@@ -49,6 +50,14 @@
                 $centros = $centrosPorGrupo[$gid] ?? [];
                 $avulsos = $avulsosPorGrupo[$gid] ?? []; ?>
             <tr<?= $avulsos ? ' class="fcs-pend" data-av="' . $gid . '"' : '' ?>>
+                <td class="fcs-ord">
+                    <?php if ($podeAtualizar): ?>
+                    <button type="button" class="fcs-ord-btn" data-id="<?= $gid ?>"
+                            data-dir="up" title="Mover para cima">&#9650;</button>
+                    <button type="button" class="fcs-ord-btn" data-id="<?= $gid ?>"
+                            data-dir="down" title="Mover para baixo">&#9660;</button>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <input type="checkbox" name="grupos[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
                            class="fcs-check" data-nome="<?= e($g['FCGrupo_Nome']) ?>"
@@ -82,7 +91,7 @@
             </tr>
             <?php if ($avulsos): ?>
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
-                <td></td><td></td>
+                <td></td><td></td><td></td>
                 <td colspan="4">
                     <?php foreach ($avulsos as $aid): ?>
                     <label class="fcs-av-lab">Valor Avulso #<?= (int) $aid ?>
@@ -178,6 +187,21 @@
     });
     impChecks.forEach(function (cb) {
         cb.addEventListener('change', function () { parcial(impChecks, impTodos); });
+    });
+    // Setas de ordenacao: POST acao=mover e recarrega
+    var csrfTok = form.querySelector('input[name="csrf"]').value;
+    form.querySelectorAll('.fcs-ord-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var corpo = new URLSearchParams();
+            corpo.set('csrf', csrfTok);
+            corpo.set('acao', 'mover');
+            corpo.set('id', b.dataset.id);
+            corpo.set('dir', b.dataset.dir);
+            corpo.set('ajax', '1');
+            b.disabled = true;
+            fetch(form.action, { method: 'POST', body: corpo })
+                .finally(function () { location.reload(); });
+        });
     });
     // Botao "Avulso": abre/fecha a linha de campos do grupo
     form.querySelectorAll('.fcs-av-btn').forEach(function (b) {

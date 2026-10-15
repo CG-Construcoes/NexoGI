@@ -38,7 +38,37 @@ function fcs_listar(): array
                          s.SaldoGrupo, s.UltimaAtualizacao
                   FROM msoft.FluxoCaixa_Grupo g
                   LEFT JOIN msoft.GruposSaldos s ON s.FCGrupo_Id = g.FCGrupo_Id
-                  ORDER BY g.FCGrupo_Nome");
+                  LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
+                  ORDER BY ISNULL(o.Ordem, 2147483647), g.FCGrupo_Nome");
+}
+
+/**
+ * Move o grupo uma posicao para cima/baixo na ordem de exibicao
+ * (persistida em msoft.FluxoCaixa_GrupoOrdem; renumera em passos de 10).
+ */
+function fcs_mover(int $id, string $dir): void
+{
+    $rows = query('SELECT g.FCGrupo_Id
+                   FROM msoft.FluxoCaixa_Grupo g
+                   LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
+                   ORDER BY ISNULL(o.Ordem, 2147483647), g.FCGrupo_Nome');
+    $ids = array_map(fn($r) => (int) $r['FCGrupo_Id'], $rows);
+    $i = array_search($id, $ids, true);
+    if ($i === false) {
+        return;
+    }
+    $j = $dir === 'up' ? $i - 1 : $i + 1;
+    if (!isset($ids[$j])) {
+        return;
+    }
+    [$ids[$i], $ids[$j]] = [$ids[$j], $ids[$i]];
+    foreach ($ids as $pos => $gid) {
+        execute('IF EXISTS (SELECT 1 FROM msoft.FluxoCaixa_GrupoOrdem WHERE FCGrupo_Id = ?)
+                     UPDATE msoft.FluxoCaixa_GrupoOrdem SET Ordem = ? WHERE FCGrupo_Id = ?
+                 ELSE
+                     INSERT INTO msoft.FluxoCaixa_GrupoOrdem (FCGrupo_Id, Ordem) VALUES (?, ?)',
+                [$gid, ($pos + 1) * 10, $gid, $gid, ($pos + 1) * 10]);
+    }
 }
 
 /**
@@ -130,25 +160,36 @@ function fcs_opcoes_relatorio(string $emp, string $ini, string $fim, array $cent
 }
 
 /**
+ * SALDO de um retorno de relatorio_financeiro_dados(): soma das secoes
+ * Receitas + Despesas da coluna "Periodo" — a mesma formula da linha
+ * SALDO exibida pela tela Relatorio Financeiro.
+ */
+function fcs_saldo_relatorio(array $dados): float
+{
+    $saldo = 0.0;
+    foreach ($dados['blocos'] as $secoes) {
+        foreach ($secoes as $s) {
+            if ($s['id'] === 'receitas' || $s['id'] === 'despesas') {
+                $saldo += $s['per'];
+            }
+        }
+    }
+    return $saldo;
+}
+
+/**
  * Saldo do grupo no periodo: para cada (base, empresa) dos centros do grupo
- * executa o calculo do Relatorio Financeiro e devolve a soma das secoes
- * Receitas + Despesas da coluna "Periodo" — o mesmo valor da linha SALDO
- * exibida com "Detalhar Apenas Periodo" marcado — mais os Valores Avulsos
- * informados no calculo (mapa Avulso_Id => valor).
+ * executa o Relatorio Financeiro e soma a linha SALDO dele
+ * (fcs_saldo_relatorio) — mais os Valores Avulsos informados no calculo
+ * (mapa Avulso_Id => valor).
  */
 function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos = []): float
 {
     $saldo = array_sum($avulsos);
     foreach (fcs_alvos_grupo(fc_centros_do_grupo($grupoId)) as $base => $empresas) {
         foreach ($empresas as $emp => $centros) {
-            $dados = relatorio_financeiro_dados($base, fcs_opcoes_relatorio($emp, $ini, $fim, $centros));
-            foreach ($dados['blocos'] as $secoes) {
-                foreach ($secoes as $s) {
-                    if ($s['id'] === 'receitas' || $s['id'] === 'despesas') {
-                        $saldo += $s['per'];
-                    }
-                }
-            }
+            $saldo += fcs_saldo_relatorio(relatorio_financeiro_dados(
+                $base, fcs_opcoes_relatorio($emp, $ini, $fim, $centros)));
         }
     }
     return $saldo;
@@ -182,16 +223,20 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $av
         }
         $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'centros' => $centros,
                 'avulsos' => $av, 'dados' => [], 'erros' => []];
+        $saldoRel = 0.0;
         foreach (fcs_alvos_grupo($codcs) as $base => $empresas) {
             foreach ($empresas as $emp => $centros) {
                 try {
-                    $rel['dados'][] = relatorio_financeiro_dados(
+                    $d = relatorio_financeiro_dados(
                         $base, fcs_opcoes_relatorio($emp, $ini, $fim, $centros));
+                    $rel['dados'][] = $d;
+                    $saldoRel += fcs_saldo_relatorio($d);
                 } catch (Throwable $e) {
                     $rel['erros'][] = "$base/$emp: " . $e->getMessage();
                 }
             }
         }
+        $rel['saldo'] = $saldoRel + array_sum($rel['avulsos']);
         if (!$rel['dados'] && !$rel['erros']) {
             $rel['erros'][] = 'O grupo nao tem centros de custo.';
         }
