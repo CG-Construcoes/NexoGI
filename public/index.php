@@ -337,7 +337,7 @@ switch ($rota) {
                 } elseif ($acao === 'incluir_avulso' || $acao === 'excluir_avulso') {
                     exigir_tela('fluxo-caixa-grupos', 'alterar');
                     if ($acao === 'incluir_avulso') {
-                        fc_incluir_avulso($id);
+                        fc_incluir_avulso($id, (string) ($_POST['descricao'] ?? ''));
                         definir_aviso(['tipo' => 'ok', 'html' => 'Valor Avulso incluido no grupo.']);
                     } else {
                         fc_excluir_avulso($id, (int) ($_POST['avulso_id'] ?? 0));

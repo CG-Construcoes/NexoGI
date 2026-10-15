@@ -396,8 +396,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   EXISTS + UPDATE/INSERT).
 - Valor Avulso (2026-10-15, 3 confirmacoes p/ telas travadas): tabela
   `msoft.GrupoCentro_Avulso` (`Avulso_Id` int IDENTITY PK + `FCGrupo_Id`
-  FK->FluxoCaixa_Grupo cascade; VARIOS por grupo). Script:
-  `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao subir).
+  FK->FluxoCaixa_Grupo cascade + `Avulso_Descricao` char(60) NOT NULL —
+  nome do item, pedido na inclusao; VARIOS por grupo). Script:
+  `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao subir;
+  idempotente — adiciona a coluna em tabela ja existente).
+  `fc_avulso_rotulo()` = nome ou "Valor Avulso #id" (fallback).
   O valor NAO e gravado: e digitado na hora do calculo e SOMADO ao
   SaldoGrupo. Em Grupos de Centros, botao "Incluir Valor Avulso" no painel
   de centros (acao `incluir_avulso`); itens aparecem na lista como

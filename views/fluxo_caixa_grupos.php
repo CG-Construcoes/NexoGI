@@ -89,12 +89,18 @@
 </form>
 
 <?php if ($podeAlterar): ?>
-<form method="post" action="<?= url('fluxo-caixa-grupos') ?>" style="margin-bottom:16px">
+<form method="post" action="<?= url('fluxo-caixa-grupos') ?>" class="filtros" style="margin-bottom:16px">
     <?= csrf_campo() ?>
     <input type="hidden" name="acao" value="incluir_avulso">
     <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
-    <button type="submit" class="btn btn-secundario">Incluir Valor Avulso</button>
-    <small class="fc-av-hint">(item extra do grupo — o valor e preenchido na hora do calculo)</small>
+    <div class="campo grow">
+        <label for="fc-av-nome">Valor Avulso <small class="fc-av-hint">(o valor e preenchido na hora do calculo)</small></label>
+        <input type="text" id="fc-av-nome" name="descricao" maxlength="60" required
+               placeholder="Nome do valor avulso">
+    </div>
+    <div class="campo acoes">
+        <button type="submit" class="btn btn-secundario">Incluir Valor Avulso</button>
+    </div>
 </form>
 <?php endif; ?>
 
@@ -125,7 +131,7 @@
         <?php endforeach; ?>
         <?php foreach ($avulsosDoGrupo as $av): ?>
         <tr class="fc-avulso">
-            <td><em>Valor Avulso #<?= (int) $av['Avulso_Id'] ?></em>
+            <td><em><?= e(fc_avulso_rotulo($av)) ?></em>
                 <small class="fc-av-hint">— valor informado na hora do calculo</small></td>
             <td class="acoes">
                 <form method="post" action="<?= url('fluxo-caixa-grupos') ?>" style="display:inline">

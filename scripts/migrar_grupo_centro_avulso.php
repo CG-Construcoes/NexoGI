@@ -17,9 +17,13 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 execute("
 IF OBJECT_ID('msoft.GrupoCentro_Avulso') IS NULL
     CREATE TABLE msoft.GrupoCentro_Avulso (
-        Avulso_Id   INT IDENTITY(1,1) PRIMARY KEY,
-        FCGrupo_Id  INT NOT NULL
-            REFERENCES msoft.FluxoCaixa_Grupo(FCGrupo_Id) ON DELETE CASCADE
+        Avulso_Id        INT IDENTITY(1,1) PRIMARY KEY,
+        FCGrupo_Id       INT NOT NULL
+            REFERENCES msoft.FluxoCaixa_Grupo(FCGrupo_Id) ON DELETE CASCADE,
+        Avulso_Descricao CHAR(60) NOT NULL
     );
+ELSE IF COL_LENGTH('msoft.GrupoCentro_Avulso', 'Avulso_Descricao') IS NULL
+    ALTER TABLE msoft.GrupoCentro_Avulso
+        ADD Avulso_Descricao CHAR(60) NOT NULL DEFAULT '';
 ");
 echo "Tabela msoft.GrupoCentro_Avulso verificada/criada.\n";

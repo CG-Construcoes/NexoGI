@@ -83,9 +83,10 @@ function fcs_centros_por_grupo(): array
                     FROM msoft.FluxoCaixa_Centros ORDER BY Centro_CodC') as $r) {
         $map[(int) $r['FCGrupo_Id']][] = $labels[$r['Centro_CodC']] ?? $r['Centro_CodC'];
     }
-    foreach (query('SELECT FCGrupo_Id, Avulso_Id FROM msoft.GrupoCentro_Avulso
-                    ORDER BY Avulso_Id') as $r) {
-        $map[(int) $r['FCGrupo_Id']][] = 'Valor Avulso #' . (int) $r['Avulso_Id'];
+    foreach (query('SELECT FCGrupo_Id, Avulso_Id,
+                          CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao
+                    FROM msoft.GrupoCentro_Avulso ORDER BY Avulso_Id') as $r) {
+        $map[(int) $r['FCGrupo_Id']][] = 'Avulso: ' . fc_avulso_rotulo($r);
     }
     foreach ($map as &$lista) {
         sort($lista);
@@ -93,13 +94,15 @@ function fcs_centros_por_grupo(): array
     return $map;
 }
 
-/** FCGrupo_Id => [Avulso_Id, ...] — itens "Valor Avulso" por grupo. */
+/** FCGrupo_Id => [['id'=>Avulso_Id, 'nome'=>descricao], ...] por grupo. */
 function fcs_avulsos_por_grupo(): array
 {
     $map = [];
-    foreach (query('SELECT Avulso_Id, FCGrupo_Id FROM msoft.GrupoCentro_Avulso
-                    ORDER BY Avulso_Id') as $r) {
-        $map[(int) $r['FCGrupo_Id']][] = (int) $r['Avulso_Id'];
+    foreach (query('SELECT Avulso_Id, FCGrupo_Id,
+                          CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao
+                    FROM msoft.GrupoCentro_Avulso ORDER BY Avulso_Id') as $r) {
+        $map[(int) $r['FCGrupo_Id']][] = ['id' => (int) $r['Avulso_Id'],
+            'nome' => fc_avulso_rotulo($r)];
     }
     return $map;
 }
@@ -216,13 +219,16 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $av
         }
         sort($centros);
         $av = $avulsos[(int) $id] ?? [];
+        $lista = [];
         foreach (fc_avulsos_do_grupo((int) $id) as $row) {
             $aid = (int) $row['Avulso_Id'];
-            $centros[] = 'Valor Avulso #' . $aid . (isset($av[$aid])
-                ? ': ' . number_format($av[$aid], 2, ',', '.') : '');
+            $lista[] = ['id' => $aid, 'nome' => fc_avulso_rotulo($row),
+                        'valor' => $av[$aid] ?? null];
+            $centros[] = 'Avulso: ' . fc_avulso_rotulo($row) . (isset($av[$aid])
+                ? ' — ' . number_format($av[$aid], 2, ',', '.') : '');
         }
         $rel = ['grupo' => trim((string) $g['FCGrupo_Nome']), 'centros' => $centros,
-                'avulsos' => $av, 'dados' => [], 'erros' => []];
+                'avulsos' => $lista, 'dados' => [], 'erros' => []];
         $saldoRel = 0.0;
         foreach (fcs_alvos_grupo($codcs) as $base => $empresas) {
             foreach ($empresas as $emp => $centros) {
@@ -236,7 +242,8 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $av
                 }
             }
         }
-        $rel['saldo'] = $saldoRel + array_sum($rel['avulsos']);
+        $rel['saldo'] = $saldoRel + array_sum(
+            array_map(fn($a) => $a['valor'] ?? 0.0, $rel['avulsos']));
         if (!$rel['dados'] && !$rel['erros']) {
             $rel['erros'][] = 'O grupo nao tem centros de custo.';
         }

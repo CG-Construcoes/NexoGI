@@ -123,15 +123,17 @@
     <?php endif; ?>
 </div>
     <?php endforeach; ?>
-    <?php $totRel = $rel['saldo'] - array_sum($rel['avulsos']); ?>
+    <?php $totRel = $rel['saldo'] - array_sum(array_map(
+        fn($a) => $a['valor'] ?? 0.0, $rel['avulsos'])); ?>
     <table class="tabela rel-econ-tab" style="max-width:520px; margin-top:14px">
         <tbody>
-            <?php if (!empty($rel['avulsos'])): ?>
+            <?php if ($rel['avulsos']): ?>
             <tr><td>Total dos relatórios financeiros</td>
                 <td class="col-valor"><?= e(number_format($totRel, 2, ',', '.')) ?></td></tr>
-            <?php foreach ($rel['avulsos'] as $aid => $val): ?>
-            <tr><td>Valor Avulso #<?= (int) $aid ?></td>
-                <td class="col-valor"><?= e(number_format($val, 2, ',', '.')) ?></td></tr>
+            <?php foreach ($rel['avulsos'] as $a): ?>
+            <tr><td>Avulso: <?= e($a['nome']) ?><?= $a['valor'] === null ? ' (sem valor)' : '' ?></td>
+                <td class="col-valor"><?= $a['valor'] !== null
+                    ? e(number_format($a['valor'], 2, ',', '.')) : '&mdash;' ?></td></tr>
             <?php endforeach; ?>
             <?php endif; ?>
             <tr class="rel-total"><td><strong>Saldo do Grupo</strong></td>

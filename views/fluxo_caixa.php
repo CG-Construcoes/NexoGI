@@ -93,9 +93,9 @@
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
                 <td></td><td></td><td></td>
                 <td colspan="4">
-                    <?php foreach ($avulsos as $aid): ?>
-                    <label class="fcs-av-lab">Valor Avulso #<?= (int) $aid ?>
-                        <input type="text" name="avulso[<?= $gid ?>][<?= (int) $aid ?>]"
+                    <?php foreach ($avulsos as $a): ?>
+                    <label class="fcs-av-lab"><?= e($a['nome']) ?>
+                        <input type="text" name="avulso[<?= $gid ?>][<?= (int) $a['id'] ?>]"
                                class="fcs-av" data-grupo="<?= $gid ?>"
                                placeholder="0,00" size="12"></label>
                     <?php endforeach; ?>
