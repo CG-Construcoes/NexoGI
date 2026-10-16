@@ -494,6 +494,113 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   pendente, nucleo/grupo de nucleo. Opcao "Inclui Corretagens" existe no
   original e esta desabilitada (nao implementada).
 
+## Financeiro > Contas a Pagar > Agenda de Pagamentos (2026-10-16)
+- Rota `agenda-pagamentos`, permissao propria; `app/agenda_pagamentos.php` +
+  `views/agenda_pagamentos.php` (estilos `.ap-*` no fim do style.css).
+- Replica o grid do Informakon (trace `traces/Agenda de Pagamentos.trc`)
+  chamando a proc ORIGINAL `dbo.sp_ParcelasAgendaPagto` (36 params nomeados,
+  ~3000 linhas) direto na base ERP — NAO foi portada para CGGestao.
+- **Read-only garantido**: a proc so escreve em tabelas permanentes
+  (`Parametros_Temporarios_Empresa`/`_Classificacao`) quando
+  `@ParamTemp_ChaveEmpresa`/`@ParamTemp_ChaveClassificacao` vem preenchidas
+  (o Informakon insere a selecao de empresas la). Passamos as duas VAZIAS:
+  todo o resto e `#tabela` em tempdb. Execucao prefixada com
+  `SET NOCOUNT ON` (senao o primeiro resultset vem vazio e o PDO falha com
+  "active result contains no fields"). Nenhum dado/schema de dbMGA/dbConv
+  e alterado; nenhuma migration necessaria.
+- `@Empresa_Cod` aceita UM codigo (INSERT direto em #TMP_Empresa; '(*)'
+  e curinga). Para multipla selecao passamos '' (todas) e filtramos
+  `Empresa_Cod` em PHP (strtoupper — existe 'cgc' minusculo). Mesma
+  tecnica para Centro (`Centro_CodC` vem pontilhado "CGC.01.0107" —
+  compara so alfanumericos) e Especie (`EspTit_Cod`).
+- ATENCAO `@NaoAutorizado`: 'S' EXCLUI os titulos autorizados
+  (a proc faz `Instrucao_Cod <> 'AP'`) — equivale a "somente nao
+  autorizadas". O checkbox do Informakon vem DESMARCADO (='N', mostra
+  tudo); na nossa tela tambem desmarcado ("Apenas nao autorizadas").
+  Com 'S' somem os ~180 titulos AP e a barra Autorizadas zera.
+- Params do filtro mapeados: DataIni/DataFin = periodo da agenda,
+  DataRef = hoje (base do DiasemAtraso/vencidas), IncAtrasadas/IncPendentes,
+  Inclui_EntTipo_ED/EP/CV, NaoAutorizado, Cre_Cod (datalist credor ->
+  codigo antes do " - "), Nucleo_Cod, EntDoc_Numero (a proc faz LIKE —
+  envolver com %), Ficha_Numero, ValorMin/ValorMax (so quando "Restringir"
+  marcado). ADI_FORN_* = 'S'/'S', ConsultaAssuntoOrcamentario='N',
+  demais NULL/'N'.
+- Ordem (radio): vencimento/agenda/credor_valor/credor_nota/valor(faixa)/
+  centro/usuario/numero — ordenacao em PHP (`ap_ordernar`). "Agrupar por"
+  Tipo de Pagamento (TitaPag_PagDocTipo) / Modalidade (pge_Modalidade)
+  vira chave de grupo prefixada na ordenacao, com subtotal por grupo.
+- Grid = as 42 colunas do Informakon (planilha `agenda de pagamentos.xlsx`):
+  Vencimento|Credor|Documento|Par|Valor(liquido)|Agenda|Esp|NE
+  (TitaPag_NumeroNegociacoes)|Pagto Tipo Doc|i(CountAutorizacoes)|
+  Nº Aut(Instrucao_Cod->badge AP)|Ad|PreDatado|Obs(TitaPag_Obs)|Obs Doc
+  (Ent_Observacao)|Ficha|Empresa|Nome Empresa|Cod Centro(Centro_CodC)|
+  Centro|Natureza|Atraso|VenctoOrig|#Neg|Filial|#(repete)|EntTipo|
+  Aut.Pagto(Usuario_Instrucao)|Data Aut.Pagto|Aut.Pedido|Aut.Doc
+  (DocDig_Numero)|Id.Boleto(DadosPg_NumeroIdentificacao)|ContaPrincipal|
+  Tipo Doc|Imovel|CartaoCredito|Data_PK|Ent_Numero_PK|Audit_Insert_*/
+  Audit_* (4). Linha vencida em vermelho; clique abre detalhe (título,
+  valores, instrucao, banco credor). Colunas i/Nº Aut: confirmadas por
+  dados reais (linhas AP tem CountAutorizacoes>0).
+- **Colunas reordenaveis + barra horizontal no rodape** (2026-10-16):
+  `AP_COLS` (chave=>rotulo, 42) em agenda_pagamentos.php e `ap_celula()`
+  renderizam por chave — o grid e dirigido por `$cols`. Cabecalhos sao
+  draggable; JS move o td correspondente em toda linha com 42 celulas
+  (linhas de total tambem emitem 42 tds por isso). Ordem salva por
+  usuario via POST ajax `agenda-pagamentos/col-order` em
+  `msoft.UsuarioPreferencia` (Chave='agenda-pagamentos.col_order', CSV);
+  `ap_col_order()` faz merge com chaves novas no fim. Mesma tabela guarda
+  `agenda-pagamentos.ordem` (radio de ordenacao). Rodape fixo
+  `.ap-rodape` = `.ap-hscroll` (espelha scroll do grid) + `.ap-status`.
+  ATENCAO: `layout_app.php` envelopa TODA `table.tabela` numa div
+  `.tabela-responsiva` (overflow-x:auto) em runtime — quem rola e ela,
+  NAO o `.ap-grid-wrap`. O JS resolve o scroller via
+  `tabela.closest('.tabela-responsiva')` e so inicializa no
+  DOMContentLoaded (o envelopamento acontece depois do script da view).
+  `.ap-tab` usa `width:max-content` (senao `width:100%` da `.tabela`
+  prende a caixa da tabela no container e nao ha overflow real).
+  Migracao: `scripts/migrar_usuario_preferencias.php`
+  (rodar no NexoGI no deploy).
+- Barra de status (rodape fixo): Pendentes/PreDatados/Autorizadas(AP)/
+  Total(AP+PD+A)/Vencidas/Total Geral — soma de TitaPag_ValorLiquido.
+  No periodo futuro tipico tudo 0, igual ao Informakon (screenshot).
+- Totalizadores Dia/Quinzena/Mes = baldes sobre a data da agenda
+  (ap_balde), iguais aos do relatorio de contas a pagar.
+- Barra tambem totaliza EP/ED/Outros por EntDocTipo_Cod (pedido do usuario).
+- Testado: MGA 1693 linhas (14,36 mi; Autorizadas 916.019,96 ~ Informakon
+  916.013,98) e CONV 868 (7,7 mi) no periodo 20/10/2026-20/01/2027;
+  filtros empresa/centro/especie/nucleo/credor/docnum/faixa/
+  atrasadas+pendentes OK; ~1,3s por chamada.
+
+## Financeiro > Prestacao de Servico > Relatorio de Faturamento (2026-10-16)
+- Rota `faturamento`, permissao propria; `app/faturamento.php` +
+  `views/faturamento.php` (reusa estilos `.rel-econ-*`/`.cp-*` + `.fat-*`).
+  Subgrupo novo "Prestação de Serviço" em MODULES dentro de Financeiro.
+- Replica o relatorio do Informakon (trace `traces/relatorio de faturamento.trc`,
+  PDF `Relatorios/Relatorio de Faturamento.pdf`): query direta em
+  `Faturamento` + `Centro_de_Custo` + `Cliente` com pares `= ? OR ? IS NULL`.
+  Read-only, sem proc, sem tabela em CGGestao.
+- Filtros: empresa, periodo (Fat_Data), centro (datalist CodC -> Filial+Centro),
+  cliente (datalist Cli_Cod 4-5 chars, sem padding), nucleo + botoes
+  REIDI/TODOS (`Sped_REIDI` 'S'/todos), empreendimento (resolve para o
+  Centro_Cod do `Empreendimento` — so existe na dbConv; MGA tem a tabela vazia),
+  especie (distinct Fat_Esp menos 'P'), tipo doc (distinct Fat_Tipo),
+  Observacoes (linha extra com Fat_Obs), Imprimir (auto window.print),
+  ordenar Data/Numero (ORDER BY final Fat_Data vs Fat_Numero).
+- Agrupamento do PDF: nivel 1 `Sped_REIDI` ('S'->REIDI, demais->NORMAL),
+  nivel 2 Centro_CodC+Cli_Cod (cabecalho "CodC - Centro_Nome | Cliente: ...").
+  Totais: "Total <CodC>", "Total <NORMAL|REIDI>", "Total Período" — 12 colunas
+  numericas (RF_COLS).
+- Colunas (15): Data Fatura|Tipo|Nº Fatura (=Fat_CentroNumero, NAO Fat_Numero!)|
+  Valor Fatura|Valor Reajuste|INSS|ISS|IRPJ|PIS|COFINS|CSLL|Retencao(=Fat_Retencao)|
+  aClassificar(=Fat_ValorRp)|Desc.Adiant(=Fat_DescAdi)|Vr.Liquido.
+- `rf_liquido` = Fatura + Reajuste - INSS-ISS-IRPJ-PIS-COFINS-CSSL-Retencao-Rp-DescAdi.
+- Cabecalho: Empresa_Nome + " CNPJ: " + Filial_CGC da matriz (menor Filial_CGC,
+  fmt_cnpj) — igual RelFin. "Folha No 1" fixo.
+- Validado vs PDF (CGC 01/10-31/12/2026): 5 linhas, totais identicos
+  (5.931.204,20; ISS 152.841,08; IRPJ 30.886,21; Vr.Liquido 5.747.476,91).
+- Faturamento so tem dados na dbMGA (2.240 linhas); dbConv.Faturamento vazia
+  (retorna 0 linhas legitimo).
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.

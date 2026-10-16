@@ -27,6 +27,9 @@ $ROTAS_TELA = [
     'matriz-prioridades' => 'matriz-prioridades',
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
+    'agenda-pagamentos' => 'agenda-pagamentos',
+    'agenda-pagamentos/col-order' => 'agenda-pagamentos',
+    'faturamento' => 'faturamento',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -766,6 +769,168 @@ switch ($rota) {
             'credores' => cp_credores($base), 'especies' => cp_especies($base),
             'doctipos' => cp_doctipos($base), 'nucleos' => cp_nucleos($base),
             'gruposNucleo' => cp_grupos_nucleo($base)]);
+        break;
+
+    case 'faturamento':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
+        $gerado = isset($_GET['gerar']);
+        set_time_limit(600);
+        $empreendimentos = rf_empreendimentos($base);
+        // empreendimento escolhido vira filtro do centro de custo dele
+        $emprRot = trim((string) ($_GET['empreendimento'] ?? ''));
+        $emprCodc = '';
+        foreach ($empreendimentos as $e2) {
+            if ($e2['rotulo'] === $emprRot) { $emprCodc = $e2['codc']; }
+        }
+        $centroRot = trim((string) ($_GET['centro'] ?? ''));
+        $centroCodc = strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '',
+            explode(' - ', $centroRot)[0]), 0, 9));
+        if (strlen($centroCodc) !== 9) { $centroCodc = ''; }
+        $o = [
+            'empresa'   => trim((string) ($_GET['empresa'] ?? '')),
+            'ini'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_ini'] ?? ''))
+                           ? $_GET['data_ini'] : '',
+            'fim'       => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_fim'] ?? ''))
+                           ? $_GET['data_fim'] : '',
+            'ordem'     => ($_GET['ordem'] ?? 'data') === 'numero' ? 'numero' : 'data',
+            'centro'    => $emprCodc !== '' ? $emprCodc : $centroCodc,
+            'centro_rot' => $centroRot,
+            'empr_rot'  => $emprRot,
+            'cliente_rot' => trim((string) ($_GET['cliente'] ?? '')),
+            'cliente'   => strtoupper(substr(trim(explode(' - ',
+                                (string) ($_GET['cliente'] ?? ''))[0]), 0, 5)),
+            'nucleo'    => trim((string) ($_GET['nucleo'] ?? '')),
+            'reidi'     => ($_GET['reidi'] ?? '') === 'S' ? 'S' : '',
+            'esp'       => trim((string) ($_GET['esp'] ?? '')),
+            'tipo'      => trim((string) ($_GET['tipo'] ?? '')),
+            'obs'       => isset($_GET['obs']),
+            'imprimir'  => isset($_GET['imprimir']),
+        ];
+        if (strlen($o['cliente']) > 5) { $o['cliente'] = substr($o['cliente'], 0, 5); }
+        $grupos = [];
+        $erro = '';
+        $cab = ['nome' => '', 'cnpj' => ''];
+        if ($gerado) {
+            if ($o['ini'] === '' || $o['fim'] === '' || $o['ini'] > $o['fim']) {
+                $erro = 'Informe o período (De / a) corretamente.';
+            } else {
+                try {
+                    $linhas = rf_dados($base, $o);
+                    $grupos = rf_agrupar($linhas, $o['ordem']);
+                } catch (Throwable $t) {
+                    $erro = 'Erro ao gerar o relatorio: ' . $t->getMessage();
+                }
+            }
+            $cab = rf_empresa_cabecalho($base, $o['empresa']);
+        }
+        render('faturamento', ['titulo' => 'Relatorio de Faturamento',
+            'active' => 'faturamento', 'base' => $base, 'gerado' => $gerado,
+            'o' => $o, 'grupos' => $grupos, 'erro' => $erro, 'cab' => $cab,
+            'empresas' => rf_empresas($base), 'centros' => mp_centros(),
+            'clientes' => rf_clientes($base), 'nucleos' => rf_nucleos($base),
+            'empreendimentos' => $empreendimentos,
+            'especies' => rf_especies($base), 'tipos' => rf_tipos($base)]);
+        break;
+
+    case 'agenda-pagamentos/col-order':
+        // POST ajax: salva a ordem das colunas do grid por usuario
+        exigir_login();
+        header('Content-Type: application/json');
+        if ($metodo !== 'POST' || !csrf_valido()) {
+            http_response_code(403);
+            echo '{"ok":false}';
+            break;
+        }
+        ap_salvar_col_order((string) $_SESSION['usuario'],
+            (string) ($_POST['order'] ?? ''));
+        echo '{"ok":true}';
+        break;
+
+    case 'agenda-pagamentos':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
+        $gerado = isset($_GET['gerar']);
+        $usuario = (string) $_SESSION['usuario'];
+        $ordemSalva = ap_pref($usuario, 'agenda-pagamentos.ordem');
+        set_time_limit(600);
+        $data = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET[$k] ?? ''))
+            ? $_GET[$k] : '';
+        $num = function ($k) {
+            $v = trim((string) ($_GET[$k] ?? ''));
+            if ($v === '') { return null; }
+            $v = str_replace('.', '', $v);
+            $v = str_replace(',', '.', $v);
+            return is_numeric($v) ? (float) $v : null;
+        };
+        $restringe = isset($_GET['restringir']);
+        $o = [
+            'empresas'  => array_values(array_filter(array_map('trim',
+                              (array) ($_GET['emp'] ?? [])))),
+            'ini'       => $data('data_ini'),
+            'fim'       => $data('data_fim'),
+            'ref'       => date('Y-m-d'),
+            'atrasadas' => isset($_GET['vencidas']),
+            'pendentes' => isset($_GET['pendentes']),
+            'nao_aut'   => isset($_GET['nao_aut']),
+            'ed'        => isset($_GET['inc_ed']) || !$gerado,
+            'ep'        => isset($_GET['inc_ep']) || !$gerado,
+            'cv'        => isset($_GET['inc_cv']),
+            'centros'   => trim((string) ($_GET['centro'] ?? '')) !== ''
+                              ? [strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '',
+                                  explode(' ', trim((string) $_GET['centro']))[0]), 0, 9))]
+                              : [],
+            'nucleo'    => trim((string) ($_GET['nucleo'] ?? '')),
+            'especie'   => trim((string) ($_GET['especie'] ?? '')),
+            'cre'       => strtoupper(substr(trim(explode(' - ',
+                              (string) ($_GET['credor'] ?? ''))[0]), 0, 6)),
+            'docnum'    => trim((string) ($_GET['docnum'] ?? '')),
+            'ficha'     => trim((string) ($_GET['ficha'] ?? '')),
+            'vmin'      => $restringe ? $num('valor_min') : null,
+            'vmax'      => $restringe ? $num('valor_max') : null,
+            'agr_tipo'  => isset($_GET['agr_tipo']),
+            'agr_mod'   => isset($_GET['agr_mod']),
+            'tot_dia'   => isset($_GET['tot_dia']),
+            'tot_quinzena' => isset($_GET['tot_quinzena']),
+            'tot_mes'   => isset($_GET['tot_mes']),
+            'ordem'     => (string) ($_GET['ordem'] ?? $ordemSalva ?: 'vencimento'),
+        ];
+        $linhas = [];
+        $status = null;
+        $erro = '';
+        if ($gerado) {
+            if ($o['ini'] === '' || $o['fim'] === '' || $o['ini'] > $o['fim']) {
+                $erro = 'Informe o período da agenda (De / a) corretamente.';
+            } else {
+                try {
+                    $linhas = ap_dados($base, $o);
+                    $grpKey = ($o['agr_tipo'] || $o['agr_mod'])
+                        ? function ($r) use ($o) {
+                            $k = [];
+                            if ($o['agr_tipo']) {
+                                $k[] = trim((string) $r['TitaPag_PagDocTipo']);
+                            }
+                            if ($o['agr_mod']) {
+                                $k[] = trim((string) $r['pge_Modalidade']);
+                            }
+                            return implode('|', $k);
+                        } : null;
+                    $linhas = ap_ordernar($linhas, $o['ordem'], $grpKey);
+                    $status = ap_status($linhas, $o['ref']);
+                    ap_salvar_pref($usuario, 'agenda-pagamentos.ordem', $o['ordem']);
+                } catch (Throwable $t) {
+                    $erro = 'Erro ao gerar a agenda: ' . $t->getMessage();
+                    $linhas = [];
+                }
+            }
+        }
+        render('agenda_pagamentos', ['titulo' => 'Agenda de Pagamentos',
+            'active' => 'agenda-pagamentos', 'base' => $base, 'gerado' => $gerado,
+            'o' => $o, 'linhas' => $linhas, 'status' => $status, 'erro' => $erro,
+            'cols' => ap_col_order($usuario),
+            'empresas' => cp_empresas($base), 'centros' => mp_centros(),
+            'credores' => cp_credores($base), 'especies' => cp_especies($base),
+            'nucleos' => cp_nucleos($base)]);
         break;
 
     case 'posicao-contas':

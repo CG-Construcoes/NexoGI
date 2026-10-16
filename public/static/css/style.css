@@ -743,6 +743,7 @@ a.card-modulo {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    position: relative;
 }
 
 .card-modulo:hover {
@@ -754,6 +755,10 @@ a.card-modulo {
 .card-modulo.aberto {
     border-color: #93c5fd;
     box-shadow: var(--shadow-md);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+    z-index: 45;
 }
 
 .card-modulo.desativado {
@@ -837,61 +842,99 @@ a.card-modulo {
 }
 
 .card-subitens-wrap {
-    display: grid;
-    grid-template-rows: 0fr;
+    position: absolute;
+    top: 100%;
+    left: -1px;
+    right: -1px;
+    z-index: 40;
+    background: var(--bg-surface);
+    border: 1px solid #93c5fd;
+    border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    box-shadow: 0 14px 28px -8px rgba(15, 23, 42, 0.22);
     opacity: 0;
-    margin-top: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transform-origin: top;
     transition:
-        grid-template-rows 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.25s ease,
-        margin-top 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        opacity 0.22s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0.28s;
 }
 
 .card-modulo.aberto .card-subitens-wrap {
-    grid-template-rows: 1fr;
     opacity: 1;
-    margin-top: 14px;
+    visibility: visible;
+    transform: translateY(0);
+    transition:
+        opacity 0.22s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-subitens {
-    overflow: hidden;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
     text-align: left;
-    border-top: 1px solid transparent;
-    transform: translateY(-6px);
-    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, padding-top 0.25s ease;
+    padding: 10px 12px 14px;
+    border-top: 1px solid #f1f5f9;
+    max-height: 60vh;
+    overflow-y: auto;
 }
 
-.card-modulo.aberto .card-subitens {
-    padding-top: 12px;
-    border-top-color: #f1f5f9;
-    transform: translateY(0);
+.card-subgrupo {
+    margin-top: 6px;
 }
 
-.card-subgrupo-titulo {
-    display: block;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-top: 8px;
-    padding: 0 8px;
-}
-
-.card-subgrupo-titulo:first-child {
+.card-subgrupo:first-child {
     margin-top: 0;
 }
 
+.card-subgrupo-titulo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 7px;
+    transition: background-color var(--transition-fast);
+}
+
+.card-subgrupo-titulo:hover {
+    background: var(--primary-50);
+}
+
+.card-subgrupo-seta {
+    display: inline-flex;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.card-subgrupo.aberto .card-subgrupo-seta {
+    transform: rotate(180deg);
+}
+
+.card-subgrupo-itens {
+    display: none;
+    padding: 2px 0 4px 10px;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.card-subgrupo.aberto .card-subgrupo-itens {
+    display: flex;
+}
+
 .card-subitem {
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12.5px;
+    font-weight: 400;
     color: var(--primary-700);
     text-decoration: none;
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-radius: 7px;
     transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
@@ -2570,3 +2613,53 @@ tr.cp-obs td { color: #667; font-size: 10px; }
     .rel-econ-botoes { display: none; }
     .cp-tab { font-size: 9px; }
 }
+
+/* ---------- Agenda de Pagamentos ---------- */
+.ap-tab { font-size: 11px; }
+tr.ap-linha { cursor: pointer; }
+tr.ap-linha:hover td { background: #eef4fb; }
+tr.ap-vencida td { color: #b32d2d; }
+tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
+    border-top: none; padding: 6px 14px; }
+.ap-badge { display: inline-block; min-width: 16px; padding: 0 4px;
+    border-radius: 3px; font-weight: 700; font-size: 10px; text-align: center; }
+.ap-badge-ap { background: #2d6bb5; color: #fff; }
+.ap-badge-ad { background: #e6b93c; color: #4a3200; }
+.ap-status { position: sticky; bottom: 0; display: flex; flex-wrap: wrap;
+    gap: 18px; margin-top: 10px; padding: 8px 12px; background: #1e3a5f;
+    color: #cfdcef; font-size: 12px; border-radius: 4px; }
+.ap-status b { color: #fff; }
+.ap-status .ap-st-aut b { color: #8fc1ff; }
+.ap-status .ap-st-venc b { color: #ff9c9c; }
+
+/* ---------- Agenda de Pagamentos: rolagem + colunas ---------- */
+.ap-grid-wrap { overflow-x: auto; }
+.ap-tab th[draggable] { cursor: grab; user-select: none; }
+.ap-tab th.ap-th-drag { opacity: .4; }
+.ap-tab th.ap-th-over { box-shadow: inset 3px 0 0 #2d6bb5, inset -3px 0 0 #2d6bb5; }
+.ap-rodape { position: sticky; bottom: 0; z-index: 30; }
+.ap-hscroll { overflow-x: auto; overflow-y: hidden; height: 18px;
+    background: #dfe6ee; border: 1px solid #b8c4d0; border-radius: 3px; }
+.ap-hscroll > div { height: 1px; }
+.ap-rodape .ap-status { position: static; margin-top: 2px; }
+/* a tabela precisa crescer alem do wrap para o scroll horizontal existir */
+.ap-tab { width: max-content; min-width: 100%; }
+.ap-tab td { max-width: 340px; }
+.ap-tab th { white-space: nowrap; }
+
+/* ---------- Relatorio de Faturamento ---------- */
+.fat-filtro { max-width: 560px; }
+.fat-duas { display: flex; gap: 12px; }
+.fat-duas .rel-econ-box { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fat-linha { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.fat-linha > label { min-width: 108px; text-align: right; color: var(--text-muted); font-size: 12.5px; }
+.fat-linha > input, .fat-linha > select { flex: 1; min-width: 0; }
+.fat-nucleo { display: flex; align-items: center; gap: 6px; flex: 1; }
+.fat-nucleo select { flex: 1; min-width: 0; }
+.fat-btn { border: 1px solid var(--border-color); border-radius: 4px; padding: 3px 10px;
+           font-size: 11.5px; cursor: pointer; background: #f8fafc; white-space: nowrap; }
+.fat-btn input { accent-color: var(--primary); margin-right: 2px; }
+.fat-btn:has(input:checked) { background: var(--primary-100, #dbe7f5); border-color: var(--primary); }
+.fat-tab { font-size: 11.5px; }
+.fat-grupo-reidi td { background: #eaf0f7 !important; font-weight: 700; letter-spacing: .04em; }
+.fat-grupo-centro td { background: #f5f8fb !important; }
