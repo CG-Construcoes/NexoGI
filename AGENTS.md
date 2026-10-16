@@ -347,6 +347,153 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `scripts/migrar_fluxo_caixa.php`, ja aplicada) — rodar a migracao no
   servidor NexoGI ao subir esta versao.
 
+## Financeiro > Fluxo de Caixa > Fluxo de Caixa (2026-10-14)
+- Rota `fluxo-caixa`, permissao propria; `app/fluxo_caixa_saldos.php` +
+  `views/fluxo_caixa.php` (NAO confundir com `fluxo_caixa.php` = Grupos de
+  Centros, tela travada). Item novo no subgrupo "Fluxo de Caixa" do menu.
+- Tabela `msoft.GruposSaldos`: `FCGrupo_Id` int PK/FK->FluxoCaixa_Grupo
+  (ON DELETE CASCADE), `UltimaAtualizacao` datetime NULL, `SaldoGrupo`
+  numeric(14,2) NULL. Script: `scripts/migrar_grupos_saldos.php`
+  (rodar no NexoGI ao subir; renomeia SaldoCentro->SaldoGrupo se a versao
+  anterior ja existir).
+- Listagem: checkbox por grupo + checkbox "selecionar todos" no titulo
+  (JS com indeterminate), nome do grupo com tooltip `.fcs-tip` listando os
+  centros (fc_centros + FluxoCaixa_Centros), qtde de centros, Saldo do
+  Grupo e Ultima Atualizacao (LEFT JOIN GruposSaldos — NULL mostra "-").
+- Botao "Atualizar" (perm `alterar`) + campos De/a (data_ini/data_fim,
+  obrigatorios, ini<=fim) sob o rotulo "Periodo". JS: periodo >30 dias ->
+  confirm("O Período selecionado é muito grande..."); depois alert()
+  "Os cálculos irão iniciar. Não feche esta tela." e UM fetch por grupo (`ajax=1` + `grupo` -> JSON `{ok,erro}`), com barra
+  de progresso fixa no rodape (`.fcs-progresso`/`.fcs-fill`, texto
+  "Calculando: NOME i/N" dentro da barra + spinner `.fcs-spin` abaixo) e,
+  ao fim, alert() listando os grupos atualizados, as falhas e o tempo
+  total — depois recarrega a lista. Sem JS cai no POST unico de
+  `grupos[]` que recalcula em lote.
+- Impressao (2026-10-14): segunda coluna de checkbox `imprimir[]` ao lado
+  da de atualizar (header select-all proprio). Ao concluir o calculo, os
+  relatorios financeiros dos grupos marcados sao impressos: JS grava a URL
+  em sessionStorage, recarrega e abre `/fluxo-caixa/imprimir` num iframe
+  oculto que dispara `contentWindow.print()` (evita bloqueio de popup).
+  Marcando SO impressao (sem atualizar), imprime direto sem calcular.
+  Rota `fluxo-caixa/imprimir` (GET grupos=csv+data_ini+data_fim) renderiza
+  `views/fluxo_caixa_impressao.php` (pagina propria, link style.css,
+  layout replica o bloco do Relatorio Financeiro — view travada nao
+  alterada; auto window.print() apenas em janela top, com botao Imprimir).
+  `fcs_relatorio_impressao()` monta um relatorio por (base,empresa) dos
+  centros de cada grupo via `relatorio_financeiro_dados()` e inclui a
+  lista de centros do grupo sob o titulo;
+  `fcs_alvos_grupo()`/`fcs_opcoes_relatorio()` compartilhados com o
+  calculo de saldo.
+  `fcs_saldo_grupo()` roda `relatorio_financeiro_dados()` por
+  (base, empresa) dos centros do grupo (CodC = Empresa3+Filial2+Centro4;
+  `fcs_codcs_base()` decide dbMGA/dbConv — CVC/CVJ/CVP existem NAS DUAS e
+  somam nos dois lados) com filtros fixos: apenas_periodo, secoes
+  receitas+despesas+outros, resumo_agente. SaldoGrupo = soma de `per` das
+  secoes receitas+despesas (a linha SALDO do relatorio); UltimaAtualizacao
+  = GETDATE() da gravacao. `set_time_limit(600)` — a proc leva ~7s/centro.
+- `fcs_listar()`, `fcs_centros_por_grupo()` (tooltip), `fcs_codcs_base()`,
+  `fcs_saldo_grupo()`, `fcs_atualizar_saldos()` (UPSERT via SELECT
+  EXISTS + UPDATE/INSERT).
+- Valor Avulso (2026-10-15, 3 confirmacoes p/ telas travadas): tabela
+  `msoft.GrupoCentro_Avulso` (`Avulso_Id` int IDENTITY PK + `FCGrupo_Id`
+  FK->FluxoCaixa_Grupo cascade + `Avulso_Descricao` char(60) NOT NULL —
+  nome do item, pedido na inclusao; VARIOS por grupo + `Avulso_Valor`
+  numeric(14,2) NULL — valor PERSISTIDO, gravado no submit do Atualizar
+  por `fcs_salvar_avulsos()`; digitado prevalece, senao usa o gravado;
+  avulso sem nenhum dos dois faz `fcs_saldo_grupo()` falhar o grupo).
+  Script: `scripts/migrar_grupo_centro_avulso.php` (rodar no NexoGI ao
+  subir; idempotente — adiciona as colunas em tabela ja existente).
+  `fc_avulso_rotulo()` = nome ou "Valor Avulso #id" (fallback).
+  O valor e SOMADO ao SaldoGrupo. Em Grupos de Centros, botao "Incluir
+  Valor Avulso" no painel de centros (acao `incluir_avulso`); itens
+  aparecem na lista como "Valor Avulso #id" (`fc_avulsos_do_grupo`/
+  `fc_incluir_avulso`/`fc_excluir_avulso`, remocao com `avulso_id`).
+  Na listagem `/fluxo-caixa`: linha do grupo com avulso sem valor fica
+  VERMELHA (`.fcs-pend`) ate todos os valores gravados; inputs vem
+  preenchidos com o valor salvo; coluna "Avulso" com botao `Avulso (N)`
+  que abre `.fcs-av-row` com input por avulso (`avulso[grupo][avulso_id]`,
+  normalizado por `fcs_valor` — aceita "1.234,56" e "1234.56").
+  Na impressao, `av=aid:valor,...` na URL prevalece sobre o gravado;
+  itens constam na linha de centros e um resumo no fim do bloco do grupo
+  mostra Total dos relatorios + cada avulso + Saldo do Grupo.
+- Ordenacao (2026-10-15): tabela `msoft.FluxoCaixa_GrupoOrdem`
+  (FCGrupo_Id PK/FK cascade, Ordem int, semeada alfabetica em passos de
+  10). Script: `scripts/migrar_grupo_ordem.php`. Reordenacao por
+  ARRASTAR E SOLTAR (2026-10-15): grip `.fcs-grip` na 1a coluna habilita
+  `draggable` na `tr[data-gid]`; no drop o JS move a linha (+ sua
+  `.fcs-av-row`) no DOM e POSTa `acao=reordenar` + `ordem[]` com todos
+  os ids na nova sequencia — `fcs_reordenar()` renumera em passos de
+  10 e grupos ausentes na lista vao para o fim (nunca se perde grupo).
+  `fcs_mover()`/`acao=mover` continuam existindo (fallback). Grupo
+  novo cai no fim. A ordem vale para listagem E impressao.
+- Saldo via relatorio (2026-10-15): `fcs_saldo_relatorio($dados)` le a
+  linha SALDO de um retorno de `relatorio_financeiro_dados()` (mesma
+  formula da view travada: Receitas+Despesas da coluna Periodo) —
+  usada pelo calculo do grupo e pela impressao (`$rel['saldo']`,
+  sempre impresso como "Saldo do Grupo" no fim do bloco). A divergencia
+  reportada em Lavras era de PERIODO/comparacao, nao de formula:
+  09/2026 calculado −1.952.870,99 (0107: −1.200.606,71 + 0116:
+  −752.264,28), gravado −1.218.975,67 era de outro periodo.
+
+## Engenharia > Previsoes > Medicoes (2026-10-15)
+- Rota `medicoes`, permissao propria; `app/medicoes.php` +
+  `views/medicoes.php`. Submenu novo "Previsoes" em MODULES dentro de
+  Engenharia (1a tela do grupo).
+- Tabelas (script `scripts/migrar_previsao_medicoes.php`, idempotente —
+  rodar no NexoGI ao subir):
+  `msoft.PrevisaoMedicaoCentro` (PMedC_Id identity PK, Centro_CodC
+  char(9) UNIQUE, CriadoEm) e `msoft.PrevisaoMedicao` (PMed_Id PK,
+  PMedC_Id FK cascade, Med_Descricao varchar(120), Med_Valor
+  numeric(14,2), Med_EmissaoNF date NULL — opcional, Med_Previsao date
+  NOT NULL, CriadoEm).
+- Tela: datalist inclui centro na previsao (centros = `mp_centros()`,
+  so ativos; ja incluidos saem do combo); lista de centros com
+  QtdeMedicoes + TotalLiquido (SUM) ao lado; clique na linha abre o
+  painel de medicoes do centro (`?centro=<PMedC_Id>`) com form
+  (descricao, valor, emissao opcional, previsao obrigatoria) e tabela
+  com linha de Total. Remover centro exclui as medicoes em cascade.
+- `med_valor()` aceita "1.234,56"/"1234.56"/negativo; `med_data()`
+  valida YYYY-MM-DD; `med_codc()` extrai os 9 chars iniciais.
+
+## Financeiro > Contas a Pagar > Relatorio de Contas a Pagar (2026-10-15)
+- Rota `contas-pagar`, permissao propria; `app/contas_pagar.php` +
+  `views/contas_pagar.php`. Subgrupo novo "Contas a Pagar" em MODULES.
+- Replica o relatorio do Informakon (trace `traces/Rel_contasapagarEdeEP.trc`,
+  PDF `Relatorios/RelContasAPagarEDeEP.pdf`): query direta sobre
+  Titulos_a_Pagar + Documento_de_Entrada + Credor + Centro_de_Custo +
+  Nucleo_de_Negocio + AgenteFinanceiro na base ERP — conexao DIRETA na base
+  via `banco_da_base($base)` ('MGA'|'CONV' -> DB_ERP_*), tabelas SEM prefixo
+  (convencao dos demais relatorios).
+- Bloco do periodo = OR das datas marcadas (Vencimento=DataVencimentoFluxo,
+  Data Agenda=DataAgendaFin, Data autorizacao=Instrucao_Data), cada ramo com
+  sua condicao de situacao (A, ou L paga depois de hoje com doc>emissao);
+  "Atrasadas" (vencFluxo < ini) e "Pendente" (Pag_Pendente='S') sao ramos
+  extras do mesmo OR. Exclui titulos com pagamento ja conciliado
+  (NOT EXISTS MovFin_Conciliado='C').
+- Valor = Valor + Encargos + Multa + Acrescimos - Descontos - DescAdiantamento
+  (coluna "Valor" do PDF = valor liquido; "Principal" = TitaPag_Valor).
+- Parcela impressa = Par + ('/'+SPar se houver) + '/' + nParc (nParc =
+  count de titulos do mesmo Ent_Numero). PDF corta em ~8 chars ("001/002/").
+- Atraso = DATEDIFF(TitaPag_DataVencimentoOrig, hoje); exibido so quando >0.
+- Agrupamentos (const CP_AGRUP): agenda/vencimento = so ORDENAM (1 grupo
+  sem rotulo — subtotal por dia sai so dos checkboxes Totaliza, baldes
+  cp_balde dia<quinzena<mes); demais quebram em grupos com "Total <grupo>".
+  credor_val ordena grupos pelo total (TotCredor do trace, calculado em PHP).
+- ATENCAO: `foreach ($grupos as &$g)` em cp_agrupar precisa do `unset($g)`
+  depois — sem ele o foreach seguinte corrompe o ultimo grupo (bug
+  encontrado: linhas duplicadas na soma).
+- Combos: credores limitados a quem tem Titulos_a_Pagar (EXISTS) — ainda
+  ~20k na MGA; especies de Especie_de_Titulos_Apagar (coluna EspTit_Titulo,
+  NAO EspTit_Descricao); Especie_de_Titulo/EntDocTipo NAO existem como tabelas.
+- Validado vs PDF: CCJ + centro CCJ010001 + 01/10/2026..31/12/2050 + EP+ED =
+  547 linhas, totais identicos nas 7 colunas (liq 11.345.474,30; principal
+  11.756.979,97; descontos 411.009,90; D.Adiantam 495,77). Sem filtro de
+  centro a CCJ da 12.555.977,17 — o PDF foi gerado com o centro filtrado.
+- Filtros testados: EP/ED apenas/inclusao/exclusao, especie, tipo doc,
+  credor, classificacao (Ent_Natureza LIKE), autorizadas/nao, atrasadas,
+  pendente, nucleo/grupo de nucleo. Opcao "Inclui Corretagens" existe no
+  original e esta desabilitada (nao implementada).
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.

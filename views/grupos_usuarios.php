@@ -72,16 +72,40 @@
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($telasDisp as $t):
-                $p = $permGrupo[$t['slug']] ?? []; ?>
+            <?php foreach ($telasGrp as $g): ?>
+            <tr class="perm-grupo">
+                <td colspan="<?= count(PERM_ACOES) + 1 ?>">
+                    <label class="perm-grupo-label">
+                        <input type="checkbox" title="Marcar/desmarcar todas as permissoes do menu"
+                               onclick="permGrupo(this)">
+                        <?= e($g['grupo']) ?>
+                    </label>
+                </td>
+            </tr>
+                <?php foreach ($g['subs'] as $s): ?>
+                    <?php if ($s['nome'] !== null): ?>
+            <tr class="perm-sub">
+                <td colspan="<?= count(PERM_ACOES) + 1 ?>">
+                    <label class="perm-sub-label">
+                        <input type="checkbox" title="Marcar/desmarcar todas as permissoes do submenu"
+                               onclick="permSub(this)">
+                        <?= e($s['nome']) ?>
+                    </label>
+                </td>
+            </tr>
+                    <?php endif; ?>
+                    <?php foreach ($s['telas'] as $t):
+                        $p = $permGrupo[$t['slug']] ?? []; ?>
             <tr>
-                <td><?= e($t['nome']) ?></td>
+                <td<?= $s['nome'] !== null ? ' class="perm-tela-sub"' : '' ?>><?= e($t['nome']) ?></td>
                 <?php foreach (PERM_ACOES as $a): ?>
                 <td class="td-check"><input type="checkbox"
                        name="perm[<?= e($t['slug']) ?>][<?= $a ?>]" value="1"
                        <?= !empty($p[$a]) ? 'checked' : '' ?>></td>
                 <?php endforeach; ?>
             </tr>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
@@ -127,12 +151,33 @@
 </div>
 <script>
 // checkbox no cabecalho da coluna marca/desmarca toda a coluna daquela tabela
+// (linhas de cabecalho de menu/submenu tem colspan e sao puladas)
 function permColuna(headChk) {
     var col = headChk.closest('th').cellIndex;
     headChk.closest('table').querySelectorAll('tbody tr').forEach(function (tr) {
-        var chk = tr.cells[col].querySelector('input[type=checkbox]');
+        var td = tr.cells[col];
+        var chk = td ? td.querySelector('input[type=checkbox]') : null;
         if (chk) chk.checked = headChk.checked;
     });
+}
+// checkbox do menu marca/desmarca todas as permissoes dele (ate o proximo menu)
+function permGrupo(headChk) {
+    var tr = headChk.closest('tr');
+    while ((tr = tr.nextElementSibling) && !tr.classList.contains('perm-grupo')) {
+        tr.querySelectorAll('input[type=checkbox]').forEach(function (chk) {
+            chk.checked = headChk.checked;
+        });
+    }
+}
+// checkbox do submenu marca/desmarca as permissoes dele (ate o proximo menu/submenu)
+function permSub(headChk) {
+    var tr = headChk.closest('tr');
+    while ((tr = tr.nextElementSibling) &&
+            !tr.classList.contains('perm-grupo') && !tr.classList.contains('perm-sub')) {
+        tr.querySelectorAll('input[type=checkbox]').forEach(function (chk) {
+            chk.checked = headChk.checked;
+        });
+    }
 }
 (function () {
     var menu = document.getElementById('ugMenu');

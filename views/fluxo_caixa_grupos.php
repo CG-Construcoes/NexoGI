@@ -88,7 +88,23 @@
     </div>
 </form>
 
-<?php if ($centrosDoGrupo):
+<?php if ($podeAlterar): ?>
+<form method="post" action="<?= url('fluxo-caixa-grupos') ?>" class="filtros" style="margin-bottom:16px">
+    <?= csrf_campo() ?>
+    <input type="hidden" name="acao" value="incluir_avulso">
+    <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
+    <div class="campo grow">
+        <label for="fc-av-nome">Valor Avulso <small class="fc-av-hint">(o valor e preenchido na hora do calculo)</small></label>
+        <input type="text" id="fc-av-nome" name="descricao" maxlength="60" required
+               placeholder="Nome do valor avulso">
+    </div>
+    <div class="campo acoes">
+        <button type="submit" class="btn btn-secundario">Incluir Valor Avulso</button>
+    </div>
+</form>
+<?php endif; ?>
+
+<?php if ($centrosDoGrupo || $avulsosDoGrupo):
     $lista = [];
     foreach ($centrosDoGrupo as $codc) {
         $lista[$codc] = $centros[$codc] ?? $codc;
@@ -108,6 +124,21 @@
                     <input type="hidden" name="acao" value="excluir_centro">
                     <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
                     <input type="hidden" name="centro" value="<?= e($codc) ?>">
+                    <button type="submit" class="btn btn-sm btn-danger">Remover</button>
+                </form>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        <?php foreach ($avulsosDoGrupo as $av): ?>
+        <tr class="fc-avulso">
+            <td><em><?= e(fc_avulso_rotulo($av)) ?></em>
+                <small class="fc-av-hint">— valor informado na hora do calculo</small></td>
+            <td class="acoes">
+                <form method="post" action="<?= url('fluxo-caixa-grupos') ?>" style="display:inline">
+                    <?= csrf_campo() ?>
+                    <input type="hidden" name="acao" value="excluir_avulso">
+                    <input type="hidden" name="id" value="<?= (int) $grupoCentros['FCGrupo_Id'] ?>">
+                    <input type="hidden" name="avulso_id" value="<?= (int) $av['Avulso_Id'] ?>">
                     <button type="submit" class="btn btn-sm btn-danger">Remover</button>
                 </form>
             </td>

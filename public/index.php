@@ -22,7 +22,11 @@ $ROTAS_TELA = [
     'posicao-contas' => 'posicao-contas',
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
+    'fluxo-caixa' => 'fluxo-caixa',
+    'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
+    'medicoes' => 'medicoes',
+    'contas-pagar' => 'contas-pagar',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -158,7 +162,7 @@ switch ($rota) {
         render('grupos_usuarios', ['titulo' => 'Grupos de Usuarios',
             'active' => 'grupos-usuarios', 'aviso' => consumir_aviso(),
             'grupos' => ug_listar(), 'edicao' => $edicao, 'grupoSel' => $grupoSel,
-            'telasDisp' => telas_disponiveis(),
+            'telasGrp' => telas_disponiveis_agrupadas(),
             'permGrupo' => $grupoSel ? ug_telas((int) $grupoSel['UsGrupo_Id']) : [],
             'membros' => $grupoSel ? ug_membros((int) $grupoSel['UsGrupo_Id']) : []]);
         break;
@@ -333,6 +337,58 @@ switch ($rota) {
             'podeExcluir' => usuario_pode('matriz-prioridades', 'excluir')]);
         break;
 
+    case 'medicoes':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('medicoes');
+            }
+            $acao = (string) ($_POST['acao'] ?? '');
+            $id = (int) ($_POST['id'] ?? 0);
+            $destino = 'medicoes';
+            try {
+                if ($acao === 'incluir_centro') {
+                    exigir_tela('medicoes', 'inserir');
+                    $novo = med_incluir_centro((string) ($_POST['centro'] ?? ''));
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Centro de custo incluido na previsao.']);
+                    $destino = 'medicoes?centro=' . $novo;
+                } elseif ($acao === 'excluir_centro') {
+                    exigir_tela('medicoes', 'excluir');
+                    med_excluir_centro($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Centro de custo removido da previsao.']);
+                } elseif ($acao === 'incluir_medicao') {
+                    exigir_tela('medicoes', 'inserir');
+                    med_incluir_medicao($id, $_POST);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao incluida.']);
+                    $destino = 'medicoes?centro=' . $id;
+                } elseif ($acao === 'excluir_medicao') {
+                    exigir_tela('medicoes', 'excluir');
+                    med_excluir_medicao($id, (int) ($_POST['medicao_id'] ?? 0));
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao excluida.']);
+                    $destino = 'medicoes?centro=' . $id;
+                } else {
+                    definir_aviso(['tipo' => 'erro', 'html' => 'Acao invalida.']);
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+                if ($id) { $destino = 'medicoes?centro=' . $id; }
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $centroAberto = isset($_GET['centro']) ? med_get_centro((int) $_GET['centro']) : null;
+        render('medicoes', ['titulo' => 'Previsao de Medicoes',
+            'active' => 'medicoes', 'aviso' => consumir_aviso(),
+            'centros' => med_listar(), 'centrosDisp' => mp_centros(),
+            'centroAberto' => $centroAberto,
+            'medicoes' => $centroAberto
+                ? med_medicoes((int) $centroAberto['PMedC_Id']) : [],
+            'podeInserir' => usuario_pode('medicoes', 'inserir'),
+            'podeExcluir' => usuario_pode('medicoes', 'excluir')]);
+        break;
+
     case 'fluxo-caixa-grupos':
         exigir_login();
         if ($metodo === 'POST') {
@@ -348,6 +404,16 @@ switch ($rota) {
                     exigir_tela('fluxo-caixa-grupos', 'excluir');
                     fc_excluir($id);
                     definir_aviso(['tipo' => 'ok', 'html' => 'Grupo excluido.']);
+                } elseif ($acao === 'incluir_avulso' || $acao === 'excluir_avulso') {
+                    exigir_tela('fluxo-caixa-grupos', 'alterar');
+                    if ($acao === 'incluir_avulso') {
+                        fc_incluir_avulso($id, (string) ($_POST['descricao'] ?? ''));
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Valor Avulso incluido no grupo.']);
+                    } else {
+                        fc_excluir_avulso($id, (int) ($_POST['avulso_id'] ?? 0));
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Valor Avulso removido do grupo.']);
+                    }
+                    $destino = 'fluxo-caixa-grupos?centros=' . $id;
                 } elseif ($acao === 'incluir_centro' || $acao === 'excluir_centro') {
                     exigir_tela('fluxo-caixa-grupos', 'alterar');
                     if ($acao === 'incluir_centro') {
@@ -382,7 +448,8 @@ switch ($rota) {
                 }
             } catch (InvalidArgumentException $e) {
                 definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
-                if ($id && in_array($acao, ['incluir_centro', 'excluir_centro'], true)) {
+                if ($id && in_array($acao, ['incluir_centro', 'excluir_centro',
+                        'incluir_avulso', 'excluir_avulso'], true)) {
                     $destino = 'fluxo-caixa-grupos?centros=' . $id;
                 }
             } catch (Throwable $e) {
@@ -401,9 +468,162 @@ switch ($rota) {
             'edicao' => $edicao, 'grupoCentros' => $grupoCentros,
             'centrosDoGrupo' => $grupoCentros
                 ? fc_centros_do_grupo((int) $grupoCentros['FCGrupo_Id']) : [],
+            'avulsosDoGrupo' => $grupoCentros
+                ? fc_avulsos_do_grupo((int) $grupoCentros['FCGrupo_Id']) : [],
             'podeInserir' => usuario_pode('fluxo-caixa-grupos', 'inserir'),
             'podeAlterar' => usuario_pode('fluxo-caixa-grupos', 'alterar'),
             'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
+        break;
+
+    case 'fluxo-caixa':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('fluxo-caixa');
+            }
+            // Setas de ordenacao (acao=mover) — nao precisam de periodo.
+            if (($_POST['acao'] ?? '') === 'mover') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_mover((int) ($_POST['id'] ?? 0), (string) ($_POST['dir'] ?? ''));
+                if (!empty($_POST['ajax'])) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['ok' => true]);
+                    exit;
+                }
+                redirecionar('fluxo-caixa');
+            }
+            // Arrastar e soltar: recebe a ordem completa das linhas.
+            if (($_POST['acao'] ?? '') === 'reordenar') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_reordenar((array) ($_POST['ordem'] ?? []));
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true]);
+                exit;
+            }
+            $ini = trim((string) ($_POST['data_ini'] ?? ''));
+            $fim = trim((string) ($_POST['data_fim'] ?? ''));
+            // Chamada AJAX da barra de progresso: um grupo por requisicao.
+            if (!empty($_POST['ajax'])) {
+                header('Content-Type: application/json; charset=utf-8');
+                $id = (int) ($_POST['grupo'] ?? 0);
+                if (!$id || $ini === '' || $fim === '' || $ini > $fim) {
+                    echo json_encode(['ok' => false, 'erro' => 'Parametros invalidos.']);
+                    exit;
+                }
+                exigir_tela('fluxo-caixa', 'alterar');
+                set_time_limit(600); // a proc roda 2x por centro do grupo
+                $avMap = [];
+                foreach ((array) ($_POST['avulso'][$id] ?? []) as $aid => $v) {
+                    if (trim((string) $v) !== '') {
+                        $avMap[(int) $aid] = fcs_valor($v);
+                    }
+                }
+                fcs_salvar_avulsos($avMap);
+                $r = fcs_atualizar_saldos([$id], $ini, $fim, [$id => $avMap]);
+                echo json_encode(['ok' => $r['ok'] > 0, 'erro' => $r['erros'][0] ?? null]);
+                exit;
+            }
+            $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
+            $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
+            if (!$ids && !$impIds) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
+            } elseif ($ini === '' || $fim === '') {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
+            } elseif ($ini > $fim) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Data inicial maior que a final.']);
+            } else {
+                // Valores avulsos digitados: $_POST['avulso'][grupo][avulso_id]
+                $avPost = [];
+                foreach ((array) ($_POST['avulso'] ?? []) as $gid => $vals) {
+                    foreach ((array) $vals as $aid => $v) {
+                        if (trim((string) $v) !== '') {
+                            $avPost[(int) $gid][(int) $aid] = fcs_valor($v);
+                        }
+                    }
+                }
+                $avFlat = [];
+                foreach ($avPost as $vals) {
+                    $avFlat += $vals;
+                }
+                fcs_salvar_avulsos($avFlat);
+                $destino = 'fluxo-caixa';
+                if ($ids) {
+                    exigir_tela('fluxo-caixa', 'alterar');
+                    set_time_limit(600); // a proc roda 2x por centro do grupo
+                    $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
+                    $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
+                                         : $r['ok'] . ' grupos atualizados.';
+                    if ($r['erros']) {
+                        $msg .= ' Falhas: ' . e(implode(' | ', $r['erros']));
+                    }
+                    definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
+                }
+                if ($impIds) {
+                    $avParam = '';
+                    foreach ($avPost as $gid => $vals) {
+                        if (in_array($gid, $impIds, true)) {
+                            foreach ($vals as $aid => $val) {
+                                $avParam .= ($avParam === '' ? '' : ',') . $aid . ':' . $val;
+                            }
+                        }
+                    }
+                    $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
+                        . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim)
+                        . ($avParam !== '' ? '&av=' . urlencode($avParam) : '');
+                }
+                redirecionar($destino);
+            }
+            redirecionar('fluxo-caixa');
+        }
+        render('fluxo_caixa', ['titulo' => 'Fluxo de Caixa',
+            'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
+            'grupos' => fcs_listar(),
+            'centrosPorGrupo' => fcs_centros_por_grupo(),
+            'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
+            'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
+        break;
+
+    case 'fluxo-caixa/imprimir':
+        exigir_login();
+        $idsImp = array_values(array_filter(array_map('intval',
+            explode(',', (string) ($_GET['grupos'] ?? '')))));
+        $iniImp = trim((string) ($_GET['data_ini'] ?? ''));
+        $fimImp = trim((string) ($_GET['data_fim'] ?? ''));
+        $relatorios = [];
+        $erro = '';
+        if (!$idsImp || $iniImp === '' || $fimImp === '' || $iniImp > $fimImp) {
+            $erro = 'Parametros invalidos.';
+        } else {
+            set_time_limit(600);
+            try {
+                // av=Avulso_Id:valor,Avulso_Id:valor -> FCGrupo_Id => [Avulso_Id => valor]
+                $avPar = [];
+                foreach (explode(',', (string) ($_GET['av'] ?? '')) as $par) {
+                    if (preg_match('/^(\d+):(-?[\d.,]+)$/', trim($par), $m)) {
+                        $avPar[(int) $m[1]] = fcs_valor($m[2]);
+                    }
+                }
+                fcs_salvar_avulsos($avPar);
+                $avPorGrupo = [];
+                if ($avPar) {
+                    $gidDoAvulso = [];
+                    foreach (query('SELECT Avulso_Id, FCGrupo_Id
+                                    FROM msoft.GrupoCentro_Avulso') as $r) {
+                        $gidDoAvulso[(int) $r['Avulso_Id']] = (int) $r['FCGrupo_Id'];
+                    }
+                    foreach ($avPar as $aid => $val) {
+                        if (isset($gidDoAvulso[$aid])) {
+                            $avPorGrupo[$gidDoAvulso[$aid]][$aid] = $val;
+                        }
+                    }
+                }
+                $relatorios = fcs_relatorio_impressao($idsImp, $iniImp, $fimImp, $avPorGrupo);
+            } catch (Throwable $t) {
+                $erro = 'Erro ao gerar os relatorios: ' . $t->getMessage();
+            }
+        }
+        require ROOT . '/views/fluxo_caixa_impressao.php';
         break;
 
     case 'fluxo-caixa-grupos/relatorio':
@@ -470,6 +690,82 @@ switch ($rota) {
             'active' => 'relatorio-financeiro', 'gerado' => $gerado, 'opcoes' => $opcoes,
             'centros' => $centros ?? [], 'nucleos' => $nucleos ?? [],
             'empresas' => $empresas ?? [], 'dados' => $dados, 'erro' => $erro]);
+        break;
+
+    case 'contas-pagar':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
+        $gerado = isset($_GET['gerar']);
+        set_time_limit(600);
+        $o = [
+            'empresa'      => trim((string) ($_GET['empresa'] ?? '')),
+            'ini'          => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_ini'] ?? ''))
+                              ? $_GET['data_ini'] : '',
+            'fim'          => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET['data_fim'] ?? ''))
+                              ? $_GET['data_fim'] : '',
+            'ck_venc'      => isset($_GET['ck_venc']) || !$gerado,
+            'ck_agenda'    => isset($_GET['ck_agenda']) || !$gerado,
+            'ck_autor'     => isset($_GET['ck_autor']),
+            'atrasadas'    => isset($_GET['atrasadas']),
+            'pendente'     => isset($_GET['pendente']),
+            'inc_ep'       => isset($_GET['inc_ep']) || !$gerado,
+            'inc_ed'       => isset($_GET['inc_ed']) || !$gerado,
+            'apenas_ep'    => ($_GET['apenas_ep_ed'] ?? '') === 'EP',
+            'apenas_ed'    => ($_GET['apenas_ep_ed'] ?? '') === 'ED',
+            'centro'       => ($_GET['centro_op'] ?? 'todos') === 'apenas'
+                              ? strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '',
+                                  (string) ($_GET['centro'] ?? '')), 0, 9)) : '',
+            'classificacao' => trim((string) ($_GET['classificacao'] ?? '')),
+            'doc_op'       => (string) ($_GET['doc_op'] ?? 'todos'),
+            'doc_sel'      => array_values(array_filter(
+                array_map('trim', (array) ($_GET['doc_sel'] ?? [])))),
+            'esp_op'       => (string) ($_GET['esp_op'] ?? 'todos'),
+            'esp_sel'      => array_values(array_filter(
+                array_map('trim', (array) ($_GET['esp_sel'] ?? [])))),
+            'credor'       => strtoupper(substr(trim(explode(' - ',
+                                  (string) ($_GET['credor'] ?? ''))[0]), 0, 6)),
+            'nucleo'       => trim((string) ($_GET['nucleo'] ?? '')),
+            'grupo_nucleo' => trim((string) ($_GET['grupo_nucleo'] ?? '')),
+            'excl_aclass'  => isset($_GET['excl_aclass']),
+            'so_autor'     => isset($_GET['so_autor']),
+            'so_nautor'    => isset($_GET['so_nautor']),
+            'exibe_obs'    => isset($_GET['exibe_obs']),
+            'suprime'      => isset($_GET['suprime']),
+            'tot_dia'      => isset($_GET['tot_dia']),
+            'tot_quinzena' => isset($_GET['tot_quinzena']),
+            'tot_mes'      => isset($_GET['tot_mes']),
+            'agrupar'      => array_key_exists((string) ($_GET['agrupar'] ?? 'agenda'), CP_AGRUP)
+                              ? (string) $_GET['agrupar'] : 'agenda',
+        ];
+        $grupos = [];
+        $erro = '';
+        if ($gerado) {
+            if ($o['ini'] === '' || $o['fim'] === '' || $o['ini'] > $o['fim']) {
+                $erro = 'Informe o período (De / a) corretamente.';
+            } else {
+                try {
+                    $r = cp_dados($base, $o);
+                    $erro = $r['erro'];
+                    $grupos = $r['erro'] === '' ? cp_agrupar($r['linhas'], $o['agrupar']) : [];
+                } catch (Throwable $t) {
+                    $erro = 'Erro ao gerar o relatorio: ' . $t->getMessage();
+                }
+            }
+            $empNome = '';
+            foreach (cp_empresas($base) as $emp) {
+                if (trim($emp['Empresa_Cod']) === $o['empresa']) {
+                    $empNome = trim((string) $emp['Empresa_Nome']);
+                }
+            }
+            $o['empresa_nome'] = $empNome;
+        }
+        render('contas_pagar', ['titulo' => 'Relatorio de Contas a Pagar',
+            'active' => 'contas-pagar', 'base' => $base, 'gerado' => $gerado,
+            'o' => $o, 'grupos' => $grupos, 'erro' => $erro,
+            'empresas' => cp_empresas($base), 'centros' => mp_centros(),
+            'credores' => cp_credores($base), 'especies' => cp_especies($base),
+            'doctipos' => cp_doctipos($base), 'nucleos' => cp_nucleos($base),
+            'gruposNucleo' => cp_grupos_nucleo($base)]);
         break;
 
     case 'posicao-contas':

@@ -183,6 +183,39 @@ function fc_excluir_centro(int $id, string $centro): void
             [$id, strtoupper(trim($centro))]);
 }
 
+/** Itens "Valor Avulso" do grupo (valor digitado na hora do calculo). */
+function fc_avulsos_do_grupo(int $id): array
+{
+    return query("SELECT Avulso_Id, FCGrupo_Id,
+                         CONVERT(varchar(4000), Avulso_Descricao) Avulso_Descricao,
+                         Avulso_Valor
+                  FROM msoft.GrupoCentro_Avulso
+                  WHERE FCGrupo_Id = ? ORDER BY Avulso_Id", [$id]);
+}
+
+/** Rotulo de exibicao de um avulso (nome ou "Valor Avulso #id"). */
+function fc_avulso_rotulo(array $av): string
+{
+    $nome = trim((string) ($av['Avulso_Descricao'] ?? ''));
+    return $nome !== '' ? $nome : 'Valor Avulso #' . (int) $av['Avulso_Id'];
+}
+
+function fc_incluir_avulso(int $id, string $descricao): void
+{
+    $desc = trim($descricao);
+    if ($desc === '') {
+        throw new InvalidArgumentException('Informe o nome do valor avulso.');
+    }
+    execute('INSERT INTO msoft.GrupoCentro_Avulso (FCGrupo_Id, Avulso_Descricao)
+             VALUES (?, ?)', [$id, mb_substr($desc, 0, 60)]);
+}
+
+function fc_excluir_avulso(int $id, int $avulsoId): void
+{
+    execute('DELETE FROM msoft.GrupoCentro_Avulso WHERE FCGrupo_Id = ? AND Avulso_Id = ?',
+            [$id, $avulsoId]);
+}
+
 /**
  * Dados do relatorio "Agrupamento de centros de custo":
  * lista de grupos, cada um com ['centros' => [rotulos ordenados]].
