@@ -529,10 +529,18 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   centro/usuario/numero — ordenacao em PHP (`ap_ordernar`). "Agrupar por"
   Tipo de Pagamento (TitaPag_PagDocTipo) / Modalidade (pge_Modalidade)
   vira chave de grupo prefixada na ordenacao, com subtotal por grupo.
-- Grid: Vencimento|Credor|Nota Fiscal|Parcela|Valor|a Pagar|Agenda|Esp|
-  Aut(AP)|Ad(A)|Centro|Nucleo|Banco(CodigoBacen)|Agente F.|Ficha|Usuario.
-  Linha vencida (sit 'A' e VencimentoFluxo < hoje) em vermelho; clique
-  abre linha de detalhe (título, valores, instrucao, banco do credor, obs).
+- Grid = as 42 colunas do Informakon (planilha `agenda de pagamentos.xlsx`):
+  Vencimento|Credor|Documento|Par|Valor(liquido)|Agenda|Esp|NE
+  (TitaPag_NumeroNegociacoes)|Pagto Tipo Doc|i(CountAutorizacoes)|
+  Nº Aut(Instrucao_Cod->badge AP)|Ad|PreDatado|Obs(TitaPag_Obs)|Obs Doc
+  (Ent_Observacao)|Ficha|Empresa|Nome Empresa|Cod Centro(Centro_CodC)|
+  Centro|Natureza|Atraso|VenctoOrig|#Neg|Filial|#(repete)|EntTipo|
+  Aut.Pagto(Usuario_Instrucao)|Data Aut.Pagto|Aut.Pedido|Aut.Doc
+  (DocDig_Numero)|Id.Boleto(DadosPg_NumeroIdentificacao)|ContaPrincipal|
+  Tipo Doc|Imovel|CartaoCredito|Data_PK|Ent_Numero_PK|Audit_Insert_*/
+  Audit_* (4). Linha vencida em vermelho; clique abre detalhe (título,
+  valores, instrucao, banco credor). Colunas i/Nº Aut: confirmadas por
+  dados reais (linhas AP tem CountAutorizacoes>0).
 - Barra de status (rodape fixo): Pendentes/PreDatados/Autorizadas(AP)/
   Total(AP+PD+A)/Vencidas/Total Geral — soma de TitaPag_ValorLiquido.
   No periodo futuro tipico tudo 0, igual ao Informakon (screenshot).

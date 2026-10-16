@@ -207,21 +207,29 @@ $ordens = [
 <table class="tabela cp-tab ap-tab">
     <thead>
         <tr>
-            <th>Vencimento</th><th>Credor</th><th>Nota Fiscal</th><th>Parcela</th>
-            <th class="col-valor">Valor</th><th class="col-valor">a Pagar</th>
-            <th>Agenda</th><th>Esp</th><th>Aut</th><th>Ad</th>
-            <th>Centro de Negócio</th><th>Núcleo</th><th>Banco</th>
-            <th>Agente Financ.</th><th>Ficha</th><th>Usuário</th>
+            <th>Vencimento</th><th>Credor</th><th>Documento</th><th>Par</th>
+            <th class="col-valor">Valor</th><th>Agenda</th><th>Esp</th><th>NE</th>
+            <th>Pagto Tipo Doc</th><th>i</th><th>Nº Aut</th><th>Ad</th>
+            <th>PréDatado</th><th>Observação</th><th>Observação do Documento</th>
+            <th>Nº Ficha</th><th>Empresa</th><th>Nome da Empresa</th>
+            <th>Cód Centro</th><th>Centro de Negócio</th><th>Natureza</th>
+            <th>Atraso</th><th>VenctoOrig</th><th>#Neg</th><th>Filial</th><th>#</th>
+            <th>EntTipo</th><th>Aut. Pagto</th><th>Data Aut.Pagto</th>
+            <th>Aut. Pedido</th><th>Aut. Doc.</th><th>Nº Id. Boleto</th>
+            <th>Conta Principal</th><th>Tipo Doc</th><th>Imóvel (Taxas Condominiais)</th>
+            <th>TitaPag_CartaoCredito</th><th>TitaPag_Data_PK</th><th>Ent_Numero_PK</th>
+            <th>Usuário Criação Doc.</th><th>Data Criação Doc.</th>
+            <th>Usuário Ult. Alteração Doc.</th><th>Data Ult. Alteração Doc.</th>
         </tr>
     </thead>
     <tbody>
     <?php
+    $NCOLS = 42;
     $emitirTotal = function ($rot, array $ls, $forte) use ($fmt, $totCampo) { ?>
         <tr class="cp-total<?= $forte ? ' cp-total-grupo' : '' ?>">
             <td colspan="4"><?= e($rot) ?></td>
-            <td class="col-valor"><?= $fmt($totCampo($ls, 'TitaPag_Valor')) ?></td>
             <td class="col-valor"><?= $fmt($totCampo($ls, 'TitaPag_ValorLiquido')) ?></td>
-            <td colspan="10"></td>
+            <td colspan="38"></td>
         </tr>
     <?php };
     $baldeAtual = array_fill_keys($niveis, null);
@@ -247,7 +255,7 @@ $ordens = [
                 $baldeAtual = array_fill_keys($niveis, null);
             }
             if ($gk !== $grpAtual) {
-                ?><tr class="cp-grupo"><td colspan="16"><?= e($grpRot($r)) ?></td></tr><?php
+                ?><tr class="cp-grupo"><td colspan="42"><?= e($grpRot($r)) ?></td></tr><?php
             }
             $grpAtual = $gk;
             $grpLinhas[] = $r;
@@ -270,8 +278,8 @@ $ordens = [
         $vencida = $r['TitaPag_Situacao'] === 'A' && $vencFluxo !== '' && $vencFluxo < $o['ref'];
         $instr = trim((string) $r['Instrucao_Cod']);
         $adi = trim((string) $r['Adi_EmAberto']) === 'S';
-        $usuario = trim((string) ($r['D_Usuario_Instrucao'] ?: $r['Usuario_Instrucao']));
-        if ($usuario === '') { $usuario = trim((string) $r['Audit_UserName']); }
+        $naut = (int) $r['CountAutorizacoes'] ?: (int) $r['Instrucao_Count'];
+        $autPag = trim((string) ($r['Usuario_Instrucao'] ?: $r['D_Usuario_Instrucao']));
     ?>
         <tr class="ap-linha<?= $vencida ? ' ap-vencida' : '' ?>" data-i="<?= $i ?>"
             title="Clique para detalhes do título">
@@ -279,30 +287,62 @@ $ordens = [
             <td class="cp-credor"><?= e(trim((string) $r['Cre_RazSoc'])) ?></td>
             <td><?= e(trim((string) $r['Ent_Documento'])) ?></td>
             <td><?= e(ap_parcela($r)) ?></td>
-            <td class="col-valor"><?= $fmt($r['TitaPag_Valor']) ?></td>
             <td class="col-valor"><?= $fmt($r['TitaPag_ValorLiquido']) ?></td>
             <td><?= e($dbr($r['TitaPag_DataAgendaFin'])) ?></td>
             <td><?= e(trim((string) $r['EspTit_Cod'])) ?></td>
+            <td><?= (int) $r['TitaPag_NumeroNegociacoes'] > 0
+                ? (int) $r['TitaPag_NumeroNegociacoes'] : '' ?></td>
+            <td><?= e(trim((string) $r['TitaPag_PagDocTipo'])) ?></td>
+            <td><?= $naut > 0 ? $naut : '' ?></td>
             <td><?= $instr === 'AP' ? '<span class="ap-badge ap-badge-ap">AP</span>'
                 : ($instr !== '' ? e($instr) : '') ?></td>
             <td><?= $adi ? '<span class="ap-badge ap-badge-ad">A</span>' : '' ?></td>
+            <td><?= trim((string) $r['Pag_PreDatado']) === 'S' ? 'S' : '' ?></td>
+            <td><?= e(trim((string) $r['TitaPag_Obs'])) ?></td>
+            <td><?= e(trim((string) $r['Ent_Observacao'])) ?></td>
+            <td><?= e(trim((string) $r['Ficha_Numero'])) ?></td>
+            <td><?= e(trim((string) $r['Empresa_Cod'])) ?></td>
+            <td><?= e(trim((string) $r['Empresa_Nome'])) ?></td>
+            <td><?= e(trim((string) $r['Centro_CodC'])) ?></td>
             <td><?= e(trim((string) $r['Centro_Nome'])) ?></td>
-            <td><?= e(trim((string) $r['Nucleo_Cod'])) ?></td>
-            <td><?= e(trim((string) $r['CodigoBacen'])) ?></td>
-            <td title="<?= e(trim((string) $r['AgenteFinanceiro_RazaoSocial'])) ?>">
-                <?= e(mb_strimwidth(trim((string) $r['AgenteFinanceiro_RazaoSocial']), 0, 22, '…')) ?></td>
-            <td><?= (int) $r['Ficha_Numero'] > 0 ? (int) $r['Ficha_Numero'] : '' ?></td>
-            <td><?= e($usuario) ?></td>
+            <td><?= e(trim((string) $r['Ent_Natureza'])) ?></td>
+            <td><?= (int) $r['DiasemAtraso'] > 0 ? (int) $r['DiasemAtraso'] : '' ?></td>
+            <td><?= e($dbr($r['TitaPag_DataVencimentoOrig'])) ?></td>
+            <td><?= (int) $r['NumeroNegociacoes'] > 0
+                ? (int) $r['NumeroNegociacoes'] : '' ?></td>
+            <td><?= e(trim((string) $r['Filial_Cod'])) ?></td>
+            <td><?= (int) $r['repete'] > 0 ? (int) $r['repete'] : '' ?></td>
+            <td><?= e(trim((string) $r['Ent_Tipo'])) ?></td>
+            <td><?= e($autPag) ?></td>
+            <td><?= e($dbr($r['Instrucao_DataPagamento'] ?: $r['Instrucao_Data'])) ?></td>
+            <td><?= e(trim((string) $r['Aut_Pedido'])) ?></td>
+            <td><?= e(trim((string) $r['DocDig_Numero'])) ?></td>
+            <td><?= e(trim((string) $r['DadosPg_NumeroIdentificacao'])) ?></td>
+            <td><?= e(trim((string) $r['ContaPrincipal'])) ?></td>
+            <td><?= e(trim((string) $r['EntDocTipo_Cod'])) ?></td>
+            <td><?= e(trim((string) ($r['Imovel'] ?: $r['Imovel_TC']))) ?></td>
+            <td><?= e(trim((string) $r['TitaPag_CartaoCredito'])) ?></td>
+            <td><?= e($dbr($r['TitaPag_Data_PK'])) ?></td>
+            <td><?= e(trim((string) $r['Ent_Numero_PK'])) ?></td>
+            <td><?= e(trim((string) $r['Audit_Insert_UserName'])) ?></td>
+            <td><?= e(substr((string) $r['Audit_Insert_Date'], 0, 10) !== ''
+                ? substr((string) $r['Audit_Insert_Date'], 8, 2) . '/'
+                    . substr((string) $r['Audit_Insert_Date'], 5, 2) . '/'
+                    . substr((string) $r['Audit_Insert_Date'], 0, 4) : '') ?></td>
+            <td><?= e(trim((string) $r['Audit_UserName'])) ?></td>
+            <td><?= e(substr((string) $r['Audit_LastChange'], 0, 10) !== ''
+                ? substr((string) $r['Audit_LastChange'], 8, 2) . '/'
+                    . substr((string) $r['Audit_LastChange'], 5, 2) . '/'
+                    . substr((string) $r['Audit_LastChange'], 0, 4) : '') ?></td>
         </tr>
         <tr class="ap-det" id="ap-det-<?= $i ?>" hidden>
-            <td colspan="16">
+            <td colspan="42">
                 <strong>Título <?= (int) $r['TitaPag_Numero'] ?></strong>
                 · Doc: <?= e(trim((string) $r['TitaPag_Documento'])) ?>
                 · Situação: <?= e(trim((string) $r['TitaPag_Situacao'])) ?>
-                · Empresa: <?= e(trim((string) $r['Empresa_Cod'])) ?>
-                · Ficha: <?= e(trim((string) $r['Ficha_Numero'])) ?>
-                · Venc. orig.: <?= e($dbr($r['TitaPag_DataVencimentoOrig'])) ?>
-                · Atraso: <?= (int) $r['DiasemAtraso'] ?> d
+                · Núcleo: <?= e(trim((string) $r['Nucleo_Cod'])) ?>
+                · Banco: <?= e(trim((string) $r['CodigoBacen'])) ?>
+                    <?= e(trim((string) $r['AgenteFinanceiro_RazaoSocial'])) ?>
                 · Principal: <?= $fmt($r['TitaPag_Valor']) ?>
                 · Acrésc.: <?= $fmt($r['TitaPag_Acrescimos']) ?>
                 · Encargos: <?= $fmt($r['TitaPag_EncargosFin']) ?>
@@ -310,18 +350,10 @@ $ordens = [
                 · Descontos: <?= $fmt($r['TitaPag_Descontos']) ?>
                 · Desc. adiant.: <?= $fmt($r['TitaPag_DescontoAdiantamento']) ?>
                 · Total pago: <?= $fmt($r['TitaPag_TotalPago']) ?>
-                <?php if (trim((string) $r['Instrucao_Cod']) !== ''): ?>
-                · Instrução: <?= e(trim((string) $r['Instrucao_Cod'])) ?>
-                    (<?= e(trim((string) $r['Usuario_Instrucao'])) ?>
-                    <?= e($dbr($r['Instrucao_Data'])) ?>)
-                <?php endif; ?>
                 <?php if (trim((string) $r['Cre_Banco']) !== ''): ?>
                 · Banco credor: <?= e(trim((string) $r['Cre_Banco'])) ?>
                     Ag <?= e(trim((string) $r['Cre_Agencia'])) ?>
                     CC <?= e(trim((string) $r['Cre_ContaCorrente'])) ?>
-                <?php endif; ?>
-                <?php if (trim((string) $r['TitaPag_Obs']) !== ''): ?>
-                · Obs: <?= e(trim((string) $r['TitaPag_Obs'])) ?>
                 <?php endif; ?>
             </td>
         </tr>
@@ -333,9 +365,8 @@ $ordens = [
     ?>
         <tr class="cp-total cp-total-geral">
             <td colspan="4">Total Período:</td>
-            <td class="col-valor"><?= $fmt($totCampo($linhas, 'TitaPag_Valor')) ?></td>
             <td class="col-valor"><?= $fmt($totCampo($linhas, 'TitaPag_ValorLiquido')) ?></td>
-            <td colspan="10"></td>
+            <td colspan="38"></td>
         </tr>
     </tbody>
 </table>
