@@ -27,6 +27,7 @@ $ROTAS_TELA = [
     'matriz-prioridades' => 'matriz-prioridades',
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
+    'agenda-pagamentos' => 'agenda-pagamentos',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -766,6 +767,88 @@ switch ($rota) {
             'credores' => cp_credores($base), 'especies' => cp_especies($base),
             'doctipos' => cp_doctipos($base), 'nucleos' => cp_nucleos($base),
             'gruposNucleo' => cp_grupos_nucleo($base)]);
+        break;
+
+    case 'agenda-pagamentos':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
+        $gerado = isset($_GET['gerar']);
+        set_time_limit(600);
+        $data = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET[$k] ?? ''))
+            ? $_GET[$k] : '';
+        $num = function ($k) {
+            $v = trim((string) ($_GET[$k] ?? ''));
+            if ($v === '') { return null; }
+            $v = str_replace('.', '', $v);
+            $v = str_replace(',', '.', $v);
+            return is_numeric($v) ? (float) $v : null;
+        };
+        $restringe = isset($_GET['restringir']);
+        $o = [
+            'empresas'  => array_values(array_filter(array_map('trim',
+                              (array) ($_GET['emp'] ?? [])))),
+            'ini'       => $data('data_ini'),
+            'fim'       => $data('data_fim'),
+            'ref'       => date('Y-m-d'),
+            'atrasadas' => isset($_GET['vencidas']),
+            'pendentes' => isset($_GET['pendentes']),
+            'nao_aut'   => isset($_GET['nao_aut']) || !$gerado,
+            'ed'        => isset($_GET['inc_ed']) || !$gerado,
+            'ep'        => isset($_GET['inc_ep']) || !$gerado,
+            'cv'        => isset($_GET['inc_cv']),
+            'centros'   => trim((string) ($_GET['centro'] ?? '')) !== ''
+                              ? [strtoupper(substr(preg_replace('/[^A-Z0-9]/i', '',
+                                  explode(' ', trim((string) $_GET['centro']))[0]), 0, 9))]
+                              : [],
+            'nucleo'    => trim((string) ($_GET['nucleo'] ?? '')),
+            'especie'   => trim((string) ($_GET['especie'] ?? '')),
+            'cre'       => strtoupper(substr(trim(explode(' - ',
+                              (string) ($_GET['credor'] ?? ''))[0]), 0, 6)),
+            'docnum'    => trim((string) ($_GET['docnum'] ?? '')),
+            'ficha'     => trim((string) ($_GET['ficha'] ?? '')),
+            'vmin'      => $restringe ? $num('valor_min') : null,
+            'vmax'      => $restringe ? $num('valor_max') : null,
+            'agr_tipo'  => isset($_GET['agr_tipo']),
+            'agr_mod'   => isset($_GET['agr_mod']),
+            'tot_dia'   => isset($_GET['tot_dia']),
+            'tot_quinzena' => isset($_GET['tot_quinzena']),
+            'tot_mes'   => isset($_GET['tot_mes']),
+            'ordem'     => (string) ($_GET['ordem'] ?? 'vencimento'),
+        ];
+        $linhas = [];
+        $status = null;
+        $erro = '';
+        if ($gerado) {
+            if ($o['ini'] === '' || $o['fim'] === '' || $o['ini'] > $o['fim']) {
+                $erro = 'Informe o período da agenda (De / a) corretamente.';
+            } else {
+                try {
+                    $linhas = ap_dados($base, $o);
+                    $grpKey = ($o['agr_tipo'] || $o['agr_mod'])
+                        ? function ($r) use ($o) {
+                            $k = [];
+                            if ($o['agr_tipo']) {
+                                $k[] = trim((string) $r['TitaPag_PagDocTipo']);
+                            }
+                            if ($o['agr_mod']) {
+                                $k[] = trim((string) $r['pge_Modalidade']);
+                            }
+                            return implode('|', $k);
+                        } : null;
+                    $linhas = ap_ordernar($linhas, $o['ordem'], $grpKey);
+                    $status = ap_status($linhas, $o['ref']);
+                } catch (Throwable $t) {
+                    $erro = 'Erro ao gerar a agenda: ' . $t->getMessage();
+                    $linhas = [];
+                }
+            }
+        }
+        render('agenda_pagamentos', ['titulo' => 'Agenda de Pagamentos',
+            'active' => 'agenda-pagamentos', 'base' => $base, 'gerado' => $gerado,
+            'o' => $o, 'linhas' => $linhas, 'status' => $status, 'erro' => $erro,
+            'empresas' => cp_empresas($base), 'centros' => mp_centros(),
+            'credores' => cp_credores($base), 'especies' => cp_especies($base),
+            'nucleos' => cp_nucleos($base)]);
         break;
 
     case 'posicao-contas':

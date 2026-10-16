@@ -2581,3 +2581,21 @@ tr.cp-obs td { color: #667; font-size: 10px; }
     .rel-econ-botoes { display: none; }
     .cp-tab { font-size: 9px; }
 }
+
+/* ---------- Agenda de Pagamentos ---------- */
+.ap-tab { font-size: 11px; }
+tr.ap-linha { cursor: pointer; }
+tr.ap-linha:hover td { background: #eef4fb; }
+tr.ap-vencida td { color: #b32d2d; }
+tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
+    border-top: none; padding: 6px 14px; }
+.ap-badge { display: inline-block; min-width: 16px; padding: 0 4px;
+    border-radius: 3px; font-weight: 700; font-size: 10px; text-align: center; }
+.ap-badge-ap { background: #2d6bb5; color: #fff; }
+.ap-badge-ad { background: #e6b93c; color: #4a3200; }
+.ap-status { position: sticky; bottom: 0; display: flex; flex-wrap: wrap;
+    gap: 18px; margin-top: 10px; padding: 8px 12px; background: #1e3a5f;
+    color: #cfdcef; font-size: 12px; border-radius: 4px; }
+.ap-status b { color: #fff; }
+.ap-status .ap-st-aut b { color: #8fc1ff; }
+.ap-status .ap-st-venc b { color: #ff9c9c; }

@@ -494,6 +494,49 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   pendente, nucleo/grupo de nucleo. Opcao "Inclui Corretagens" existe no
   original e esta desabilitada (nao implementada).
 
+## Financeiro > Contas a Pagar > Agenda de Pagamentos (2026-10-16)
+- Rota `agenda-pagamentos`, permissao propria; `app/agenda_pagamentos.php` +
+  `views/agenda_pagamentos.php` (estilos `.ap-*` no fim do style.css).
+- Replica o grid do Informakon (trace `traces/Agenda de Pagamentos.trc`)
+  chamando a proc ORIGINAL `dbo.sp_ParcelasAgendaPagto` (36 params nomeados,
+  ~3000 linhas) direto na base ERP — NAO foi portada para CGGestao.
+- **Read-only garantido**: a proc so escreve em tabelas permanentes
+  (`Parametros_Temporarios_Empresa`/`_Classificacao`) quando
+  `@ParamTemp_ChaveEmpresa`/`@ParamTemp_ChaveClassificacao` vem preenchidas
+  (o Informakon insere a selecao de empresas la). Passamos as duas VAZIAS:
+  todo o resto e `#tabela` em tempdb. Execucao prefixada com
+  `SET NOCOUNT ON` (senao o primeiro resultset vem vazio e o PDO falha com
+  "active result contains no fields"). Nenhum dado/schema de dbMGA/dbConv
+  e alterado; nenhuma migration necessaria.
+- `@Empresa_Cod` aceita UM codigo (INSERT direto em #TMP_Empresa; '(*)'
+  e curinga). Para multipla selecao passamos '' (todas) e filtramos
+  `Empresa_Cod` em PHP (strtoupper — existe 'cgc' minusculo). Mesma
+  tecnica para Centro (`Centro_CodC` vem pontilhado "CGC.01.0107" —
+  compara so alfanumericos) e Especie (`EspTit_Cod`).
+- Params do filtro mapeados: DataIni/DataFin = periodo da agenda,
+  DataRef = hoje (base do DiasemAtraso/vencidas), IncAtrasadas/IncPendentes,
+  Inclui_EntTipo_ED/EP/CV, NaoAutorizado, Cre_Cod (datalist credor ->
+  codigo antes do " - "), Nucleo_Cod, EntDoc_Numero (a proc faz LIKE —
+  envolver com %), Ficha_Numero, ValorMin/ValorMax (so quando "Restringir"
+  marcado). ADI_FORN_* = 'S'/'S', ConsultaAssuntoOrcamentario='N',
+  demais NULL/'N'.
+- Ordem (radio): vencimento/agenda/credor_valor/credor_nota/valor(faixa)/
+  centro/usuario/numero — ordenacao em PHP (`ap_ordernar`). "Agrupar por"
+  Tipo de Pagamento (TitaPag_PagDocTipo) / Modalidade (pge_Modalidade)
+  vira chave de grupo prefixada na ordenacao, com subtotal por grupo.
+- Grid: Vencimento|Credor|Nota Fiscal|Parcela|Valor|a Pagar|Agenda|Esp|
+  Aut(AP)|Ad(A)|Centro|Nucleo|Banco(CodigoBacen)|Agente F.|Ficha|Usuario.
+  Linha vencida (sit 'A' e VencimentoFluxo < hoje) em vermelho; clique
+  abre linha de detalhe (título, valores, instrucao, banco do credor, obs).
+- Barra de status (rodape fixo): Pendentes/PreDatados/Autorizadas(AP)/
+  Total(AP+PD+A)/Vencidas/Total Geral — soma de TitaPag_ValorLiquido.
+  No periodo futuro tipico tudo 0, igual ao Informakon (screenshot).
+- Totalizadores Dia/Quinzena/Mes = baldes sobre a data da agenda
+  (ap_balde), iguais aos do relatorio de contas a pagar.
+- Testado: MGA 1513 linhas (13,4 mi) e CONV 868 (7,7 mi) no periodo
+  20/10/2026-20/01/2027; filtros empresa/centro/especie/nucleo/credor/
+  docnum/faixa/atrasadas+pendentes OK; ~1,3s por chamada.
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.
