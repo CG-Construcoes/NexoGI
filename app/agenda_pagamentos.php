@@ -172,3 +172,162 @@ function ap_parcela(array $r): string
     $n = trim((string) $r['nParc']);
     return $s . $n;
 }
+
+/** As 42 colunas do grid do Informakon (planilha "agenda de pagamentos.xlsx"). */
+const AP_COLS = [
+    'venc'     => 'Vencimento',
+    'credor'   => 'Credor',
+    'doc'      => 'Documento',
+    'par'      => 'Par',
+    'valor'    => 'Valor',
+    'agenda'   => 'Agenda',
+    'esp'      => 'Esp',
+    'ne'       => 'NE',
+    'pagtipo'  => 'Pagto Tipo Doc',
+    'i'        => 'i',
+    'naut'     => 'Nº Aut',
+    'ad'       => 'Ad',
+    'predat'   => 'PréDatado',
+    'obs'      => 'Observação',
+    'obsdoc'   => 'Observação do Documento',
+    'ficha'    => 'Nº Ficha',
+    'emp'      => 'Empresa',
+    'empnome'  => 'Nome da Empresa',
+    'codcentro' => 'Cód Centro',
+    'centro'   => 'Centro de Negócio',
+    'natureza' => 'Natureza',
+    'atraso'   => 'Atraso',
+    'vencorig' => 'VenctoOrig',
+    'nneg'     => '#Neg',
+    'filial'   => 'Filial',
+    'repete'   => '#',
+    'enttipo'  => 'EntTipo',
+    'autpag'   => 'Aut. Pagto',
+    'dtautpag' => 'Data Aut.Pagto',
+    'autped'   => 'Aut. Pedido',
+    'autdoc'   => 'Aut. Doc.',
+    'idboleto' => 'Nº Id. Boleto',
+    'contaprinc' => 'Conta Principal',
+    'tipodoc'  => 'Tipo Doc',
+    'imovel'   => 'Imóvel (Taxas Condominiais)',
+    'cartao'   => 'TitaPag_CartaoCredito',
+    'dtpk'     => 'TitaPag_Data_PK',
+    'entpk'    => 'Ent_Numero_PK',
+    'usucri'   => 'Usuário Criação Doc.',
+    'dtcri'    => 'Data Criação Doc.',
+    'usualt'   => 'Usuário Ult. Alteração Doc.',
+    'dtalt'    => 'Data Ult. Alteração Doc.',
+];
+
+/** Colunas alinhadas a direita (numericas). */
+const AP_COLS_NUM = ['valor', 'ne', 'i', 'atraso', 'nneg', 'repete', 'ficha'];
+
+// ---------- preferencias por usuario (msoft.UsuarioPreferencia) ----------
+
+function ap_pref(string $usuario, string $chave): ?string
+{
+    $r = query('SELECT CONVERT(varchar(4000), Valor) Valor
+                FROM msoft.UsuarioPreferencia
+                WHERE Usuario = ? AND Chave = ?', [$usuario, $chave]);
+    return $r[0]['Valor'] ?? null;
+}
+
+function ap_salvar_pref(string $usuario, string $chave, ?string $valor): void
+{
+    execute('IF EXISTS (SELECT 1 FROM msoft.UsuarioPreferencia
+                      WHERE Usuario = ? AND Chave = ?)
+             UPDATE msoft.UsuarioPreferencia SET Valor = ?
+             WHERE Usuario = ? AND Chave = ?
+             ELSE
+             INSERT INTO msoft.UsuarioPreferencia (Usuario, Chave, Valor)
+             VALUES (?, ?, ?)',
+        [$usuario, $chave, $valor, $usuario, $chave, $usuario, $chave, $valor]);
+}
+
+/**
+ * Ordem das colunas salva do usuario (CSV de chaves de AP_COLS).
+ * Chaves desconhecidas sao ignoradas; novas entram no fim.
+ */
+function ap_col_order(string $usuario): array
+{
+    $salva = ap_pref($usuario, 'agenda-pagamentos.col_order');
+    $todas = array_keys(AP_COLS);
+    if ($salva === null || trim($salva) === '') {
+        return $todas;
+    }
+    $ord = array_values(array_intersect(
+        array_map('trim', explode(',', $salva)), $todas));
+    return array_merge($ord, array_diff($todas, $ord));
+}
+
+function ap_salvar_col_order(string $usuario, string $order): void
+{
+    $chaves = array_values(array_intersect(
+        array_map('trim', explode(',', $order)), array_keys(AP_COLS)));
+    if ($chaves === []) {
+        return;
+    }
+    ap_salvar_pref($usuario, 'agenda-pagamentos.col_order',
+        implode(',', $chaves));
+}
+
+/** Conteudo HTML de uma celula do grid, por chave de coluna. */
+function ap_celula(array $r, string $key): string
+{
+    $t = fn($v) => e(trim((string) $v));
+    $dbr = function ($d) {
+        $d = substr((string) $d, 0, 10);
+        return $d !== '' && $d !== '1900-01-01' ? e(data_br($d)) : '';
+    };
+    $n0 = fn($v) => (int) $v > 0 ? (string) (int) $v : '';
+    $instr = trim((string) $r['Instrucao_Cod']);
+    switch ($key) {
+        case 'venc':    return $dbr($r['TitaPag_DataVencimento']);
+        case 'credor':  return $t($r['Cre_RazSoc']);
+        case 'doc':     return $t($r['Ent_Documento']);
+        case 'par':     return e(ap_parcela($r));
+        case 'valor':   return number_format((float) $r['TitaPag_ValorLiquido'], 2, ',', '.');
+        case 'agenda':  return $dbr($r['TitaPag_DataAgendaFin']);
+        case 'esp':     return $t($r['EspTit_Cod']);
+        case 'ne':      return $n0($r['TitaPag_NumeroNegociacoes']);
+        case 'pagtipo': return $t($r['TitaPag_PagDocTipo']);
+        case 'i':       $n = (int) $r['CountAutorizacoes'] ?: (int) $r['Instrucao_Count'];
+                        return $n > 0 ? (string) $n : '';
+        case 'naut':    return $instr === 'AP'
+                            ? '<span class="ap-badge ap-badge-ap">AP</span>'
+                            : ($instr !== '' ? e($instr) : '');
+        case 'ad':      return trim((string) $r['Adi_EmAberto']) === 'S'
+                            ? '<span class="ap-badge ap-badge-ad">A</span>' : '';
+        case 'predat':  return trim((string) $r['Pag_PreDatado']) === 'S' ? 'S' : '';
+        case 'obs':     return $t($r['TitaPag_Obs']);
+        case 'obsdoc':  return $t($r['Ent_Observacao']);
+        case 'ficha':   return $t($r['Ficha_Numero']);
+        case 'emp':     return $t($r['Empresa_Cod']);
+        case 'empnome': return $t($r['Empresa_Nome']);
+        case 'codcentro': return $t($r['Centro_CodC']);
+        case 'centro':  return $t($r['Centro_Nome']);
+        case 'natureza': return $t($r['Ent_Natureza']);
+        case 'atraso':  return $n0($r['DiasemAtraso']);
+        case 'vencorig': return $dbr($r['TitaPag_DataVencimentoOrig']);
+        case 'nneg':    return $n0($r['NumeroNegociacoes']);
+        case 'filial':  return $t($r['Filial_Cod']);
+        case 'repete':  return $n0($r['repete']);
+        case 'enttipo': return $t($r['Ent_Tipo']);
+        case 'autpag':  return $t($r['Usuario_Instrucao'] ?: $r['D_Usuario_Instrucao']);
+        case 'dtautpag': return $dbr($r['Instrucao_DataPagamento'] ?: $r['Instrucao_Data']);
+        case 'autped':  return $t($r['Aut_Pedido']);
+        case 'autdoc':  return $t($r['DocDig_Numero']);
+        case 'idboleto': return $t($r['DadosPg_NumeroIdentificacao']);
+        case 'contaprinc': return $t($r['ContaPrincipal']);
+        case 'tipodoc': return $t($r['EntDocTipo_Cod']);
+        case 'imovel':  return $t($r['Imovel'] ?: $r['Imovel_TC']);
+        case 'cartao':  return $t($r['TitaPag_CartaoCredito']);
+        case 'dtpk':    return $dbr($r['TitaPag_Data_PK']);
+        case 'entpk':   return $t($r['Ent_Numero_PK']);
+        case 'usucri':  return $t($r['Audit_Insert_UserName']);
+        case 'dtcri':   return $dbr($r['Audit_Insert_Date']);
+        case 'usualt':  return $t($r['Audit_UserName']);
+        case 'dtalt':   return $dbr($r['Audit_LastChange']);
+        default:        return '';
+    }
+}

@@ -2599,3 +2599,14 @@ tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
 .ap-status b { color: #fff; }
 .ap-status .ap-st-aut b { color: #8fc1ff; }
 .ap-status .ap-st-venc b { color: #ff9c9c; }
+
+/* ---------- Agenda de Pagamentos: rolagem + colunas ---------- */
+.ap-grid-wrap { overflow-x: auto; }
+.ap-tab th[draggable] { cursor: grab; user-select: none; }
+.ap-tab th.ap-th-drag { opacity: .4; }
+.ap-tab th.ap-th-over { box-shadow: inset 3px 0 0 #2d6bb5, inset -3px 0 0 #2d6bb5; }
+.ap-rodape { position: sticky; bottom: 0; z-index: 30; }
+.ap-hscroll { overflow-x: auto; overflow-y: hidden; height: 18px;
+    background: #dfe6ee; border: 1px solid #b8c4d0; border-radius: 3px; }
+.ap-hscroll > div { height: 1px; }
+.ap-rodape .ap-status { position: static; margin-top: 2px; }

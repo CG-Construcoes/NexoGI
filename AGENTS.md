@@ -541,6 +541,18 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   Audit_* (4). Linha vencida em vermelho; clique abre detalhe (título,
   valores, instrucao, banco credor). Colunas i/Nº Aut: confirmadas por
   dados reais (linhas AP tem CountAutorizacoes>0).
+- **Colunas reordenaveis + barra horizontal no rodape** (2026-10-16):
+  `AP_COLS` (chave=>rotulo, 42) em agenda_pagamentos.php e `ap_celula()`
+  renderizam por chave — o grid e dirigido por `$cols`. Cabecalhos sao
+  draggable; JS move o td correspondente em toda linha com 42 celulas
+  (linhas de total tambem emitem 42 tds por isso). Ordem salva por
+  usuario via POST ajax `agenda-pagamentos/col-order` em
+  `msoft.UsuarioPreferencia` (Chave='agenda-pagamentos.col_order', CSV);
+  `ap_col_order()` faz merge com chaves novas no fim. Mesma tabela guarda
+  `agenda-pagamentos.ordem` (radio de ordenacao). Rodape fixo
+  `.ap-rodape` = `.ap-hscroll` (espelha scroll do `.ap-grid-wrap`) +
+  `.ap-status`. Migracao: `scripts/migrar_usuario_preferencias.php`
+  (rodar no NexoGI no deploy).
 - Barra de status (rodape fixo): Pendentes/PreDatados/Autorizadas(AP)/
   Total(AP+PD+A)/Vencidas/Total Geral — soma de TitaPag_ValorLiquido.
   No periodo futuro tipico tudo 0, igual ao Informakon (screenshot).

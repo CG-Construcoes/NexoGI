@@ -28,6 +28,7 @@ $ROTAS_TELA = [
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
     'agenda-pagamentos' => 'agenda-pagamentos',
+    'agenda-pagamentos/col-order' => 'agenda-pagamentos',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -769,10 +770,26 @@ switch ($rota) {
             'gruposNucleo' => cp_grupos_nucleo($base)]);
         break;
 
+    case 'agenda-pagamentos/col-order':
+        // POST ajax: salva a ordem das colunas do grid por usuario
+        exigir_login();
+        header('Content-Type: application/json');
+        if ($metodo !== 'POST' || !csrf_valido()) {
+            http_response_code(403);
+            echo '{"ok":false}';
+            break;
+        }
+        ap_salvar_col_order((string) $_SESSION['usuario'],
+            (string) ($_POST['order'] ?? ''));
+        echo '{"ok":true}';
+        break;
+
     case 'agenda-pagamentos':
         exigir_login();
         $base = strtoupper((string) ($_GET['base'] ?? 'MGA')) === 'CONV' ? 'CONV' : 'MGA';
         $gerado = isset($_GET['gerar']);
+        $usuario = (string) $_SESSION['usuario'];
+        $ordemSalva = ap_pref($usuario, 'agenda-pagamentos.ordem');
         set_time_limit(600);
         $data = fn($k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($_GET[$k] ?? ''))
             ? $_GET[$k] : '';
@@ -813,7 +830,7 @@ switch ($rota) {
             'tot_dia'   => isset($_GET['tot_dia']),
             'tot_quinzena' => isset($_GET['tot_quinzena']),
             'tot_mes'   => isset($_GET['tot_mes']),
-            'ordem'     => (string) ($_GET['ordem'] ?? 'vencimento'),
+            'ordem'     => (string) ($_GET['ordem'] ?? $ordemSalva ?: 'vencimento'),
         ];
         $linhas = [];
         $status = null;
@@ -837,6 +854,7 @@ switch ($rota) {
                         } : null;
                     $linhas = ap_ordernar($linhas, $o['ordem'], $grpKey);
                     $status = ap_status($linhas, $o['ref']);
+                    ap_salvar_pref($usuario, 'agenda-pagamentos.ordem', $o['ordem']);
                 } catch (Throwable $t) {
                     $erro = 'Erro ao gerar a agenda: ' . $t->getMessage();
                     $linhas = [];
@@ -846,6 +864,7 @@ switch ($rota) {
         render('agenda_pagamentos', ['titulo' => 'Agenda de Pagamentos',
             'active' => 'agenda-pagamentos', 'base' => $base, 'gerado' => $gerado,
             'o' => $o, 'linhas' => $linhas, 'status' => $status, 'erro' => $erro,
+            'cols' => ap_col_order($usuario),
             'empresas' => cp_empresas($base), 'centros' => mp_centros(),
             'credores' => cp_credores($base), 'especies' => cp_especies($base),
             'nucleos' => cp_nucleos($base)]);

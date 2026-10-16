@@ -143,9 +143,10 @@ $ordens = [
 
     <fieldset class="rel-econ-box">
         <legend>Ordem</legend>
-        <?php foreach ($ordens as $v => $rot): ?>
+        <?php $ordemAtual = $o['ordem'] ?? 'vencimento';
+        foreach ($ordens as $v => $rot): ?>
         <label><input type="radio" name="ordem" value="<?= $v ?>"
-            <?= $v === 'vencimento' ? 'checked' : '' ?>> <?= e($rot) ?></label>
+            <?= $v === $ordemAtual ? 'checked' : '' ?>> <?= e($rot) ?></label>
         <?php endforeach; ?>
     </fieldset>
 
@@ -204,34 +205,34 @@ $ordens = [
 </div>
 <div class="cp-titulo">Período da Agenda de <?= e(data_br($o['ini'])) ?> a <?= e(data_br($o['fim'])) ?></div>
 
+<input type="hidden" id="apCsrf" value="<?= e(csrf_token()) ?>">
+<div class="ap-grid-wrap" id="apGrid">
 <table class="tabela cp-tab ap-tab">
     <thead>
         <tr>
-            <th>Vencimento</th><th>Credor</th><th>Documento</th><th>Par</th>
-            <th class="col-valor">Valor</th><th>Agenda</th><th>Esp</th><th>NE</th>
-            <th>Pagto Tipo Doc</th><th>i</th><th>Nº Aut</th><th>Ad</th>
-            <th>PréDatado</th><th>Observação</th><th>Observação do Documento</th>
-            <th>Nº Ficha</th><th>Empresa</th><th>Nome da Empresa</th>
-            <th>Cód Centro</th><th>Centro de Negócio</th><th>Natureza</th>
-            <th>Atraso</th><th>VenctoOrig</th><th>#Neg</th><th>Filial</th><th>#</th>
-            <th>EntTipo</th><th>Aut. Pagto</th><th>Data Aut.Pagto</th>
-            <th>Aut. Pedido</th><th>Aut. Doc.</th><th>Nº Id. Boleto</th>
-            <th>Conta Principal</th><th>Tipo Doc</th><th>Imóvel (Taxas Condominiais)</th>
-            <th>TitaPag_CartaoCredito</th><th>TitaPag_Data_PK</th><th>Ent_Numero_PK</th>
-            <th>Usuário Criação Doc.</th><th>Data Criação Doc.</th>
-            <th>Usuário Ult. Alteração Doc.</th><th>Data Ult. Alteração Doc.</th>
+            <?php foreach ($cols as $k): ?>
+            <th class="<?= in_array($k, AP_COLS_NUM, true) ? 'col-valor' : '' ?>"
+                draggable="true" data-key="<?= e($k) ?>"
+                title="Arraste para mudar a posição da coluna"><?= e(AP_COLS[$k]) ?></th>
+            <?php endforeach; ?>
         </tr>
     </thead>
     <tbody>
     <?php
-    $NCOLS = 42;
-    $emitirTotal = function ($rot, array $ls, $forte) use ($fmt, $totCampo) { ?>
-        <tr class="cp-total<?= $forte ? ' cp-total-grupo' : '' ?>">
-            <td colspan="4"><?= e($rot) ?></td>
-            <td class="col-valor"><?= $fmt($totCampo($ls, 'TitaPag_ValorLiquido')) ?></td>
-            <td colspan="38"></td>
-        </tr>
-    <?php };
+    $emitirTotal = function ($rot, array $ls, $forte) use ($fmt, $totCampo, $cols) {
+        echo '<tr class="cp-total' . ($forte ? ' cp-total-grupo' : '') . '">';
+        foreach ($cols as $idx => $k) {
+            if ($idx === 0) {
+                echo '<td>' . e($rot) . '</td>';
+            } elseif ($k === 'valor') {
+                echo '<td class="col-valor">'
+                    . $fmt($totCampo($ls, 'TitaPag_ValorLiquido')) . '</td>';
+            } else {
+                echo '<td></td>';
+            }
+        }
+        echo '</tr>';
+    };
     $baldeAtual = array_fill_keys($niveis, null);
     $baldeLinhas = array_fill_keys($niveis, []);
     $baldeRot = [];
@@ -276,64 +277,13 @@ $ordens = [
         }
         $vencFluxo = substr((string) $r['TitaPag_DataVencimentoFluxo'], 0, 10);
         $vencida = $r['TitaPag_Situacao'] === 'A' && $vencFluxo !== '' && $vencFluxo < $o['ref'];
-        $instr = trim((string) $r['Instrucao_Cod']);
-        $adi = trim((string) $r['Adi_EmAberto']) === 'S';
-        $naut = (int) $r['CountAutorizacoes'] ?: (int) $r['Instrucao_Count'];
-        $autPag = trim((string) ($r['Usuario_Instrucao'] ?: $r['D_Usuario_Instrucao']));
     ?>
         <tr class="ap-linha<?= $vencida ? ' ap-vencida' : '' ?>" data-i="<?= $i ?>"
             title="Clique para detalhes do título">
-            <td><?= e($dbr($r['TitaPag_DataVencimento'])) ?></td>
-            <td class="cp-credor"><?= e(trim((string) $r['Cre_RazSoc'])) ?></td>
-            <td><?= e(trim((string) $r['Ent_Documento'])) ?></td>
-            <td><?= e(ap_parcela($r)) ?></td>
-            <td class="col-valor"><?= $fmt($r['TitaPag_ValorLiquido']) ?></td>
-            <td><?= e($dbr($r['TitaPag_DataAgendaFin'])) ?></td>
-            <td><?= e(trim((string) $r['EspTit_Cod'])) ?></td>
-            <td><?= (int) $r['TitaPag_NumeroNegociacoes'] > 0
-                ? (int) $r['TitaPag_NumeroNegociacoes'] : '' ?></td>
-            <td><?= e(trim((string) $r['TitaPag_PagDocTipo'])) ?></td>
-            <td><?= $naut > 0 ? $naut : '' ?></td>
-            <td><?= $instr === 'AP' ? '<span class="ap-badge ap-badge-ap">AP</span>'
-                : ($instr !== '' ? e($instr) : '') ?></td>
-            <td><?= $adi ? '<span class="ap-badge ap-badge-ad">A</span>' : '' ?></td>
-            <td><?= trim((string) $r['Pag_PreDatado']) === 'S' ? 'S' : '' ?></td>
-            <td><?= e(trim((string) $r['TitaPag_Obs'])) ?></td>
-            <td><?= e(trim((string) $r['Ent_Observacao'])) ?></td>
-            <td><?= e(trim((string) $r['Ficha_Numero'])) ?></td>
-            <td><?= e(trim((string) $r['Empresa_Cod'])) ?></td>
-            <td><?= e(trim((string) $r['Empresa_Nome'])) ?></td>
-            <td><?= e(trim((string) $r['Centro_CodC'])) ?></td>
-            <td><?= e(trim((string) $r['Centro_Nome'])) ?></td>
-            <td><?= e(trim((string) $r['Ent_Natureza'])) ?></td>
-            <td><?= (int) $r['DiasemAtraso'] > 0 ? (int) $r['DiasemAtraso'] : '' ?></td>
-            <td><?= e($dbr($r['TitaPag_DataVencimentoOrig'])) ?></td>
-            <td><?= (int) $r['NumeroNegociacoes'] > 0
-                ? (int) $r['NumeroNegociacoes'] : '' ?></td>
-            <td><?= e(trim((string) $r['Filial_Cod'])) ?></td>
-            <td><?= (int) $r['repete'] > 0 ? (int) $r['repete'] : '' ?></td>
-            <td><?= e(trim((string) $r['Ent_Tipo'])) ?></td>
-            <td><?= e($autPag) ?></td>
-            <td><?= e($dbr($r['Instrucao_DataPagamento'] ?: $r['Instrucao_Data'])) ?></td>
-            <td><?= e(trim((string) $r['Aut_Pedido'])) ?></td>
-            <td><?= e(trim((string) $r['DocDig_Numero'])) ?></td>
-            <td><?= e(trim((string) $r['DadosPg_NumeroIdentificacao'])) ?></td>
-            <td><?= e(trim((string) $r['ContaPrincipal'])) ?></td>
-            <td><?= e(trim((string) $r['EntDocTipo_Cod'])) ?></td>
-            <td><?= e(trim((string) ($r['Imovel'] ?: $r['Imovel_TC']))) ?></td>
-            <td><?= e(trim((string) $r['TitaPag_CartaoCredito'])) ?></td>
-            <td><?= e($dbr($r['TitaPag_Data_PK'])) ?></td>
-            <td><?= e(trim((string) $r['Ent_Numero_PK'])) ?></td>
-            <td><?= e(trim((string) $r['Audit_Insert_UserName'])) ?></td>
-            <td><?= e(substr((string) $r['Audit_Insert_Date'], 0, 10) !== ''
-                ? substr((string) $r['Audit_Insert_Date'], 8, 2) . '/'
-                    . substr((string) $r['Audit_Insert_Date'], 5, 2) . '/'
-                    . substr((string) $r['Audit_Insert_Date'], 0, 4) : '') ?></td>
-            <td><?= e(trim((string) $r['Audit_UserName'])) ?></td>
-            <td><?= e(substr((string) $r['Audit_LastChange'], 0, 10) !== ''
-                ? substr((string) $r['Audit_LastChange'], 8, 2) . '/'
-                    . substr((string) $r['Audit_LastChange'], 5, 2) . '/'
-                    . substr((string) $r['Audit_LastChange'], 0, 4) : '') ?></td>
+            <?php foreach ($cols as $k): ?>
+            <td class="<?= in_array($k, AP_COLS_NUM, true) ? 'col-valor' : '' ?>
+                <?= $k === 'credor' ? 'cp-credor' : '' ?>"><?= ap_celula($r, $k) ?></td>
+            <?php endforeach; ?>
         </tr>
         <tr class="ap-det" id="ap-det-<?= $i ?>" hidden>
             <td colspan="42">
@@ -364,13 +314,18 @@ $ordens = [
     }
     ?>
         <tr class="cp-total cp-total-geral">
-            <td colspan="4">Total Período:</td>
-            <td class="col-valor"><?= $fmt($totCampo($linhas, 'TitaPag_ValorLiquido')) ?></td>
-            <td colspan="38"></td>
+            <?php foreach ($cols as $idx => $k): ?>
+            <td class="<?= $k === 'valor' ? 'col-valor' : '' ?>"><?= $idx === 0
+                ? 'Total Período:'
+                : ($k === 'valor' ? $fmt($totCampo($linhas, 'TitaPag_ValorLiquido')) : '') ?></td>
+            <?php endforeach; ?>
         </tr>
     </tbody>
 </table>
+</div><!-- /ap-grid-wrap -->
 
+<div class="ap-rodape">
+<div class="ap-hscroll" id="apHScroll"><div id="apHScrollIn"></div></div>
 <div class="ap-status">
     <span>Pendentes: <b><?= $fmt($status['pend']) ?></b></span>
     <span>PreDatados: <b><?= $fmt($status['pred']) ?></b></span>
@@ -382,14 +337,81 @@ $ordens = [
     <span>Outros: <b><?= $fmt($status['outros']) ?></b></span>
     <span>Total Geral: <b><?= $fmt($status['total']) ?></b></span>
 </div>
+</div><!-- /ap-rodape -->
 
 <script>
-document.querySelectorAll('.ap-linha').forEach(function (tr) {
-    tr.addEventListener('click', function () {
-        var d = document.getElementById('ap-det-' + tr.dataset.i);
-        if (d) { d.hidden = !d.hidden; }
+(function () {
+    // detalhe do titulo ao clicar na linha
+    document.querySelectorAll('.ap-linha').forEach(function (tr) {
+        tr.addEventListener('click', function () {
+            var d = document.getElementById('ap-det-' + tr.dataset.i);
+            if (d) { d.hidden = !d.hidden; }
+        });
     });
-});
+
+    var wrap  = document.getElementById('apGrid');
+    var hs    = document.getElementById('apHScroll');
+    var inner = document.getElementById('apHScrollIn');
+    var tab   = wrap.querySelector('table');
+
+    // barra de rolagem horizontal fixa no rodape, sincronizada com o grid
+    function syncW() { inner.style.width = tab.scrollWidth + 'px'; }
+    syncW();
+    window.addEventListener('resize', syncW);
+    wrap.addEventListener('scroll', function () {
+        if (hs.scrollLeft !== wrap.scrollLeft) { hs.scrollLeft = wrap.scrollLeft; }
+    });
+    hs.addEventListener('scroll', function () {
+        if (wrap.scrollLeft !== hs.scrollLeft) { wrap.scrollLeft = hs.scrollLeft; }
+    });
+
+    // arrastar colunas pelo cabecalho (ordem salva por usuario)
+    var ths = wrap.querySelectorAll('thead th');
+    var dragIdx = null;
+    ths.forEach(function (th, i) {
+        th.addEventListener('dragstart', function () {
+            dragIdx = i;
+            th.classList.add('ap-th-drag');
+        });
+        th.addEventListener('dragend', function () {
+            th.classList.remove('ap-th-drag');
+            ths.forEach(function (t) { t.classList.remove('ap-th-over'); });
+        });
+        th.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            ths.forEach(function (t) { t.classList.remove('ap-th-over'); });
+            th.classList.add('ap-th-over');
+        });
+        th.addEventListener('drop', function (e) {
+            e.preventDefault();
+            ths.forEach(function (t) { t.classList.remove('ap-th-over'); });
+            if (dragIdx === null || dragIdx === i) { return; }
+            mover(dragIdx, i);
+            dragIdx = null;
+        });
+    });
+
+    function mover(from, to) {
+        wrap.querySelectorAll('tr').forEach(function (row) {
+            if (row.children.length !== <?= count($cols) ?>) { return; }
+            var c = row.children[from];
+            row.insertBefore(c, to > from
+                ? row.children[to].nextSibling : row.children[to]);
+        });
+        salvar();
+        syncW();
+    }
+
+    function salvar() {
+        var ord = Array.prototype.map.call(
+            wrap.querySelectorAll('thead th'), function (t) { return t.dataset.key; }
+        ).join(',');
+        var fd = new FormData();
+        fd.append('csrf', document.getElementById('apCsrf').value);
+        fd.append('order', ord);
+        fetch('<?= url('agenda-pagamentos/col-order') ?>', { method: 'POST', body: fd });
+    }
+})();
 </script>
 <?php endif; ?>
 <?php endif; ?>
