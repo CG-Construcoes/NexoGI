@@ -425,7 +425,8 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   os ids na nova sequencia — `fcs_reordenar()` renumera em passos de
   10 e grupos ausentes na lista vao para o fim (nunca se perde grupo).
   `fcs_mover()`/`acao=mover` continuam existindo (fallback). Grupo
-  novo cai no fim. A ordem vale para listagem E impressao.
+  novo cai no fim. A ordem vale para listagem, impressao, tela
+  Grupos (`fc_listar`, 2026-10-16) e relatorio de agrupamento.
 - Saldo via relatorio (2026-10-15): `fcs_saldo_relatorio($dados)` le a
   linha SALDO de um retorno de `relatorio_financeiro_dados()` (mesma
   formula da view travada: Receitas+Despesas da coluna Periodo) —
