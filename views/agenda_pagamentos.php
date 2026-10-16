@@ -55,7 +55,9 @@ $ordens = [
         <span style="margin-left:14px"></span>
         <label><input type="checkbox" name="vencidas" value="1"> Incluir Vencidas</label>
         <label><input type="checkbox" name="pendentes" value="1"> Incluir Pendentes</label>
-        <label><input type="checkbox" name="nao_aut" value="1" checked> Não Autorizadas</label>
+        <label><input type="checkbox" name="nao_aut" value="1"
+            title="Marcado = mostra SOMENTE títulos não autorizados (exclui os com instrução AP)">
+            Apenas não autorizadas</label>
     </fieldset>
 
     <div class="rel-econ-duas-col">
@@ -344,6 +346,9 @@ $ordens = [
     <span>Autorizadas: <b class="ap-st-aut"><?= $fmt($status['aut']) ?></b></span>
     <span>Total (AP+PD+A): <b><?= $fmt($status['aut'] + $status['pred'] + $status['pend']) ?></b></span>
     <span class="ap-st-venc">Vencidas: <b><?= $fmt($status['venc']) ?></b></span>
+    <span>EP: <b><?= $fmt($status['ep']) ?></b></span>
+    <span>ED: <b><?= $fmt($status['ed']) ?></b></span>
+    <span>Outros: <b><?= $fmt($status['outros']) ?></b></span>
     <span>Total Geral: <b><?= $fmt($status['total']) ?></b></span>
 </div>
 

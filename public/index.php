@@ -792,7 +792,7 @@ switch ($rota) {
             'ref'       => date('Y-m-d'),
             'atrasadas' => isset($_GET['vencidas']),
             'pendentes' => isset($_GET['pendentes']),
-            'nao_aut'   => isset($_GET['nao_aut']) || !$gerado,
+            'nao_aut'   => isset($_GET['nao_aut']),
             'ed'        => isset($_GET['inc_ed']) || !$gerado,
             'ep'        => isset($_GET['inc_ep']) || !$gerado,
             'cv'        => isset($_GET['inc_cv']),

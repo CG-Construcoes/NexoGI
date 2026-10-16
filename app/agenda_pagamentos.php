@@ -137,10 +137,15 @@ function ap_balde_rotulo(string $b, string $modo): string
 // Soma TitaPag_ValorLiquido por faixa da barra de status + total.
 function ap_status(array $rows, string $ref): array
 {
-    $s = ['pend' => 0.0, 'pred' => 0.0, 'aut' => 0.0, 'venc' => 0.0, 'total' => 0.0];
+    $s = ['pend' => 0.0, 'pred' => 0.0, 'aut' => 0.0, 'venc' => 0.0,
+          'total' => 0.0, 'ep' => 0.0, 'ed' => 0.0, 'outros' => 0.0];
     foreach ($rows as $r) {
         $v = (float) $r['TitaPag_ValorLiquido'];
         $s['total'] += $v;
+        $tipo = trim((string) $r['EntDocTipo_Cod']);
+        if ($tipo === 'EP') { $s['ep'] += $v; }
+        elseif ($tipo === 'ED') { $s['ed'] += $v; }
+        else { $s['outros'] += $v; }
         if (trim((string) $r['Pag_Pendente']) === 'S') {
             $s['pend'] += $v;
         }

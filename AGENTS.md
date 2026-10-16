@@ -513,6 +513,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `Empresa_Cod` em PHP (strtoupper — existe 'cgc' minusculo). Mesma
   tecnica para Centro (`Centro_CodC` vem pontilhado "CGC.01.0107" —
   compara so alfanumericos) e Especie (`EspTit_Cod`).
+- ATENCAO `@NaoAutorizado`: 'S' EXCLUI os titulos autorizados
+  (a proc faz `Instrucao_Cod <> 'AP'`) — equivale a "somente nao
+  autorizadas". O checkbox do Informakon vem DESMARCADO (='N', mostra
+  tudo); na nossa tela tambem desmarcado ("Apenas nao autorizadas").
+  Com 'S' somem os ~180 titulos AP e a barra Autorizadas zera.
 - Params do filtro mapeados: DataIni/DataFin = periodo da agenda,
   DataRef = hoje (base do DiasemAtraso/vencidas), IncAtrasadas/IncPendentes,
   Inclui_EntTipo_ED/EP/CV, NaoAutorizado, Cre_Cod (datalist credor ->
@@ -533,9 +538,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   No periodo futuro tipico tudo 0, igual ao Informakon (screenshot).
 - Totalizadores Dia/Quinzena/Mes = baldes sobre a data da agenda
   (ap_balde), iguais aos do relatorio de contas a pagar.
-- Testado: MGA 1513 linhas (13,4 mi) e CONV 868 (7,7 mi) no periodo
-  20/10/2026-20/01/2027; filtros empresa/centro/especie/nucleo/credor/
-  docnum/faixa/atrasadas+pendentes OK; ~1,3s por chamada.
+- Barra tambem totaliza EP/ED/Outros por EntDocTipo_Cod (pedido do usuario).
+- Testado: MGA 1693 linhas (14,36 mi; Autorizadas 916.019,96 ~ Informakon
+  916.013,98) e CONV 868 (7,7 mi) no periodo 20/10/2026-20/01/2027;
+  filtros empresa/centro/especie/nucleo/credor/docnum/faixa/
+  atrasadas+pendentes OK; ~1,3s por chamada.
 
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
