@@ -19,6 +19,9 @@ const MODULES = [
             ['slug' => 'contas-pagar', 'nome' => 'Relatório de Contas a Pagar', 'pronto' => true],
             ['slug' => 'agenda-pagamentos', 'nome' => 'Agenda de Pagamentos', 'pronto' => true],
         ]],
+        ['nome' => 'Prestação de Serviço', 'itens' => [
+            ['slug' => 'faturamento', 'nome' => 'Relatório de Faturamento', 'pronto' => true],
+        ]],
         ['nome' => 'Fluxo de Caixa', 'itens' => [
             ['slug' => 'fluxo-caixa-grupos', 'nome' => 'Grupos de Centros', 'pronto' => true],
             ['slug' => 'fluxo-caixa', 'nome' => 'Fluxo de Caixa', 'pronto' => true],

@@ -571,6 +571,36 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   filtros empresa/centro/especie/nucleo/credor/docnum/faixa/
   atrasadas+pendentes OK; ~1,3s por chamada.
 
+## Financeiro > Prestacao de Servico > Relatorio de Faturamento (2026-10-16)
+- Rota `faturamento`, permissao propria; `app/faturamento.php` +
+  `views/faturamento.php` (reusa estilos `.rel-econ-*`/`.cp-*` + `.fat-*`).
+  Subgrupo novo "Prestação de Serviço" em MODULES dentro de Financeiro.
+- Replica o relatorio do Informakon (trace `traces/relatorio de faturamento.trc`,
+  PDF `Relatorios/Relatorio de Faturamento.pdf`): query direta em
+  `Faturamento` + `Centro_de_Custo` + `Cliente` com pares `= ? OR ? IS NULL`.
+  Read-only, sem proc, sem tabela em CGGestao.
+- Filtros: empresa, periodo (Fat_Data), centro (datalist CodC -> Filial+Centro),
+  cliente (datalist Cli_Cod 4-5 chars, sem padding), nucleo + botoes
+  REIDI/TODOS (`Sped_REIDI` 'S'/todos), empreendimento (resolve para o
+  Centro_Cod do `Empreendimento` — so existe na dbConv; MGA tem a tabela vazia),
+  especie (distinct Fat_Esp menos 'P'), tipo doc (distinct Fat_Tipo),
+  Observacoes (linha extra com Fat_Obs), Imprimir (auto window.print),
+  ordenar Data/Numero (ORDER BY final Fat_Data vs Fat_Numero).
+- Agrupamento do PDF: nivel 1 `Sped_REIDI` ('S'->REIDI, demais->NORMAL),
+  nivel 2 Centro_CodC+Cli_Cod (cabecalho "CodC - Centro_Nome | Cliente: ...").
+  Totais: "Total <CodC>", "Total <NORMAL|REIDI>", "Total Período" — 12 colunas
+  numericas (RF_COLS).
+- Colunas (15): Data Fatura|Tipo|Nº Fatura (=Fat_CentroNumero, NAO Fat_Numero!)|
+  Valor Fatura|Valor Reajuste|INSS|ISS|IRPJ|PIS|COFINS|CSLL|Retencao(=Fat_Retencao)|
+  aClassificar(=Fat_ValorRp)|Desc.Adiant(=Fat_DescAdi)|Vr.Liquido.
+- `rf_liquido` = Fatura + Reajuste - INSS-ISS-IRPJ-PIS-COFINS-CSSL-Retencao-Rp-DescAdi.
+- Cabecalho: Empresa_Nome + " CNPJ: " + Filial_CGC da matriz (menor Filial_CGC,
+  fmt_cnpj) — igual RelFin. "Folha No 1" fixo.
+- Validado vs PDF (CGC 01/10-31/12/2026): 5 linhas, totais identicos
+  (5.931.204,20; ISS 152.841,08; IRPJ 30.886,21; Vr.Liquido 5.747.476,91).
+- Faturamento so tem dados na dbMGA (2.240 linhas); dbConv.Faturamento vazia
+  (retorna 0 linhas legitimo).
+
 ## TELAS TRAVADAS (NAO ALTERAR)
 O usuario travou estas telas. **Nao fazer nenhuma alteracao nelas.** Se o usuario pedir para
 alterar alguma, **pedir confirmacao 3 vezes** (em 3 mensagens separadas) antes de mexer.
