@@ -2610,3 +2610,7 @@ tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
     background: #dfe6ee; border: 1px solid #b8c4d0; border-radius: 3px; }
 .ap-hscroll > div { height: 1px; }
 .ap-rodape .ap-status { position: static; margin-top: 2px; }
+/* a tabela precisa crescer alem do wrap para o scroll horizontal existir */
+.ap-tab { width: max-content; min-width: 100%; }
+.ap-tab td { max-width: 340px; }
+.ap-tab th { white-space: nowrap; }

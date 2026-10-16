@@ -550,8 +550,15 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `msoft.UsuarioPreferencia` (Chave='agenda-pagamentos.col_order', CSV);
   `ap_col_order()` faz merge com chaves novas no fim. Mesma tabela guarda
   `agenda-pagamentos.ordem` (radio de ordenacao). Rodape fixo
-  `.ap-rodape` = `.ap-hscroll` (espelha scroll do `.ap-grid-wrap`) +
-  `.ap-status`. Migracao: `scripts/migrar_usuario_preferencias.php`
+  `.ap-rodape` = `.ap-hscroll` (espelha scroll do grid) + `.ap-status`.
+  ATENCAO: `layout_app.php` envelopa TODA `table.tabela` numa div
+  `.tabela-responsiva` (overflow-x:auto) em runtime — quem rola e ela,
+  NAO o `.ap-grid-wrap`. O JS resolve o scroller via
+  `tabela.closest('.tabela-responsiva')` e so inicializa no
+  DOMContentLoaded (o envelopamento acontece depois do script da view).
+  `.ap-tab` usa `width:max-content` (senao `width:100%` da `.tabela`
+  prende a caixa da tabela no container e nao ha overflow real).
+  Migracao: `scripts/migrar_usuario_preferencias.php`
   (rodar no NexoGI no deploy).
 - Barra de status (rodape fixo): Pendentes/PreDatados/Autorizadas(AP)/
   Total(AP+PD+A)/Vencidas/Total Geral — soma de TitaPag_ValorLiquido.

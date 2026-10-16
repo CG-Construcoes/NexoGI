@@ -354,16 +354,35 @@ $ordens = [
     var inner = document.getElementById('apHScrollIn');
     var tab   = wrap.querySelector('table');
 
-    // barra de rolagem horizontal fixa no rodape, sincronizada com o grid
-    function syncW() { inner.style.width = tab.scrollWidth + 'px'; }
-    syncW();
-    window.addEventListener('resize', syncW);
-    wrap.addEventListener('scroll', function () {
-        if (hs.scrollLeft !== wrap.scrollLeft) { hs.scrollLeft = wrap.scrollLeft; }
-    });
-    hs.addEventListener('scroll', function () {
-        if (wrap.scrollLeft !== hs.scrollLeft) { wrap.scrollLeft = hs.scrollLeft; }
-    });
+    // barra de rolagem horizontal fixa no rodape, sincronizada com o grid.
+    // O layout global envelopa table.tabela numa div .tabela-responsiva
+    // (overflow-x:auto) — quem rola de verdade e ela, nao o #apGrid.
+    function scroller() {
+        var t = wrap.querySelector('table');
+        var p = t && t.parentElement;
+        return (p && p.classList.contains('tabela-responsiva')) ? p : wrap;
+    }
+    function syncW() {
+        var sc = scroller();
+        inner.style.width = sc.scrollWidth + 'px';
+    }
+    function initScroll() {
+        var sc = scroller();
+        syncW();
+        sc.addEventListener('scroll', function () {
+            if (hs.scrollLeft !== sc.scrollLeft) { hs.scrollLeft = sc.scrollLeft; }
+        });
+        hs.addEventListener('scroll', function () {
+            var s = scroller();
+            if (s.scrollLeft !== hs.scrollLeft) { s.scrollLeft = hs.scrollLeft; }
+        });
+        window.addEventListener('resize', syncW);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initScroll);
+    } else {
+        initScroll();
+    }
 
     // arrastar colunas pelo cabecalho (ordem salva por usuario)
     var ths = wrap.querySelectorAll('thead th');
