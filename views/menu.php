@@ -50,11 +50,20 @@
 
 <script>
 (function () {
-    document.querySelectorAll('.card-modulo.card-expansivel').forEach(function (card) {
+    var cards = document.querySelectorAll('.card-modulo.card-expansivel');
+    cards.forEach(function (card) {
         card.addEventListener('click', function (ev) {
             if (ev.target.closest('a.card-subitem')) return;
-            card.classList.toggle('aberto');
+            var abrir = !card.classList.contains('aberto');
+            cards.forEach(function (c) { c.classList.remove('aberto'); });
+            if (abrir) card.classList.add('aberto');
+            ev.stopPropagation();
         });
+    });
+    document.addEventListener('click', function (ev) {
+        if (!ev.target.closest('.card-modulo')) {
+            cards.forEach(function (c) { c.classList.remove('aberto'); });
+        }
     });
 })();
 </script>
