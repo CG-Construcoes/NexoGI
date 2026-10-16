@@ -25,14 +25,23 @@
         <div class="card-subitens-wrap">
             <div class="card-subitens">
                 <?php foreach ($g['itens'] as $item):
-                    if (isset($item['itens'])): ?>
-                    <span class="card-subgrupo-titulo"><?= e($item['nome']) ?></span>
-                    <?php foreach ($item['itens'] as $sub):
-                        if (!usuario_pode($sub['slug'])) continue; ?>
-                    <a href="<?= $sub['pronto'] ? url($sub['slug']) : '#' ?>"
-                       class="card-subitem <?= $sub['pronto'] ? '' : 'desativado' ?>"
-                       <?= $sub['pronto'] ? '' : 'title="Em breve"' ?>><?= e($sub['nome']) ?></a>
-                    <?php endforeach; ?>
+                    if (isset($item['itens'])):
+                        $subsVisiveis = array_values(array_filter($item['itens'],
+                            fn($s) => usuario_pode($s['slug'])));
+                        if (!$subsVisiveis) { continue; } ?>
+                    <div class="card-subgrupo">
+                        <span class="card-subgrupo-titulo">
+                            <?= e($item['nome']) ?>
+                            <span class="card-subgrupo-seta"><?= icone_svg('chevron', 13) ?></span>
+                        </span>
+                        <div class="card-subgrupo-itens">
+                            <?php foreach ($subsVisiveis as $sub): ?>
+                            <a href="<?= $sub['pronto'] ? url($sub['slug']) : '#' ?>"
+                               class="card-subitem <?= $sub['pronto'] ? '' : 'desativado' ?>"
+                               <?= $sub['pronto'] ? '' : 'title="Em breve"' ?>><?= e($sub['nome']) ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                     <?php else:
                         if (!usuario_pode($item['slug'])) continue; ?>
                     <a href="<?= $item['pronto'] ? url($item['slug']) : '#' ?>"
@@ -58,6 +67,14 @@
             cards.forEach(function (c) { c.classList.remove('aberto'); });
             if (abrir) card.classList.add('aberto');
             ev.stopPropagation();
+        });
+    });
+    // submenus agrupados: o titulo expande/recolhe os itens
+    document.querySelectorAll('.card-subgrupo-titulo').forEach(function (t) {
+        t.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+            t.parentElement.classList.toggle('aberto');
         });
     });
     document.addEventListener('click', function (ev) {
