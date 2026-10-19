@@ -15,7 +15,8 @@ function fc_listar(): array
                          (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
                           WHERE c.FCGrupo_Id = g.FCGrupo_Id) QtdeCentros
                   FROM msoft.FluxoCaixa_Grupo g
-                  ORDER BY g.FCGrupo_Nome");
+                  LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
+                  ORDER BY ISNULL(o.Ordem, 2147483647), g.FCGrupo_Nome");
 }
 
 function fc_get(int $id): ?array
