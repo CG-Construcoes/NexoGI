@@ -151,6 +151,31 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - ATENCAO pos-migracao: usuarios nao-admin ficam SEM nenhuma tela ate serem
   atribuidos a grupos (permissoes individuais foram descartadas).
 
+## DRE por Ano / DRE Mensal (2026-10-20)
+- Rotas `dre-ano` e `dre-mes` em Financeiro > Fluxo de Caixa; `app/dre.php` +
+  `views/dre.php` (um arquivo para os dois modos, `$modo` diferencia).
+  Reutiliza estilos `.rel-econ-*` + bloco `.dre-*` no fim do style.css.
+- Replica as abas "DRE Ano"/"DRE Mes" do Power BI (DRE_ANO_MES.pbix), que leem
+  `CGGestao.dbo.Rel_Posicao_Economica` — alimentada offline pelas spBI*. Aqui
+  os dados saem AO VIVO das procedures ORIGINAIS nas bases dbMGA e dbConv:
+  `spMovEconomicoDetalhe` (sem @Utilizacao = SELECT * = Posicao_Economica) e
+  `spMovFinLancamentosDetalhe` (@Utilizacao='L' = PosicaoFinanceira), ambas com
+  @Empresa_Cod='(*)' (1 chamada por base; ~2,5min para 1 ano no total).
+- Regras replicadas da view: lado economico so aceita (Empresa+Filial+Centro+
+  Nucleo) existente em `Vw_Centro_Ativo`; lado financeiro so aceita
+  `Assunto_Titulo='58 Administracao de Obra'` (literal — hoje nao retorna
+  linhas; o assunto real e 'USU58...', cujas linhas economicas caem em
+  "Nao classificado no DRE").
+- Classificacao: `DRE_GR_CL` (par GO_Titulo+SubGO_Titulo -> Cod_Formato, m:n —
+  '0007 Juros de Contrato' conta nos Cod 6 e 10, como no BI). `FormatoDRE`
+  da ordem/rotulo; SubTotal=1 = acumulado dos niveis anteriores; Lucro Liquido
+  = soma de tudo mapeado. Pares sem mapa aparecem em "Nao classificado no DRE"
+  (~190 pares, -7,5M em 2025) e ficam FORA do Lucro Liquido.
+- "% DRE" = percentual sobre a Receita Liquida da coluna (hipotese — conferir
+  com o BI; a medida DAX nao esta no PBIX, dataset remoto).
+- Filtros: empresas/nucleos/centros por checkbox (vazio = todos), DRE por Ano
+  aceita intervalo de anos (max 10); DRE Mensal = 1 ano + selecao de meses.
+
 ## Matriz de Prioridades (2026-10-05)
 - Suprimentos > Solicitacoes > Matriz de Prioridades (rota `matriz-prioridades`, permissao propria).
 - Tabela `msoft.MatrizPrioridades`: `IDMatrizPrioridades` int IDENTITY PK (auto),

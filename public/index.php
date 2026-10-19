@@ -30,6 +30,8 @@ $ROTAS_TELA = [
     'agenda-pagamentos' => 'agenda-pagamentos',
     'agenda-pagamentos/col-order' => 'agenda-pagamentos',
     'faturamento' => 'faturamento',
+    'dre-ano' => 'dre-ano',
+    'dre-mes' => 'dre-mes',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -633,6 +635,74 @@ switch ($rota) {
         exigir_login();
         render('fluxo_caixa_relatorio', ['titulo' => 'Agrupamento de Centros de Custo',
             'active' => 'fluxo-caixa-grupos', 'grupos' => fc_relatorio()]);
+        break;
+
+    case 'dre-ano':
+    case 'dre-mes':
+        exigir_login();
+        $modo = $rota === 'dre-ano' ? 'ano' : 'mes';
+        $gerado = isset($_GET['gerar']);
+        $anoAtual = (int) date('Y');
+        $o = [
+            'empresas' => array_values(array_filter(array_map('trim', (array) ($_GET['empresas'] ?? [])))),
+            'nucleos'  => array_values(array_filter(array_map('trim', (array) ($_GET['nucleos_sel'] ?? [])))),
+            'centros'  => array_values(array_filter(array_map('trim', (array) ($_GET['centros_sel'] ?? [])))),
+        ];
+        $erro = '';
+        if ($modo === 'ano') {
+            $o['ano_ini'] = (int) ($_GET['ano_ini'] ?? $anoAtual);
+            $o['ano_fim'] = (int) ($_GET['ano_fim'] ?? $anoAtual);
+            if ($gerado) {
+                if ($o['ano_ini'] < 2000 || $o['ano_fim'] > $anoAtual + 1 || $o['ano_ini'] > $o['ano_fim']) {
+                    $erro = 'Informe o intervalo de anos corretamente.';
+                } elseif ($o['ano_fim'] - $o['ano_ini'] > 9) {
+                    $erro = 'Limite de 10 anos por consulta (consulta pesada).';
+                } else {
+                    $o['data_ini'] = $o['ano_ini'] . '-01-01';
+                    $o['data_fim'] = $o['ano_fim'] . '-12-31';
+                }
+            }
+        } else {
+            $o['ano'] = (int) ($_GET['ano'] ?? $anoAtual);
+            $meses = array_values(array_filter(array_map('intval', (array) ($_GET['meses'] ?? []))));
+            $o['meses'] = array_values(array_filter($meses, fn($m) => $m >= 1 && $m <= 12));
+            if ($gerado) {
+                if ($o['ano'] < 2000 || $o['ano'] > $anoAtual + 1) {
+                    $erro = 'Informe o ano corretamente.';
+                } else {
+                    if (!$o['meses']) {
+                        $o['meses'] = range(1, 12);
+                    }
+                    $o['data_ini'] = $o['ano'] . '-01-01';
+                    $o['data_fim'] = $o['ano'] . '-12-31';
+                }
+            } elseif (!$o['meses']) {
+                $o['meses'] = range(1, 12);
+            }
+        }
+        $dados = null;
+        $listas = ['empresas' => [], 'nucleos' => [], 'centros' => []];
+        if ($gerado && $erro === '') {
+            set_time_limit(900); // as procedures sao pesadas: 2 execucoes por base
+            try {
+                $dados = dre_pivot(dre_dados($o)['linhas'], $modo);
+            } catch (Throwable $t) {
+                $erro = 'Erro ao gerar o DRE: ' . $t->getMessage();
+            }
+        }
+        if (!$gerado) {
+            try {
+                $listas = ['empresas' => dre_empresas(), 'nucleos' => dre_nucleos(),
+                           'centros' => dre_centros()];
+            } catch (Throwable $t) {
+                $erro = 'Erro ao listar filtros: ' . $t->getMessage();
+            }
+        }
+        render('dre', [
+            'titulo' => $modo === 'ano' ? 'DRE por Ano' : 'DRE Mensal',
+            'active' => $rota, 'modo' => $modo, 'gerado' => $gerado, 'o' => $o,
+            'formato' => $gerado ? dre_formato() : [],
+            'dados' => $dados, 'erro' => $erro] + $listas);
         break;
 
     case 'relatorio-financeiro':
