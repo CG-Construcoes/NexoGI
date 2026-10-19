@@ -25,8 +25,7 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
     </div>
 </div>
 <form class="rel-econ-filtro" method="get"
-      onsubmit="this.querySelectorAll('.btn').forEach(function(b){b.disabled=true;});
-                document.getElementById('relLoading').hidden=false;">
+      onsubmit="document.getElementById('relLoading').hidden=false">
     <div class="rel-econ-titulo-form">DRE | Demonstrativo do Resultado do Exercício —
         <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?></div>
 
