@@ -685,7 +685,9 @@ switch ($rota) {
         if ($gerado && $erro === '') {
             set_time_limit(900); // as procedures sao pesadas: 2 execucoes por base
             try {
+                $t0 = microtime(true);
                 $dados = dre_pivot(dre_dados($o)['linhas'], $modo);
+                $dados['tempo'] = microtime(true) - $t0;
             } catch (Throwable $t) {
                 $erro = 'Erro ao gerar o DRE: ' . $t->getMessage();
             }

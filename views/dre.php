@@ -183,8 +183,8 @@ function dreSyncTodos(id) {
             $cum[$c] += $own[$c];
         }
         $vals = $f['SubTotal'] ? $cum : $own;
-        if ($cf === 3) {
-            $rl = $vals;
+        if ($cf === 1) {
+            $rl = $vals; // % DRE = % da Receita Operacional Bruta (como no BI)
         }
         $saida[] = ['f' => $f, 'cf' => $cf, 'vals' => $vals, 'gos' => $dados['porGo'][$cf] ?? []];
     }
@@ -290,6 +290,10 @@ function dreSyncTodos(id) {
                 } ?>
             </tr>
             <?php endif; ?>
+            <tr class="dre-tempo">
+                <td colspan="<?= 1 + 2 * count($cols) ?>">Relatório gerado em
+                    <?= e(number_format($dados['tempo'], 1, ',', '')) ?> segundos.</td>
+            </tr>
         </tbody>
     </table>
     </div>
