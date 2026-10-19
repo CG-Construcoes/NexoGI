@@ -61,7 +61,7 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
         <div class="rel-econ-centros-lista">
             <?php foreach ($empresas as $e): ?>
                 <label><input type="checkbox" name="empresas[]" value="<?= e($e['cod']) ?>"
-                    <?= $e['cod'] === 'CGC' ? 'checked' : '' ?>>
+                    <?= $e['cod'] === 'CGC' ? 'checked' : '' ?> onchange="dreMudaEmpresa()">
                     <?= e($e['cod'] . ($e['nome'] !== '' ? ' - ' . $e['nome'] : '')) ?></label>
             <?php endforeach; ?>
         </div>
@@ -70,22 +70,30 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
 
     <fieldset class="rel-econ-box rel-econ-centros">
         <legend>Núcleo</legend>
-        <input type="text" placeholder="Filtrar núcleo..." oninput="dreFiltra(this, 'listaNucDre')">
+        <input type="text" id="listaNucDreF" placeholder="Filtrar núcleo..."
+               oninput="dreAplica('listaNucDre')">
         <div class="rel-econ-centros-lista" id="listaNucDre">
+            <label class="dre-opt-todos"><input type="checkbox" checked
+                   onclick="dreTodos('listaNucDre')"> Todos</label>
             <?php foreach ($nucleos as $n): ?>
-                <label><input type="checkbox" name="nucleos_sel[]" value="<?= e($n['chave']) ?>">
-                    <?= e($n['rotulo']) ?></label>
+                <label class="dre-item" data-emps="<?= e($n['emps']) ?>">
+                    <input type="checkbox" name="nucleos_sel[]" value="<?= e($n['chave']) ?>"
+                           onchange="dreSyncTodos('listaNucDre')"> <?= e($n['rotulo']) ?></label>
             <?php endforeach; ?>
         </div>
     </fieldset>
 
     <fieldset class="rel-econ-box rel-econ-centros">
         <legend>Obra / Centro de resultado</legend>
-        <input type="text" placeholder="Filtrar obra..." oninput="dreFiltra(this, 'listaCenDre')">
+        <input type="text" id="listaCenDreF" placeholder="Filtrar obra..."
+               oninput="dreAplica('listaCenDre')">
         <div class="rel-econ-centros-lista" id="listaCenDre">
+            <label class="dre-opt-todos"><input type="checkbox" checked
+                   onclick="dreTodos('listaCenDre')"> Todos</label>
             <?php foreach ($centros as $c): ?>
-                <label><input type="checkbox" name="centros_sel[]" value="<?= e($c['chave']) ?>">
-                    <?= e($c['rotulo']) ?></label>
+                <label class="dre-item" data-emps="<?= e($c['emp']) ?>">
+                    <input type="checkbox" name="centros_sel[]" value="<?= e($c['chave']) ?>"
+                           onchange="dreSyncTodos('listaCenDre')"> <?= e($c['rotulo']) ?></label>
             <?php endforeach; ?>
         </div>
         <div class="dre-nota">Nenhum marcado = todos os centros ativos (Vw_Centro_Ativo).</div>
@@ -100,11 +108,47 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
     <?php endif; ?>
 </form>
 <script>
-function dreFiltra(inp, id) {
-    var f = inp.value.toLowerCase();
-    document.querySelectorAll('#' + id + ' label').forEach(function (l) {
-        l.style.display = l.textContent.toLowerCase().indexOf(f) >= 0 ? '' : 'none';
+// Cascata: so mostra Nucleo/Obra vinculados as empresas marcadas
+// (nenhuma empresa marcada = todas). Filtro de texto combina com a empresa.
+function dreEmpSel() {
+    var s = [];
+    document.querySelectorAll('input[name="empresas[]"]:checked').forEach(function (c) {
+        s.push(c.value);
     });
+    return s;
+}
+function dreMudaEmpresa() {
+    dreAplica('listaNucDre');
+    dreAplica('listaCenDre');
+}
+function dreAplica(id) {
+    var inp = document.getElementById(id + 'F');
+    var txt = inp ? inp.value.toLowerCase() : '';
+    var emp = dreEmpSel();
+    document.querySelectorAll('#' + id + ' label.dre-item').forEach(function (l) {
+        var okE = emp.length === 0 || (l.getAttribute('data-emps') || '').split(' ')
+            .some(function (e) { return emp.indexOf(e) >= 0; });
+        var okT = txt === '' || l.textContent.toLowerCase().indexOf(txt) >= 0;
+        l.style.display = okE && okT ? '' : 'none';
+        if (!okE) {
+            l.querySelector('input').checked = false; // sai da lista: sai da selecao
+        }
+    });
+    dreSyncTodos(id);
+}
+function dreTodos(id) {
+    document.querySelectorAll('#' + id + ' label.dre-item input').forEach(function (x) {
+        x.checked = false;
+    });
+    dreSyncTodos(id);
+}
+function dreSyncTodos(id) {
+    var t = document.querySelector('#' + id + ' .dre-opt-todos input');
+    var any = false;
+    document.querySelectorAll('#' + id + ' label.dre-item input').forEach(function (x) {
+        if (x.checked) { any = true; }
+    });
+    if (t) { t.checked = !any; }
 }
 </script>
 

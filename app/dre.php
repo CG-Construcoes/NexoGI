@@ -57,18 +57,28 @@ function dre_empresas(): array
     return array_map(fn($c) => ['cod' => $c, 'nome' => $nomes[$c] ?? ''], $cods);
 }
 
-/** Nucleos do slicer (Vw_Centro_Ativo.Nucleo_Negocio). Chave inclui a base. */
+/** Nucleos do slicer (Vw_Centro_Ativo.Nucleo_Negocio). Chave inclui a base.
+ *  'emps' = empresas com centros no nucleo (filtra a lista por empresa no form). */
 function dre_nucleos(): array
 {
     $out = [];
     foreach (query('SELECT RTRIM(Chave_Nucleo) chave,
-                           CONVERT(varchar(4000), Nucleo_Negocio) rotulo
-                    FROM dbo.Vw_Centro_Ativo GROUP BY Chave_Nucleo, Nucleo_Negocio
+                           CONVERT(varchar(4000), Nucleo_Negocio) rotulo,
+                           RTRIM(Empresa_Cod) emp
+                    FROM dbo.Vw_Centro_Ativo
+                    GROUP BY Chave_Nucleo, Nucleo_Negocio, Empresa_Cod
                     ORDER BY rotulo') as $r) {
-        $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
-        $out[] = ['chave' => $r['chave'], 'rotulo' => trim($r['rotulo']) . ' · ' . $base];
+        $k = $r['chave'];
+        if (!isset($out[$k])) {
+            $base = stripos($k, 'dbmga') === 0 ? 'MGA' : 'CONV';
+            $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base, 'emps' => []];
+        }
+        $out[$k]['emps'][$r['emp']] = true;
     }
-    return $out;
+    foreach ($out as &$n) {
+        $n['emps'] = implode(' ', array_keys($n['emps']));
+    }
+    return array_values($out);
 }
 
 /** Centros ativos do slicer "Obra" (Vw_Centro_Ativo). */
@@ -80,7 +90,7 @@ function dre_centros(): array
                            CONVERT(varchar(4000), Centro_Nome) nome
                     FROM dbo.Vw_Centro_Ativo ORDER BY nome') as $r) {
         $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
-        $out[] = ['chave' => $r['chave'],
+        $out[] = ['chave' => $r['chave'], 'emp' => $r['emp'],
                   'rotulo' => trim($r['nome']) . ' (' . $r['emp'] . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
     }
     return $out;

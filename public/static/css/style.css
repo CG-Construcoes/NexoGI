@@ -2690,3 +2690,5 @@ tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
 .dre-tab tr[data-tog] { cursor: pointer; }
 .dre-tab tr[data-tog] td:first-child::before { content: '\25B8\00A0'; color: var(--primary, #1974b8); }
 .dre-tab tr.dre-aberto[data-tog] td:first-child::before { content: '\25BE\00A0'; }
+.dre-opt-todos { font-weight: 600; border-bottom: 1px solid var(--border-color);
+                 padding-bottom: 3px; margin-bottom: 2px; }
