@@ -149,6 +149,8 @@ function dreSyncTodos(id) {
     });
     if (t) { t.checked = !any; }
 }
+// Aplica a cascata na abertura da tela (ex.: CGC ja vem marcada).
+dreMudaEmpresa();
 </script>
 
 <?php else: ?>
