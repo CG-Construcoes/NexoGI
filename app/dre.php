@@ -50,12 +50,15 @@ function dre_bases(): array
     return ['MGA' => banco_da_base('MGA'), 'CONV' => banco_da_base('CONV')];
 }
 
-/** Empresas ativas (mesma origem do slicer fEmpresa: Vw_Empresa_Ativa). */
+/** Empresas ativas UNIFICADAS pelo alias de exibicao — CV1/CV2/CV3 sao
+ *  codigos legados das mesmas empresas que ja existem como CVC/CVP/CVJ:
+ *  a lista mostra UMA opcao por alias (value = alias) e o filtro expande
+ *  para todos os codigos reais (dre_emp_reais). */
 function dre_empresas(): array
 {
-    $cods = [];
-    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
-        $cods[] = $r['cod'];
+    $porAlias = [];
+    foreach (dre_emp_reais() as $alias => $cods) {
+        $porAlias[$alias] = ['cod' => $alias, 'cods' => $cods, 'nome' => ''];
     }
     $nomes = [];
     foreach (dre_bases() as $banco) {
@@ -66,8 +69,30 @@ function dre_empresas(): array
             }
         } catch (Throwable $t) { /* base indisponivel: segue sem o nome */ }
     }
-    sort($cods);
-    return array_map(fn($c) => ['cod' => $c, 'nome' => $nomes[$c] ?? ''], $cods);
+    foreach ($porAlias as &$e) {
+        foreach ($e['cods'] as $c) {
+            if (($nomes[$c] ?? '') !== '') {
+                $e['nome'] = $nomes[$c];
+                break;
+            }
+        }
+        unset($e['cods']);
+    }
+    ksort($porAlias);
+    return array_values($porAlias);
+}
+
+/** alias exibido -> codigos reais (ex.: 'CVC' => ['CV1','CVC']). */
+function dre_emp_reais(): array
+{
+    static $m = null;
+    if ($m === null) {
+        $m = [];
+        foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
+            $m[strtoupper(dre_emp_alias($r['cod']))][] = $r['cod'];
+        }
+    }
+    return $m;
 }
 
 /** Nucleos do slicer (Vw_Centro_Ativo.Nucleo_Negocio). Chave inclui a base.
@@ -86,7 +111,7 @@ function dre_nucleos(): array
             $base = stripos($k, 'dbmga') === 0 ? 'MGA' : 'CONV';
             $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base, 'emps' => []];
         }
-        $out[$k]['emps'][$r['emp']] = true;
+        $out[$k]['emps'][strtoupper(dre_emp_alias($r['emp']))] = true;
     }
     foreach ($out as &$n) {
         $n['emps'] = implode(' ', array_keys($n['emps']));
@@ -103,7 +128,7 @@ function dre_centros(): array
                            CONVERT(varchar(4000), Centro_Nome) nome
                     FROM dbo.Vw_Centro_Ativo ORDER BY nome') as $r) {
         $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
-        $out[] = ['chave' => $r['chave'], 'emp' => $r['emp'],
+        $out[] = ['chave' => $r['chave'], 'emp' => strtoupper(dre_emp_alias($r['emp'])),
                   'rotulo' => trim($r['nome']) . ' (' . dre_emp_alias($r['emp']) . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
     }
     return $out;
@@ -199,8 +224,8 @@ function dre_dados(array $o): array
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
     };
     $filtro = function (string $emp, string $chaveC, string $nuc, string $tag) use ($empSel, $cenSel, $nucSel): bool {
-        if ($empSel && !isset($empSel[strtoupper($emp)])) {
-            return false;
+        if ($empSel && !isset($empSel[strtoupper(dre_emp_alias($emp))])) {
+            return false; // empSel guarda o ALIAS exibido (ex.: CVC casa CV1 e CVC)
         }
         if ($cenSel && !isset($cenSel[strtoupper($chaveC)])) {
             return false;
@@ -295,9 +320,17 @@ function dre_dados_arquivada(array $o): array
     $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))';
     $par   = [$o['data_ini'], $o['data_fim']];
     if ($empSel) {
-        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($empSel), '?')) . ')';
-        foreach (array_keys($empSel) as $e) {
-            $par[] = $e;
+        // empSel guarda o ALIAS: expande para todos os codigos reais
+        $reais = dre_emp_reais();
+        $cods = [];
+        foreach (array_keys($empSel) as $a) {
+            foreach ($reais[$a] ?? [$a] as $c) {
+                $cods[] = $c;
+            }
+        }
+        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($cods), '?')) . ')';
+        foreach ($cods as $c) {
+            $par[] = $c;
         }
     }
     $acc = [];
