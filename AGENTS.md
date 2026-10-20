@@ -192,6 +192,13 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   ClasseTipo_Titulo='Despesa operacional'. Acumulador comum: `dre_acumular()`
   + `dre_linhas_de_acc()`. Menu aceita `'title'` no item (tooltip no sidebar
   e na pagina de menu).
+- Empresas: opcao = (base, alias) — `dre_emp_mapa()` monta 'DBMGA|CVC' =>
+  ['CV1','CVC'] a partir de Vw_Centro_Ativo (base real por prefixo da chave,
+  NAO usar LEFT fixo: 'DbMga' tem 5 e 'DbConv' 6 chars) + legados sem centro
+  ativo de Vw_Empresa_Ativa (vao p/ MGA). Alias so junta DENTRO da mesma
+  base (CV1 = CVC em dbMGA). `dre_emp_alias()` so afeta exibicao; filtro
+  usa par (base|codigo real) — no SQL da arquivada via CASE no prefixo de
+  Chave_Centro + '|' + Empresa_Cod.
 
 ## Matriz de Prioridades (2026-10-05)
 - Suprimentos > Solicitacoes > Matriz de Prioridades (rota `matriz-prioridades`, permissao propria).

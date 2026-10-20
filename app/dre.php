@@ -50,16 +50,45 @@ function dre_bases(): array
     return ['MGA' => banco_da_base('MGA'), 'CONV' => banco_da_base('CONV')];
 }
 
-/** Empresas ativas UNIFICADAS pelo alias de exibicao — CV1/CV2/CV3 sao
- *  codigos legados das mesmas empresas que ja existem como CVC/CVP/CVJ:
- *  a lista mostra UMA opcao por alias (value = alias) e o filtro expande
- *  para todos os codigos reais (dre_emp_reais). */
+/** Opcoes de empresa POR BASE: 'DBMGA|CVC' => ['CV1','CVC'].
+ *  Um codigo pode existir nas duas bases (CVC em dbMGA e dbConv) e o mesmo
+ *  alias junta codigos legados dentro da MESMA base (CV1 = CVC em dbMGA —
+ *  "CVC (CV1-DbMga)"). Codigos sem centro ativo (Vw_Empresa_Ativa sem par
+ *  em Vw_Centro_Ativo) ficam na opcao MGA do seu alias. */
+function dre_emp_mapa(): array
+{
+    static $m = null;
+    if ($m !== null) {
+        return $m;
+    }
+    $m = $coberto = [];
+    foreach (query("SELECT RTRIM(Empresa_Cod) e,
+                           CASE WHEN Chave_Centro LIKE 'DbMga%' THEN 'DBMGA'
+                                ELSE 'DBCONV' END b
+                    FROM dbo.Vw_Centro_Ativo
+                    GROUP BY Empresa_Cod,
+                           CASE WHEN Chave_Centro LIKE 'DbMga%' THEN 'DBMGA'
+                                ELSE 'DBCONV' END") as $r) {
+        $key = $r['b'] . '|' . strtoupper(dre_emp_alias($r['e']));
+        $m[$key][$r['e']] = true;
+        $coberto[$r['e']] = true;
+    }
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
+        if (isset($coberto[$r['cod']])) {
+            continue; // ja tem centro ativo em alguma base
+        }
+        $m['DBMGA|' . strtoupper(dre_emp_alias($r['cod']))][$r['cod']] = true;
+    }
+    foreach ($m as &$cods) {
+        $cods = array_keys($cods);
+    }
+    return $m;
+}
+
+/** Empresas para o form: uma opcao por (base, alias), ordem alfabetica
+ *  pelo rotulo exibido ('CVC · CONV' antes de 'CVC · MGA'). */
 function dre_empresas(): array
 {
-    $porAlias = [];
-    foreach (dre_emp_reais() as $alias => $cods) {
-        $porAlias[$alias] = ['cod' => $alias, 'cods' => $cods, 'nome' => ''];
-    }
     $nomes = [];
     foreach (dre_bases() as $banco) {
         try {
@@ -69,30 +98,22 @@ function dre_empresas(): array
             }
         } catch (Throwable $t) { /* base indisponivel: segue sem o nome */ }
     }
-    foreach ($porAlias as &$e) {
-        foreach ($e['cods'] as $c) {
+    $out = [];
+    foreach (dre_emp_mapa() as $key => $cods) {
+        [$base, $alias] = explode('|', $key);
+        $nome = '';
+        foreach ($cods as $c) {
             if (($nomes[$c] ?? '') !== '') {
-                $e['nome'] = $nomes[$c];
+                $nome = $nomes[$c];
                 break;
             }
         }
-        unset($e['cods']);
+        $out[] = ['cod' => $key, 'nome' => $nome,
+                  'rotulo' => $alias . ' · ' . substr($base, 2)]; // DBMGA->MGA
     }
-    ksort($porAlias);
-    return array_values($porAlias);
-}
-
-/** alias exibido -> codigos reais (ex.: 'CVC' => ['CV1','CVC']). */
-function dre_emp_reais(): array
-{
-    static $m = null;
-    if ($m === null) {
-        $m = [];
-        foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
-            $m[strtoupper(dre_emp_alias($r['cod']))][] = $r['cod'];
-        }
-    }
-    return $m;
+    usort($out, fn($a, $b) => strcasecmp($a['rotulo'], $b['rotulo'])
+                            ?: strcasecmp($a['nome'], $b['nome']));
+    return $out;
 }
 
 /** Nucleos do slicer (Vw_Centro_Ativo.Nucleo_Negocio). Chave inclui a base.
@@ -109,9 +130,10 @@ function dre_nucleos(): array
         $k = $r['chave'];
         if (!isset($out[$k])) {
             $base = stripos($k, 'dbmga') === 0 ? 'MGA' : 'CONV';
-            $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base, 'emps' => []];
+            $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base,
+                        'tag' => 'DB' . $base, 'emps' => []];
         }
-        $out[$k]['emps'][strtoupper(dre_emp_alias($r['emp']))] = true;
+        $out[$k]['emps'][$out[$k]['tag'] . '|' . strtoupper(dre_emp_alias($r['emp']))] = true;
     }
     foreach ($out as &$n) {
         $n['emps'] = implode(' ', array_keys($n['emps']));
@@ -128,7 +150,8 @@ function dre_centros(): array
                            CONVERT(varchar(4000), Centro_Nome) nome
                     FROM dbo.Vw_Centro_Ativo ORDER BY nome') as $r) {
         $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
-        $out[] = ['chave' => $r['chave'], 'emp' => strtoupper(dre_emp_alias($r['emp'])),
+        $out[] = ['chave' => $r['chave'],
+                  'emp' => 'DB' . $base . '|' . strtoupper(dre_emp_alias($r['emp'])),
                   'rotulo' => trim($r['nome']) . ' (' . dre_emp_alias($r['emp']) . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
     }
     return $out;
@@ -224,8 +247,10 @@ function dre_dados(array $o): array
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
     };
     $filtro = function (string $emp, string $chaveC, string $nuc, string $tag) use ($empSel, $cenSel, $nucSel): bool {
-        if ($empSel && !isset($empSel[strtoupper(dre_emp_alias($emp))])) {
-            return false; // empSel guarda o ALIAS exibido (ex.: CVC casa CV1 e CVC)
+        // empSel guarda 'DBMGA|ALIAS' (empresa + base) — ex.: CVC do dbMGA
+        // casa CV1 e CVC; CVC do dbConv casa so CVC.
+        if ($empSel && !isset($empSel[strtoupper($tag . '|' . dre_emp_alias($emp))])) {
+            return false;
         }
         if ($cenSel && !isset($cenSel[strtoupper($chaveC)])) {
             return false;
@@ -320,28 +345,33 @@ function dre_dados_arquivada(array $o): array
     $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))';
     $par   = [$o['data_ini'], $o['data_fim']];
     if ($empSel) {
-        // empSel guarda o ALIAS: expande para todos os codigos reais
-        $reais = dre_emp_reais();
-        $cods = [];
-        foreach (array_keys($empSel) as $a) {
-            foreach ($reais[$a] ?? [$a] as $c) {
-                $cods[] = $c;
+        // empSel guarda 'DBMGA|ALIAS': expande para pares (base, codigo real)
+        $mapa = dre_emp_mapa();
+        $pares = [];
+        foreach (array_keys($empSel) as $key) {
+            [$b] = explode('|', $key);
+            foreach ($mapa[$key] ?? [] as $c) {
+                $pares[] = $b . '|' . $c;
             }
         }
-        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($cods), '?')) . ')';
-        foreach ($cods as $c) {
-            $par[] = $c;
+        $where .= " AND (CASE WHEN UPPER(RTRIM(Chave_Centro)) LIKE 'DBMGA%' THEN 'DBMGA'
+                          ELSE 'DBCONV' END + '|' + UPPER(RTRIM(Empresa_Cod)))
+                    IN (" . implode(',', array_fill(0, count($pares), '?')) . ')';
+        foreach ($pares as $p) {
+            $par[] = $p;
         }
     }
     $acc = [];
     foreach (query("SELECT Empresa_Cod, Chave_Centro, Nucleo_Cod, GO_Titulo, SubGO_Titulo,
                            ClasseTipo_Titulo, EntItemApl_Valor, Ent_DataEntrada
                     FROM dbo.Rel_Posicao_Economica WHERE $where", $par) as $r) {
-        // Chave_Centro da view e UPPER ('DBMGACGC010107'); Chave_Nucleo da view
-        // e base+filial ('DBMGA01') — para filtrar por nucleo usa-se
-        // prefixo da base + Nucleo_Cod = mesmo formato da Vw_Centro_Ativo.
+        // Chave_Centro da view e UPPER ('DBMGACGC010107'/'DBCONVCVC0101');
+        // Chave_Nucleo da view e base+filial ('DBMGA01') — para filtrar por
+        // nucleo usa-se prefixo da base (DBMGA/DBCONV) + Nucleo_Cod =
+        // mesmo formato da Vw_Centro_Ativo.
         $cen = strtoupper(trim((string) $r['Chave_Centro']));
-        $nuc = substr($cen, 0, 5) . trim((string) $r['Nucleo_Cod']);
+        $pfx = str_starts_with($cen, 'DBMGA') ? 'DBMGA' : 'DBCONV';
+        $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
         if ($cenSel && !isset($cenSel[$cen])) {
             continue;
         }
