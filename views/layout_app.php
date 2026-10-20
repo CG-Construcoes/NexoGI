@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0f2942">
-    <title><?= e($titulo ?: 'nouvellesobra') ?> · nouvellesobra</title>
+    <title><?= e($titulo ?: 'Nouvellesobra') ?> · Nouvellesobra</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@ try {
         <div class="sidebar-header">
             <a href="<?= url('menu') ?>" class="sidebar-logo">
                 <span class="sidebar-logo-mark">N</span>
-                <span class="sidebar-logo-text">nouvellesobra</span>
+                <span class="sidebar-logo-text">Nouvellesobra</span>
             </a>
             <div class="sidebar-header-actions">
                 <button type="button" class="sidebar-pin" id="sidebarPin" aria-label="Fixar ou soltar menu lateral" title="Fixar / soltar menu lateral">

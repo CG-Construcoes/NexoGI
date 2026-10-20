@@ -23,7 +23,7 @@ function enviar_email(string $para, string $assunto, string $corpoHtml): bool
         $mail->Password = env('SMTP_PASSWORD');
         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->CharSet = 'UTF-8';
-        $mail->setFrom(env('SMTP_FROM') ?: env('SMTP_USER'), env('SMTP_FROM_NAME', 'nouvellesobra'));
+        $mail->setFrom(env('SMTP_FROM') ?: env('SMTP_USER'), env('SMTP_FROM_NAME', 'Nouvellesobra'));
         $mail->addAddress($para);
         $mail->Subject = $assunto;
         $mail->isHTML(true);

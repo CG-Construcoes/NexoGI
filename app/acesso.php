@@ -72,16 +72,16 @@ function enviar_link_senha(array $u, string $tipo): bool
     );
     $link = rtrim(env('APP_URL', 'http://localhost'), '/') . '/definir-senha?token=' . $token;
     if ($tipo === 'definir') {
-        $assunto = 'nouvellesobra - Cadastre sua senha';
+        $assunto = 'Nouvellesobra - Cadastre sua senha';
         $corpo = '<p>Ola,</p>'
-            . '<p>Recebemos seu pedido de acesso ao <strong>nouvellesobra</strong>. Cadastre sua senha pelo link:</p>'
+            . '<p>Recebemos seu pedido de acesso ao <strong>Nouvellesobra</strong>. Cadastre sua senha pelo link:</p>'
             . '<p><a href="' . e($link) . '">' . e($link) . '</a></p>'
             . '<p>O link vale por 48 horas e so pode ser usado uma vez. Depois de cadastrar a senha, o administrador libera o seu acesso.</p>'
             . '<p style="color:#6b7280;font-size:12px">Se voce nao pediu acesso, ignore este e-mail.</p>';
     } else {
-        $assunto = 'nouvellesobra - Redefinir senha';
+        $assunto = 'Nouvellesobra - Redefinir senha';
         $corpo = '<p>Ola, ' . e($u['Nome']) . '.</p>'
-            . '<p>Recebemos um pedido para redefinir sua senha no <strong>nouvellesobra</strong>. Use o link:</p>'
+            . '<p>Recebemos um pedido para redefinir sua senha no <strong>Nouvellesobra</strong>. Use o link:</p>'
             . '<p><a href="' . e($link) . '">' . e($link) . '</a></p>'
             . '<p>O link vale por 2 horas e so pode ser usado uma vez.</p>'
             . '<p style="color:#6b7280;font-size:12px">Se voce nao pediu a redefinicao, ignore este e-mail: sua senha atual continua valendo.</p>';
@@ -94,11 +94,11 @@ function avisar_admin_novo_usuario(string $email): void
 {
     $link = rtrim(env('APP_URL', 'http://localhost'), '/') . '/usuarios';
     $corpo = '<p>Ola,</p>'
-        . '<p>O usuario <strong>' . e($email) . '</strong> solicitou acesso ao <strong>nouvellesobra</strong> e recebeu um link para cadastrar a senha.</p>'
+        . '<p>O usuario <strong>' . e($email) . '</strong> solicitou acesso ao <strong>Nouvellesobra</strong> e recebeu um link para cadastrar a senha.</p>'
         . '<p>Depois que a senha for cadastrada, libere o acesso e marque as telas que ele podera usar em:<br>'
         . '<a href="' . e($link) . '">' . e($link) . '</a></p>'
-        . '<p style="color:#6b7280;font-size:12px">Mensagem automatica do nouvellesobra.</p>';
-    enviar_email(env('ADMIN_EMAIL', 'misrain@cgconstrucoes.com'), 'nouvellesobra - Nova solicitacao de acesso', $corpo);
+        . '<p style="color:#6b7280;font-size:12px">Mensagem automatica do Nouvellesobra.</p>';
+    enviar_email(env('ADMIN_EMAIL', 'misrain@cgconstrucoes.com'), 'Nouvellesobra - Nova solicitacao de acesso', $corpo);
 }
 
 /** Retorna dados do token+usuario se o token existir, nao estiver usado e nao tiver expirado. */

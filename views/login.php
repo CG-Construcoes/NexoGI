@@ -24,5 +24,5 @@
         </p>
         <?php endif; ?>
     </div>
-    <footer class="login-footer">nouvellesobra</footer>
+    <footer class="login-footer">Nouvellesobra</footer>
 </div>

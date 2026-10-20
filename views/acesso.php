@@ -1,6 +1,6 @@
 <div class="login-page">
     <div class="login-card">
-        <div class="login-logo">nouvellesobra</div>
+        <div class="login-logo">Nouvellesobra</div>
         <p class="login-sub">Primeiro acesso ou redefinicao de senha</p>
         <?php if ($ok): ?>
         <div class="alert-ok"><?= e(MSG_ACESSO_NEUTRA) ?></div>
