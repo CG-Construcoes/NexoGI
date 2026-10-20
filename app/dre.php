@@ -157,6 +157,24 @@ function dre_centros_ativos_set(): array
     return $s;
 }
 
+/** Empresas SEM nenhum centro ativo (Vw_Empresa_Ativa - Vw_Centro_Ativo) —
+ *  codigos legados de empresas encerradas (CV1/CV2/CV3): tem historico em
+ *  Posicao_Economica mas sao excluidos pela view/BI. Checkbox
+ *  "incl_inativas" do form libera essas linhas. */
+function dre_empresas_sem_ativos(): array
+{
+    $ativas = $out = [];
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) e FROM dbo.Vw_Centro_Ativo') as $r) {
+        $ativas[strtoupper($r['e'])] = true;
+    }
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) e FROM dbo.Vw_Empresa_Ativa') as $r) {
+        if (!isset($ativas[strtoupper($r['e'])])) {
+            $out[strtoupper($r['e'])] = true;
+        }
+    }
+    return $out;
+}
+
 function dre_set(array $vals): array
 {
     $s = [];
@@ -210,6 +228,9 @@ function dre_dados(array $o): array
     $cenSel = dre_set((array) ($o['centros'] ?? []));
 
     $acc = [];
+    // checkbox "incl_inativas": empresas sem centro ativo (CV1/2/3...) nao
+    // precisam passar no filtro Vw_Centro_Ativo — senao nunca trazem dados
+    $semAtivos = !empty($o['incl_inativas']) && $empSel ? dre_empresas_sem_ativos() : [];
     $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
         // lado vivo: "despesa" = RDZ='2D'
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
@@ -239,12 +260,21 @@ function dre_dados(array $o): array
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                     $emp = trim((string) $r['Empresa_Cod']);
+                    if ($empSel && !isset($empSel[strtoupper($emp)])) {
+                        continue;
+                    }
                     $nuc = trim((string) $r['Nucleo_Cod']);
                     $chaveC = $tag . $emp . trim((string) $r['Filial_Cod']) . trim((string) $r['Centro_Cod']);
-                    if (!isset($ativos[strtoupper($chaveC) . '|' . $nuc])) {
-                        continue; // a view so aceita centros presentes em Vw_Centro_Ativo
+                    // a view so aceita centros de Vw_Centro_Ativo — exceto
+                    // empresas "sem ativos" selecionadas com incl_inativas
+                    if (!isset($semAtivos[strtoupper($emp)])
+                        && !isset($ativos[strtoupper($chaveC) . '|' . $nuc])) {
+                        continue;
                     }
-                    if (!$filtro($emp, $chaveC, $nuc, $tag)) {
+                    if ($cenSel && !isset($cenSel[strtoupper($chaveC)])) {
+                        continue;
+                    }
+                    if ($nucSel && !isset($nucSel[strtoupper($tag . $nuc)])) {
                         continue;
                     }
                     $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
@@ -339,6 +369,42 @@ function dre_dados_arquivada(array $o): array
             trim((string) $r['ClasseTipo_Titulo']) === 'Despesa operacional',
             (int) substr($d, 0, 4), (int) substr($d, 5, 2),
             (float) $r['EntItemApl_Valor']);
+    }
+
+    // checkbox "incl_inativas": empresas sem centro ativo nao existem na
+    // view (ela filtra por Vw_Centro_Ativo) — busca o historico na tabela
+    // Posicao_Economica, que TEM os dados (CV1: 2020-23, CV2/CV3: 2022-24)
+    if (!empty($o['incl_inativas']) && $empSel) {
+        $alvo = array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
+                                             array_keys($empSel)));
+        if ($alvo) {
+            $where2 = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))
+                       AND Empresa_Cod IN (' . implode(',', array_fill(0, count($alvo), '?')) . ')';
+            $par2 = array_merge([$o['data_ini'], $o['data_fim']], $alvo);
+            // Chave_Centro/Chave_Nucleo nao existem na tabela — a view monta
+            // trim(Database1)+Empresa+Filial+Centro; replica o mesmo formato
+            foreach (query("SELECT RTRIM(Database1) db1, Empresa_Cod, Filial_Cod, Centro_Cod,
+                                   Nucleo_Cod, GO_Titulo, SubGO_Titulo, RDZ,
+                                   EntItemApl_Valor, Ent_DataEntrada
+                            FROM dbo.Posicao_Economica WHERE $where2", $par2) as $r) {
+                $pfx = strtoupper(trim((string) $r['db1'])); // 'DBMGA'/'DBCONV'
+                $cen = $pfx . trim((string) $r['Empresa_Cod']) . trim((string) $r['Filial_Cod'])
+                     . trim((string) $r['Centro_Cod']);
+                $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
+                if ($cenSel && !isset($cenSel[$cen])) {
+                    continue;
+                }
+                if ($nucSel && !isset($nucSel[$nuc])) {
+                    continue;
+                }
+                $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
+                dre_acumular($acc, $mapa,
+                    trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+                    trim((string) $r['RDZ']) === '2D',
+                    (int) substr($d, 0, 4), (int) substr($d, 5, 2),
+                    (float) $r['EntItemApl_Valor']);
+            }
+        }
     }
     return ['linhas' => dre_linhas_de_acc($acc)];
 }
