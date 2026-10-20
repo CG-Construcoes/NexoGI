@@ -35,13 +35,25 @@ declare(strict_types=1);
 
 const DRE_ASSUNTO_FIN = '58 Administração de Obra';
 
-/** Alias de exibicao de empresas (pedido: CV1/CV2/CV3 -> CVC/CVP/CVJ).
- *  Apenas visual — filtros e consultas seguem usando o Empresa_Cod real. */
+/** Renomeacao APENAS visual (pedido): CV1 -> 'CVC (CV1-DbMga)',
+ *  CV2 -> 'CVP (CV2-DbMga)', CV3 -> 'CVJ (CV3-DbMga)'. Sao codigos de
+ *  empresas distintas das reais CVC/CVP/CVJ (bancos diferentes) — o
+ *  filtro segue usando o Empresa_Cod real, sem unificar. */
+const DRE_EMP_ROTULO = [
+    'CV1' => 'CVC (CV1-DbMga)',
+    'CV2' => 'CVP (CV2-DbMga)',
+    'CV3' => 'CVJ (CV3-DbMga)',
+];
 const DRE_EMP_ALIAS = ['CV1' => 'CVC', 'CV2' => 'CVP', 'CV3' => 'CVJ'];
 
 function dre_emp_alias(string $cod): string
 {
     return DRE_EMP_ALIAS[strtoupper(trim($cod))] ?? $cod;
+}
+
+function dre_emp_rotulo(string $cod): string
+{
+    return DRE_EMP_ROTULO[strtoupper(trim($cod))] ?? $cod;
 }
 
 /** Bases ERP consultadas — o BI junta DBMGA + DBCONV. */
@@ -50,45 +62,14 @@ function dre_bases(): array
     return ['MGA' => banco_da_base('MGA'), 'CONV' => banco_da_base('CONV')];
 }
 
-/** Opcoes de empresa POR BASE: 'DBMGA|CVC' => ['CV1','CVC'].
- *  Um codigo pode existir nas duas bases (CVC em dbMGA e dbConv) e o mesmo
- *  alias junta codigos legados dentro da MESMA base (CV1 = CVC em dbMGA —
- *  "CVC (CV1-DbMga)"). Codigos sem centro ativo (Vw_Empresa_Ativa sem par
- *  em Vw_Centro_Ativo) ficam na opcao MGA do seu alias. */
-function dre_emp_mapa(): array
-{
-    static $m = null;
-    if ($m !== null) {
-        return $m;
-    }
-    $m = $coberto = [];
-    foreach (query("SELECT RTRIM(Empresa_Cod) e,
-                           CASE WHEN Chave_Centro LIKE 'DbMga%' THEN 'DBMGA'
-                                ELSE 'DBCONV' END b
-                    FROM dbo.Vw_Centro_Ativo
-                    GROUP BY Empresa_Cod,
-                           CASE WHEN Chave_Centro LIKE 'DbMga%' THEN 'DBMGA'
-                                ELSE 'DBCONV' END") as $r) {
-        $key = $r['b'] . '|' . strtoupper(dre_emp_alias($r['e']));
-        $m[$key][$r['e']] = true;
-        $coberto[$r['e']] = true;
-    }
-    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
-        if (isset($coberto[$r['cod']])) {
-            continue; // ja tem centro ativo em alguma base
-        }
-        $m['DBMGA|' . strtoupper(dre_emp_alias($r['cod']))][$r['cod']] = true;
-    }
-    foreach ($m as &$cods) {
-        $cods = array_keys($cods);
-    }
-    return $m;
-}
-
-/** Empresas para o form: uma opcao por (base, alias), ordem alfabetica
- *  pelo rotulo exibido ('CVC · CONV' antes de 'CVC · MGA'). */
+/** Empresas ativas (mesma origem do slicer fEmpresa: Vw_Empresa_Ativa),
+ *  uma entrada por codigo real, ordenadas pelo rotulo exibido. */
 function dre_empresas(): array
 {
+    $cods = [];
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) AS cod FROM dbo.Vw_Empresa_Ativa') as $r) {
+        $cods[] = $r['cod'];
+    }
     $nomes = [];
     foreach (dre_bases() as $banco) {
         try {
@@ -98,19 +79,8 @@ function dre_empresas(): array
             }
         } catch (Throwable $t) { /* base indisponivel: segue sem o nome */ }
     }
-    $out = [];
-    foreach (dre_emp_mapa() as $key => $cods) {
-        [$base, $alias] = explode('|', $key);
-        $nome = '';
-        foreach ($cods as $c) {
-            if (($nomes[$c] ?? '') !== '') {
-                $nome = $nomes[$c];
-                break;
-            }
-        }
-        $out[] = ['cod' => $key, 'nome' => $nome,
-                  'rotulo' => $alias . ' · ' . substr($base, 2)]; // DBMGA->MGA
-    }
+    $out = array_map(fn($c) => ['cod' => $c, 'nome' => $nomes[$c] ?? '',
+                                'rotulo' => dre_emp_rotulo($c)], $cods);
     usort($out, fn($a, $b) => strcasecmp($a['rotulo'], $b['rotulo'])
                             ?: strcasecmp($a['nome'], $b['nome']));
     return $out;
@@ -130,10 +100,9 @@ function dre_nucleos(): array
         $k = $r['chave'];
         if (!isset($out[$k])) {
             $base = stripos($k, 'dbmga') === 0 ? 'MGA' : 'CONV';
-            $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base,
-                        'tag' => 'DB' . $base, 'emps' => []];
+            $out[$k] = ['chave' => $k, 'rotulo' => trim($r['rotulo']) . ' · ' . $base, 'emps' => []];
         }
-        $out[$k]['emps'][$out[$k]['tag'] . '|' . strtoupper(dre_emp_alias($r['emp']))] = true;
+        $out[$k]['emps'][$r['emp']] = true;
     }
     foreach ($out as &$n) {
         $n['emps'] = implode(' ', array_keys($n['emps']));
@@ -150,8 +119,7 @@ function dre_centros(): array
                            CONVERT(varchar(4000), Centro_Nome) nome
                     FROM dbo.Vw_Centro_Ativo ORDER BY nome') as $r) {
         $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
-        $out[] = ['chave' => $r['chave'],
-                  'emp' => 'DB' . $base . '|' . strtoupper(dre_emp_alias($r['emp'])),
+        $out[] = ['chave' => $r['chave'], 'emp' => $r['emp'],
                   'rotulo' => trim($r['nome']) . ' (' . dre_emp_alias($r['emp']) . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
     }
     return $out;
@@ -247,9 +215,7 @@ function dre_dados(array $o): array
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
     };
     $filtro = function (string $emp, string $chaveC, string $nuc, string $tag) use ($empSel, $cenSel, $nucSel): bool {
-        // empSel guarda 'DBMGA|ALIAS' (empresa + base) — ex.: CVC do dbMGA
-        // casa CV1 e CVC; CVC do dbConv casa so CVC.
-        if ($empSel && !isset($empSel[strtoupper($tag . '|' . dre_emp_alias($emp))])) {
+        if ($empSel && !isset($empSel[strtoupper($emp)])) {
             return false;
         }
         if ($cenSel && !isset($cenSel[strtoupper($chaveC)])) {
@@ -345,20 +311,9 @@ function dre_dados_arquivada(array $o): array
     $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))';
     $par   = [$o['data_ini'], $o['data_fim']];
     if ($empSel) {
-        // empSel guarda 'DBMGA|ALIAS': expande para pares (base, codigo real)
-        $mapa = dre_emp_mapa();
-        $pares = [];
-        foreach (array_keys($empSel) as $key) {
-            [$b] = explode('|', $key);
-            foreach ($mapa[$key] ?? [] as $c) {
-                $pares[] = $b . '|' . $c;
-            }
-        }
-        $where .= " AND (CASE WHEN UPPER(RTRIM(Chave_Centro)) LIKE 'DBMGA%' THEN 'DBMGA'
-                          ELSE 'DBCONV' END + '|' + UPPER(RTRIM(Empresa_Cod)))
-                    IN (" . implode(',', array_fill(0, count($pares), '?')) . ')';
-        foreach ($pares as $p) {
-            $par[] = $p;
+        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($empSel), '?')) . ')';
+        foreach (array_keys($empSel) as $e) {
+            $par[] = $e;
         }
     }
     $acc = [];

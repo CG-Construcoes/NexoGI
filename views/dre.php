@@ -64,7 +64,7 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
         <div class="rel-econ-centros-lista">
             <?php foreach ($empresas as $e): ?>
                 <label><input type="checkbox" name="empresas[]" value="<?= e($e['cod']) ?>"
-                    <?= $e['cod'] === 'DBMGA|CGC' ? 'checked' : '' ?> onchange="dreMudaEmpresa()">
+                    <?= $e['cod'] === 'CGC' ? 'checked' : '' ?> onchange="dreMudaEmpresa()">
                     <?= e($e['rotulo'] . ($e['nome'] !== '' ? ' - ' . $e['nome'] : '')) ?></label>
             <?php endforeach; ?>
         </div>
@@ -216,9 +216,7 @@ dreMudaEmpresa();
         <div class="rel-econ-titulo">DRE | Demonstrativo do Resultado do Exercício —
             <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?><?= $arquivada ? ' (Arquivada)' : '' ?></div>
         <div class="rel-econ-impresso"><?= $arquivada ? 'DRE Arquivada — calculada até o dia anterior. ' : '' ?>Período: <?= e($o['data_ini']) ?> a <?= e($o['data_fim']) ?>
-            · Empresa(s): <?= $o['empresas'] ? e(implode(', ', array_map(
-                fn(string $v): string => ($p = explode('|', $v))[1] . ' · ' . substr($p[0], 2),
-                $o['empresas']))) : 'Todas' ?>
+            · Empresa(s): <?= $o['empresas'] ? e(implode(', ', array_map('dre_emp_rotulo', $o['empresas']))) : 'Todas' ?>
             · Impresso em <?= e(date('d/m/Y H:i')) ?></div>
     </div>
     <div class="tabela-responsiva">
