@@ -65,7 +65,7 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
             <?php foreach ($empresas as $e): ?>
                 <label><input type="checkbox" name="empresas[]" value="<?= e($e['cod']) ?>"
                     <?= $e['cod'] === 'CGC' ? 'checked' : '' ?> onchange="dreMudaEmpresa()">
-                    <?= e($e['cod'] . ($e['nome'] !== '' ? ' - ' . $e['nome'] : '')) ?></label>
+                    <?= e(dre_emp_alias($e['cod']) . ($e['nome'] !== '' ? ' - ' . $e['nome'] : '')) ?></label>
             <?php endforeach; ?>
         </div>
         <div class="dre-nota">Nenhuma marcada = todas (equivale ao "selecionar tudo" do BI).</div>
@@ -216,7 +216,7 @@ dreMudaEmpresa();
         <div class="rel-econ-titulo">DRE | Demonstrativo do Resultado do Exercício —
             <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?><?= $arquivada ? ' (Arquivada)' : '' ?></div>
         <div class="rel-econ-impresso"><?= $arquivada ? 'DRE Arquivada — calculada até o dia anterior. ' : '' ?>Período: <?= e($o['data_ini']) ?> a <?= e($o['data_fim']) ?>
-            · Empresa(s): <?= $o['empresas'] ? e(implode(', ', $o['empresas'])) : 'Todas' ?>
+            · Empresa(s): <?= $o['empresas'] ? e(implode(', ', array_map('dre_emp_alias', $o['empresas']))) : 'Todas' ?>
             · Impresso em <?= e(date('d/m/Y H:i')) ?></div>
     </div>
     <div class="tabela-responsiva">

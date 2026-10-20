@@ -35,6 +35,15 @@ declare(strict_types=1);
 
 const DRE_ASSUNTO_FIN = '58 Administração de Obra';
 
+/** Alias de exibicao de empresas (pedido: CV1/CV2/CV3 -> CVC/CVP/CVJ).
+ *  Apenas visual — filtros e consultas seguem usando o Empresa_Cod real. */
+const DRE_EMP_ALIAS = ['CV1' => 'CVC', 'CV2' => 'CVP', 'CV3' => 'CVJ'];
+
+function dre_emp_alias(string $cod): string
+{
+    return DRE_EMP_ALIAS[strtoupper(trim($cod))] ?? $cod;
+}
+
 /** Bases ERP consultadas — o BI junta DBMGA + DBCONV. */
 function dre_bases(): array
 {
@@ -95,7 +104,7 @@ function dre_centros(): array
                     FROM dbo.Vw_Centro_Ativo ORDER BY nome') as $r) {
         $base = stripos($r['chave'], 'dbmga') === 0 ? 'MGA' : 'CONV';
         $out[] = ['chave' => $r['chave'], 'emp' => $r['emp'],
-                  'rotulo' => trim($r['nome']) . ' (' . $r['emp'] . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
+                  'rotulo' => trim($r['nome']) . ' (' . dre_emp_alias($r['emp']) . '·' . $r['fil'] . '·' . $r['ccod'] . ' · ' . $base . ')'];
     }
     return $out;
 }
