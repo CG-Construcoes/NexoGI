@@ -187,6 +187,46 @@ function dre_set(array $vals): array
     return $s;
 }
 
+/** Complemento historico: empresas sem centro ativo cujos dados nao existem
+ *  mais nas bases vivas (CV1/CV2/CV3 foram purgadas de dbMGA — Empresa,
+ *  Centro_de_Custo e movimentos zerados; a procedure retorna 0). O historico
+ *  so sobrevive no snapshot CGGestao.dbo.Posicao_Economica, populado pelas
+ *  spBI* quando os dados ainda existiam. Acumula em $acc como as demais
+ *  fontes; Chave_Centro/Chave_Nucleo sao recriadas como na view
+ *  (trim(Database1)+Empresa+Filial+Centro; Database1 vazio -> 'DBMGA'). */
+function dre_posicao_historico(array &$acc, array $mapa, array $o, array $alvo): void
+{
+    if (!$alvo) {
+        return;
+    }
+    $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))
+              AND Empresa_Cod IN (' . implode(',', array_fill(0, count($alvo), '?')) . ')';
+    $par = array_merge([$o['data_ini'], $o['data_fim']], $alvo);
+    $cenSel = dre_set((array) ($o['centros'] ?? []));
+    $nucSel = dre_set((array) ($o['nucleos'] ?? []));
+    foreach (query("SELECT RTRIM(Database1) db1, Empresa_Cod, Filial_Cod, Centro_Cod,
+                           Nucleo_Cod, GO_Titulo, SubGO_Titulo, RDZ,
+                           EntItemApl_Valor, Ent_DataEntrada
+                    FROM dbo.Posicao_Economica WHERE $where", $par) as $r) {
+        $pfx = strtoupper(trim((string) $r['db1'])) ?: 'DBMGA';
+        $cen = $pfx . trim((string) $r['Empresa_Cod']) . trim((string) $r['Filial_Cod'])
+             . trim((string) $r['Centro_Cod']);
+        $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
+        if ($cenSel && !isset($cenSel[$cen])) {
+            continue;
+        }
+        if ($nucSel && !isset($nucSel[$nuc])) {
+            continue;
+        }
+        $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
+        dre_acumular($acc, $mapa,
+            trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+            trim((string) $r['RDZ']) === '2D',
+            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
+            (float) $r['EntItemApl_Valor']);
+    }
+}
+
 /** Acumula valor na grade cf x GO x SubGO x ano x mes.
  *  1) par GO+SubGO no mapa; 2) senao, Cod do proprio GO;
  *  3) senao, despesa cai no Custo (cf=4) — no BI o Custo absorve TODA a
@@ -230,7 +270,13 @@ function dre_dados(array $o): array
     $acc = [];
     // checkbox "incl_inativas": empresas sem centro ativo (CV1/2/3...) nao
     // precisam passar no filtro Vw_Centro_Ativo — senao nunca trazem dados
-    $semAtivos = !empty($o['incl_inativas']) && $empSel ? dre_empresas_sem_ativos() : [];
+    $semAtivosAll = $empSel ? dre_empresas_sem_ativos() : [];
+    $semAtivos = !empty($o['incl_inativas']) ? $semAtivosAll : [];
+    $linhasProc = []; // empresas que a procedure devolveu (economico)
+    // se TODAS as empresas selecionadas sao "sem ativos", as procedures
+    // retornariam 0 (Centro_de_Custo nao tem essas empresas) — pula a chamada
+    // pesada; com o checkbox o resultado vem do historico de Posicao_Economica
+    $rodarProc = !$empSel || (bool) array_diff(array_keys($empSel), array_keys($semAtivosAll));
     $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
         // lado vivo: "despesa" = RDZ='2D'
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
@@ -248,7 +294,7 @@ function dre_dados(array $o): array
         return true;
     };
 
-    foreach (dre_bases() as $base => $banco) {
+    foreach ($rodarProc ? dre_bases() : [] as $base => $banco) {
         $tag = 'Db' . ucfirst(strtolower($base)); // prefixo das chaves: DbMga / DbConv
         $pdo = conexao($banco);
 
@@ -263,6 +309,7 @@ function dre_dados(array $o): array
                     if ($empSel && !isset($empSel[strtoupper($emp)])) {
                         continue;
                     }
+                    $linhasProc[strtoupper($emp)] = true;
                     $nuc = trim((string) $r['Nucleo_Cod']);
                     $chaveC = $tag . $emp . trim((string) $r['Filial_Cod']) . trim((string) $r['Centro_Cod']);
                     // a view so aceita centros de Vw_Centro_Ativo — exceto
@@ -320,6 +367,15 @@ function dre_dados(array $o): array
         $st->closeCursor();
     }
 
+    // empresa sem centro ativo que a procedure NAO cobriu (dados purgados da
+    // base viva — ex.: CV1/CV2/CV3): cai no historico de Posicao_Economica.
+    // Se a proc retornou linhas, o dado vivo vale e nada e somado 2x.
+    if ($semAtivos) {
+        dre_posicao_historico($acc, $mapa, $o,
+            array_values(array_diff(array_intersect(array_keys($semAtivos), array_keys($empSel)),
+                                    array_keys($linhasProc))));
+    }
+
     return ['linhas' => dre_linhas_de_acc($acc)];
 }
 
@@ -375,36 +431,9 @@ function dre_dados_arquivada(array $o): array
     // view (ela filtra por Vw_Centro_Ativo) — busca o historico na tabela
     // Posicao_Economica, que TEM os dados (CV1: 2020-23, CV2/CV3: 2022-24)
     if (!empty($o['incl_inativas']) && $empSel) {
-        $alvo = array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
-                                             array_keys($empSel)));
-        if ($alvo) {
-            $where2 = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))
-                       AND Empresa_Cod IN (' . implode(',', array_fill(0, count($alvo), '?')) . ')';
-            $par2 = array_merge([$o['data_ini'], $o['data_fim']], $alvo);
-            // Chave_Centro/Chave_Nucleo nao existem na tabela — a view monta
-            // trim(Database1)+Empresa+Filial+Centro; replica o mesmo formato
-            foreach (query("SELECT RTRIM(Database1) db1, Empresa_Cod, Filial_Cod, Centro_Cod,
-                                   Nucleo_Cod, GO_Titulo, SubGO_Titulo, RDZ,
-                                   EntItemApl_Valor, Ent_DataEntrada
-                            FROM dbo.Posicao_Economica WHERE $where2", $par2) as $r) {
-                $pfx = strtoupper(trim((string) $r['db1'])); // 'DBMGA'/'DBCONV'
-                $cen = $pfx . trim((string) $r['Empresa_Cod']) . trim((string) $r['Filial_Cod'])
-                     . trim((string) $r['Centro_Cod']);
-                $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
-                if ($cenSel && !isset($cenSel[$cen])) {
-                    continue;
-                }
-                if ($nucSel && !isset($nucSel[$nuc])) {
-                    continue;
-                }
-                $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
-                dre_acumular($acc, $mapa,
-                    trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
-                    trim((string) $r['RDZ']) === '2D',
-                    (int) substr($d, 0, 4), (int) substr($d, 5, 2),
-                    (float) $r['EntItemApl_Valor']);
-            }
-        }
+        dre_posicao_historico($acc, $mapa, $o,
+            array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
+                                         array_keys($empSel))));
     }
     return ['linhas' => dre_linhas_de_acc($acc)];
 }
