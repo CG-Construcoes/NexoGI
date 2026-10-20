@@ -35,18 +35,20 @@
                             <span class="card-subgrupo-seta"><?= icone_svg('chevron', 13) ?></span>
                         </span>
                         <div class="card-subgrupo-itens">
-                            <?php foreach ($subsVisiveis as $sub): ?>
+                            <?php foreach ($subsVisiveis as $sub):
+                                $tip = $sub['pronto'] ? ($sub['title'] ?? '') : 'Em breve'; ?>
                             <a href="<?= $sub['pronto'] ? url($sub['slug']) : '#' ?>"
                                class="card-subitem <?= $sub['pronto'] ? '' : 'desativado' ?>"
-                               <?= $sub['pronto'] ? '' : 'title="Em breve"' ?>><?= e($sub['nome']) ?></a>
+                               <?= $tip !== '' ? 'title="' . e($tip) . '"' : '' ?>><?= e($sub['nome']) ?></a>
                             <?php endforeach; ?>
                         </div>
                     </div>
                     <?php else:
-                        if (!usuario_pode($item['slug'])) continue; ?>
+                        if (!usuario_pode($item['slug'])) continue;
+                        $tip = $item['pronto'] ? ($item['title'] ?? '') : 'Em breve'; ?>
                     <a href="<?= $item['pronto'] ? url($item['slug']) : '#' ?>"
                        class="card-subitem <?= $item['pronto'] ? '' : 'desativado' ?>"
-                       <?= $item['pronto'] ? '' : 'title="Em breve"' ?>><?= e($item['nome']) ?></a>
+                       <?= $tip !== '' ? 'title="' . e($tip) . '"' : '' ?>><?= e($item['nome']) ?></a>
                     <?php endif;
                 endforeach; ?>
             </div>

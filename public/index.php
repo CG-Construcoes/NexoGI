@@ -32,6 +32,8 @@ $ROTAS_TELA = [
     'faturamento' => 'faturamento',
     'dre-ano' => 'dre-ano',
     'dre-mes' => 'dre-mes',
+    'dre-ano-arquivada' => 'dre-ano-arquivada',
+    'dre-mes-arquivada' => 'dre-mes-arquivada',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -639,8 +641,11 @@ switch ($rota) {
 
     case 'dre-ano':
     case 'dre-mes':
+    case 'dre-ano-arquivada':
+    case 'dre-mes-arquivada':
         exigir_login();
-        $modo = $rota === 'dre-ano' ? 'ano' : 'mes';
+        $arquivada = str_contains($rota, 'arquivada');
+        $modo = str_contains($rota, '-ano') ? 'ano' : 'mes';
         $gerado = isset($_GET['gerar']);
         $anoAtual = (int) date('Y');
         $o = [
@@ -686,7 +691,8 @@ switch ($rota) {
             set_time_limit(900); // as procedures sao pesadas: 2 execucoes por base
             try {
                 $t0 = microtime(true);
-                $dados = dre_pivot(dre_dados($o)['linhas'], $modo);
+                $dados = dre_pivot(
+                    ($arquivada ? dre_dados_arquivada($o) : dre_dados($o))['linhas'], $modo);
                 $dados['tempo'] = microtime(true) - $t0;
             } catch (Throwable $t) {
                 $erro = 'Erro ao gerar o DRE: ' . $t->getMessage();
@@ -701,8 +707,10 @@ switch ($rota) {
             }
         }
         render('dre', [
-            'titulo' => $modo === 'ano' ? 'DRE por Ano' : 'DRE Mensal',
-            'active' => $rota, 'modo' => $modo, 'gerado' => $gerado, 'o' => $o,
+            'titulo' => ($modo === 'ano' ? 'DRE por Ano' : 'DRE Mensal')
+                        . ($arquivada ? ' Arquivada' : ''),
+            'active' => $rota, 'modo' => $modo, 'arquivada' => $arquivada,
+            'gerado' => $gerado, 'o' => $o,
             'formato' => $gerado ? dre_formato() : [],
             'dados' => $dados, 'erro' => $erro] + $listas);
         break;

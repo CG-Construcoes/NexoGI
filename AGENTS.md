@@ -179,9 +179,27 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   Diferenca residual vs BI = dados ao vivo x snapshot (ex.: '0003 Retencao
   de impostos' -1.550.115,22 so existe ao vivo — lancamento pos-refresh).
 - Filtros: empresas/nucleos/centros por checkbox com opcao "Todos" (vazio =
-  todos); marcar empresa filtra Nucleo/Obra por data-emps (JS) e desmarca itens
-  que saem da lista. DRE por Ano aceita intervalo de anos (max 10); DRE Mensal
-  = 1 ano + selecao de meses.
+  todos); marcar empresa filtra Nucleo/Obra por data-emps (JS — aplicado
+  tambem na abertura da tela) e desmarca itens que saem da lista. DRE por Ano
+  aceita intervalo de anos (max 10); DRE Mensal = 1 ano + selecao de meses.
+- **DRE Arquivada** (rotas `dre-ano-arquivada`/`dre-mes-arquivada`, mesmo case
+  com `$arquivada`): le `CGGestao.dbo.Rel_Posicao_Economica` — a MESMA fonte
+  do BI (populada 1x/dia pelas spBI*, dados ate o dia anterior). ~3s vs ~3min
+  da versao ao vivo. Tooltip no item do menu: "DRE Arquivada e a DRE calculada
+  ate o dia anterior." Detalhes: Chave_Centro da view e UPPER ('DBMGACGC...');
+  Chave_Nucleo da view e base+filial ('DBMGA01') — o filtro de nucleo usa
+  LEFT(Chave_Centro,5)+Nucleo_Cod ('DBMGA27'); sem RDZ na view, "despesa" =
+  ClasseTipo_Titulo='Despesa operacional'. Acumulador comum: `dre_acumular()`
+  + `dre_linhas_de_acc()`. Menu aceita `'title'` no item (tooltip no sidebar
+  e na pagina de menu).
+- Empresas: 1 entrada por codigo (Vw_Empresa_Ativa), ordem alfabetica pelo
+  rotulo. Renomeacao SO VISUAL dos legados: CV1->'CVC (CV1-DbMga)',
+  CV2->'CVP (CV2-DbMga)', CV3->'CVJ (CV3-DbMga)' — sao empresas distintas
+  das reais CVC/CVP/CVJ (bases diferentes); filtro usa o Empresa_Cod real,
+  NAO unificar (pedido explicito do usuario). `dre_emp_rotulo()` = rotulo
+  completo; `dre_emp_alias()` = forma curta (rotulos de centro).
+  Nucleo/centro da arquivada: prefixo da base NAO tem tamanho fixo
+  ('DBMGA'=5, 'DBCONV'=6) — usar str_starts_with, nunca LEFT fixo.
 
 ## Matriz de Prioridades (2026-10-05)
 - Suprimentos > Solicitacoes > Matriz de Prioridades (rota `matriz-prioridades`, permissao propria).

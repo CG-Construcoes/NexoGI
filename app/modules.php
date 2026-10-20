@@ -29,6 +29,10 @@ const MODULES = [
         ['nome' => 'Diretoria', 'itens' => [
             ['slug' => 'dre-ano', 'nome' => 'DRE por Ano', 'pronto' => true],
             ['slug' => 'dre-mes', 'nome' => 'DRE Mensal', 'pronto' => true],
+            ['slug' => 'dre-ano-arquivada', 'nome' => 'DRE Ano Arquivada', 'pronto' => true,
+             'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
+            ['slug' => 'dre-mes-arquivada', 'nome' => 'DRE Mês Arquivada', 'pronto' => true,
+             'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
         ]],
         ['nome' => 'Relatorios', 'itens' => [
             ['slug' => 'relatorio-economico', 'nome' => 'Relatorio Economico', 'pronto' => true],

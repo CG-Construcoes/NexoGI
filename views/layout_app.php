@@ -71,18 +71,20 @@ try {
                                     <span class="nav-subgrupo-seta"><?= icone_svg('chevron', 12) ?></span>
                                 </span>
                                 <div class="nav-subgrupo-itens"><div class="nav-subgrupo-itens-inner">
-                                <?php foreach ($subsVisiveis as $sub): ?>
+                                <?php foreach ($subsVisiveis as $sub):
+                                    $tip = $sub['pronto'] ? ($sub['title'] ?? '') : 'Em breve'; ?>
                                 <a href="<?= $sub['pronto'] ? url($sub['slug']) : '#' ?>"
                                    class="nav-subitem <?= $active === $sub['slug'] ? 'ativo' : '' ?> <?= $sub['pronto'] ? '' : 'desativado' ?>"
-                                   <?= $sub['pronto'] ? '' : 'title="Em breve"' ?>><?= e($sub['nome']) ?></a>
+                                   <?= $tip !== '' ? 'title="' . e($tip) . '"' : '' ?>><?= e($sub['nome']) ?></a>
                                 <?php endforeach; ?>
                                 </div></div>
                             </div>
                             <?php else:
-                                if (!usuario_pode($item['slug'])) continue; ?>
+                                if (!usuario_pode($item['slug'])) continue;
+                                $tip = $item['pronto'] ? ($item['title'] ?? '') : 'Em breve'; ?>
                             <a href="<?= $item['pronto'] ? url($item['slug']) : '#' ?>"
                                class="nav-subitem <?= $active === $item['slug'] ? 'ativo' : '' ?> <?= $item['pronto'] ? '' : 'desativado' ?>"
-                               <?= $item['pronto'] ? '' : 'title="Em breve"' ?>><?= e($item['nome']) ?></a>
+                               <?= $tip !== '' ? 'title="' . e($tip) . '"' : '' ?>><?= e($item['nome']) ?></a>
                             <?php endif;
                         endforeach; ?>
                     </div>
