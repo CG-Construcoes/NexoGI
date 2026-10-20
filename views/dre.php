@@ -27,7 +27,11 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
 <form class="rel-econ-filtro" method="get"
       onsubmit="document.getElementById('relLoading').hidden=false">
     <div class="rel-econ-titulo-form">DRE | Demonstrativo do Resultado do Exercício —
-        <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?></div>
+        <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?><?= $arquivada ? ' (Arquivada)' : '' ?></div>
+    <?php if ($arquivada): ?>
+        <div class="dre-nota" style="margin-bottom:8px">DRE Arquivada é a DRE calculada até o dia
+            anterior (mesma fonte do Power BI — consulta rápida).</div>
+    <?php endif; ?>
 
     <fieldset class="rel-econ-box">
         <legend>Período</legend>
@@ -210,8 +214,8 @@ dreMudaEmpresa();
 <div class="rel-econ">
     <div class="rel-econ-cab">
         <div class="rel-econ-titulo">DRE | Demonstrativo do Resultado do Exercício —
-            <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?></div>
-        <div class="rel-econ-impresso">Período: <?= e($o['data_ini']) ?> a <?= e($o['data_fim']) ?>
+            <?= $modo === 'ano' ? 'por Ano' : 'Mensal' ?><?= $arquivada ? ' (Arquivada)' : '' ?></div>
+        <div class="rel-econ-impresso"><?= $arquivada ? 'DRE Arquivada — calculada até o dia anterior. ' : '' ?>Período: <?= e($o['data_ini']) ?> a <?= e($o['data_fim']) ?>
             · Empresa(s): <?= $o['empresas'] ? e(implode(', ', $o['empresas'])) : 'Todas' ?>
             · Impresso em <?= e(date('d/m/Y H:i')) ?></div>
     </div>

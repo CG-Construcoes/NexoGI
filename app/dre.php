@@ -144,6 +144,33 @@ function dre_set(array $vals): array
     return $s;
 }
 
+/** Acumula valor na grade cf x GO x SubGO x ano x mes.
+ *  1) par GO+SubGO no mapa; 2) senao, Cod do proprio GO;
+ *  3) senao, despesa cai no Custo (cf=4) — no BI o Custo absorve TODA a
+ *     despesa nao classificada (validado: Custo = total despesas - DespOp);
+ *  4) resto -> "Nao classificado no DRE". */
+function dre_acumular(array &$acc, array $mapa, string $go, string $sub,
+                      bool $despesa, int $ano, int $mes, float $v): void
+{
+    $cfs = $mapa['par'][$go . '|' . $sub] ?? $mapa['go'][$go] ?? ($despesa ? [4] : [null]);
+    foreach ($cfs as $cf) {
+        $k = ($cf ?? -1) . "\x1f" . $go . "\x1f" . $sub . "\x1f" . $ano . "\x1f" . $mes;
+        $acc[$k] = ($acc[$k] ?? 0.0) + $v;
+    }
+}
+
+/** $acc (chaves \x1f) -> lista de linhas {cf,go,subgo,ano,mes,valor}. */
+function dre_linhas_de_acc(array $acc): array
+{
+    $linhas = [];
+    foreach ($acc as $k => $v) {
+        [$cf, $go, $sub, $ano, $mes] = explode("\x1f", $k);
+        $linhas[] = ['cf' => (int) $cf < 0 ? null : (int) $cf, 'go' => $go, 'subgo' => $sub,
+                     'ano' => (int) $ano, 'mes' => (int) $mes, 'valor' => $v];
+    }
+    return $linhas;
+}
+
 /**
  * Executa as duas procedures nas duas bases e agrega por
  * Cod_Formato x GO x SubGO x ano x mes.
@@ -159,16 +186,8 @@ function dre_dados(array $o): array
 
     $acc = [];
     $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
-        // 1) par GO+SubGO no mapa; 2) senao, Cod do proprio GO;
-        // 3) senao, despesa (RDZ='2D') cai no Custo (cf=4) — no BI o Custo
-        //    absorve TODA a despesa nao classificada (validado: Custo =
-        //    total de despesas - DespOp, ao centavo);
-        // 4) resto -> "Nao classificado no DRE".
-        $cfs = $mapa['par'][$go . '|' . $sub] ?? $mapa['go'][$go] ?? ($rdz === '2D' ? [4] : [null]);
-        foreach ($cfs as $cf) {
-            $k = ($cf ?? -1) . "\x1f" . $go . "\x1f" . $sub . "\x1f" . $ano . "\x1f" . $mes;
-            $acc[$k] = ($acc[$k] ?? 0.0) + $v;
-        }
+        // lado vivo: "despesa" = RDZ='2D'
+        dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
     };
     $filtro = function (string $emp, string $chaveC, string $nuc, string $tag) use ($empSel, $cenSel, $nucSel): bool {
         if ($empSel && !isset($empSel[strtoupper($emp)])) {
@@ -246,13 +265,55 @@ function dre_dados(array $o): array
         $st->closeCursor();
     }
 
-    $linhas = [];
-    foreach ($acc as $k => $v) {
-        [$cf, $go, $sub, $ano, $mes] = explode("\x1f", $k);
-        $linhas[] = ['cf' => (int) $cf < 0 ? null : (int) $cf, 'go' => $go, 'subgo' => $sub,
-                     'ano' => (int) $ano, 'mes' => (int) $mes, 'valor' => $v];
+    return ['linhas' => dre_linhas_de_acc($acc)];
+}
+
+/**
+ * DRE "arquivada" — MESMA fonte do Power BI: view CGGestao.dbo.Rel_Posicao_
+ * Economica, populada 1x/dia pelas spBI* (dados ate o dia anterior). Rapida:
+ * um unico SELECT. A view ja aplica o filtro Vw_Centro_Ativo no lado economico
+ * e o UNION do lado financeiro ('58 Administracao de Obra').
+ * A view nao expoe RDZ: "despesa" = ClasseTipo_Titulo='Despesa operacional'
+ * (equivalente ao RDZ='2D' — total bateu ao centavo na validacao).
+ */
+function dre_dados_arquivada(array $o): array
+{
+    $mapa   = dre_mapa();
+    $empSel = dre_set((array) ($o['empresas'] ?? []));
+    $nucSel = dre_set((array) ($o['nucleos'] ?? []));
+    $cenSel = dre_set((array) ($o['centros'] ?? []));
+
+    $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))';
+    $par   = [$o['data_ini'], $o['data_fim']];
+    if ($empSel) {
+        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($empSel), '?')) . ')';
+        foreach (array_keys($empSel) as $e) {
+            $par[] = $e;
+        }
     }
-    return ['linhas' => $linhas];
+    $acc = [];
+    foreach (query("SELECT Empresa_Cod, Chave_Centro, Nucleo_Cod, GO_Titulo, SubGO_Titulo,
+                           ClasseTipo_Titulo, EntItemApl_Valor, Ent_DataEntrada
+                    FROM dbo.Rel_Posicao_Economica WHERE $where", $par) as $r) {
+        // Chave_Centro da view e UPPER ('DBMGACGC010107'); Chave_Nucleo da view
+        // e base+filial ('DBMGA01') — para filtrar por nucleo usa-se
+        // prefixo da base + Nucleo_Cod = mesmo formato da Vw_Centro_Ativo.
+        $cen = strtoupper(trim((string) $r['Chave_Centro']));
+        $nuc = substr($cen, 0, 5) . trim((string) $r['Nucleo_Cod']);
+        if ($cenSel && !isset($cenSel[$cen])) {
+            continue;
+        }
+        if ($nucSel && !isset($nucSel[$nuc])) {
+            continue;
+        }
+        $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
+        dre_acumular($acc, $mapa,
+            trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+            trim((string) $r['ClasseTipo_Titulo']) === 'Despesa operacional',
+            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
+            (float) $r['EntItemApl_Valor']);
+    }
+    return ['linhas' => dre_linhas_de_acc($acc)];
 }
 
 /**
