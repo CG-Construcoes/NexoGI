@@ -652,7 +652,6 @@ switch ($rota) {
             'empresas' => array_values(array_filter(array_map('trim', (array) ($_GET['empresas'] ?? [])))),
             'nucleos'  => array_values(array_filter(array_map('trim', (array) ($_GET['nucleos_sel'] ?? [])))),
             'centros'  => array_values(array_filter(array_map('trim', (array) ($_GET['centros_sel'] ?? [])))),
-            'incl_inativas' => isset($_GET['incl_inativas']),
         ];
         $erro = '';
         if ($modo === 'ano') {

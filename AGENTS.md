@@ -200,9 +200,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   completo; `dre_emp_alias()` = forma curta (rotulos de centro).
   Nucleo/centro da arquivada: prefixo da base NAO tem tamanho fixo
   ('DBMGA'=5, 'DBCONV'=6) — usar str_starts_with, nunca LEFT fixo.
-  Checkbox `incl_inativas`: empresas sem centro ativo (CV1/CV2/CV3 — dados
-  historicos 2020-24 em Posicao_Economica, excluidos pela view porque ela
-  JOINa Vw_Centro_Ativo). Arquivada complementa com SELECT direto em
+  Empresas sem centro ativo (CV1/CV2/CV3 — dados historicos 2020-24 em
+  Posicao_Economica, excluidos pela view porque ela JOINa Vw_Centro_Ativo):
+  basta SELECIONA-LAS no filtro Empresa — sem checkbox (pedido: os casos sao
+  unicos, selecionar ja implica incluir). Arquivada complementa com SELECT
+  direto em
   Posicao_Economica (Chave_Centro = trim(Database1)+Emp+Fil+Centro — a
   coluna nao existe na tabela; Database1 vazio conta como 'DBMGA').
   **2026-10-20: CV1/CV2/CV3 NAO existem mais nas bases vivas** — dbMGA/dbConv

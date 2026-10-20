@@ -159,8 +159,8 @@ function dre_centros_ativos_set(): array
 
 /** Empresas SEM nenhum centro ativo (Vw_Empresa_Ativa - Vw_Centro_Ativo) —
  *  codigos legados de empresas encerradas (CV1/CV2/CV3): tem historico em
- *  Posicao_Economica mas sao excluidos pela view/BI. Checkbox
- *  "incl_inativas" do form libera essas linhas. */
+ *  Posicao_Economica mas sao excluidos pela view/BI. Selecionadas no filtro,
+ *  o DRE busca o historico automaticamente (dre_posicao_historico). */
 function dre_empresas_sem_ativos(): array
 {
     $ativas = $out = [];
@@ -268,15 +268,14 @@ function dre_dados(array $o): array
     $cenSel = dre_set((array) ($o['centros'] ?? []));
 
     $acc = [];
-    // checkbox "incl_inativas": empresas sem centro ativo (CV1/2/3...) nao
-    // precisam passar no filtro Vw_Centro_Ativo — senao nunca trazem dados
-    $semAtivosAll = $empSel ? dre_empresas_sem_ativos() : [];
-    $semAtivos = !empty($o['incl_inativas']) ? $semAtivosAll : [];
+    // empresas sem centro ativo (CV1/CV2/CV3 — historicas purgadas das bases
+    // vivas): quando selecionadas, dispensam o filtro Vw_Centro_Ativo e caem
+    // no historico de Posicao_Economica; se TODAS as selecionadas forem
+    // historicas, as procedures nem rodam (retornariam 0 — INNER JOIN em
+    // Centro_de_Custo, que nao tem essas empresas)
+    $semAtivos = $empSel ? dre_empresas_sem_ativos() : [];
     $linhasProc = []; // empresas que a procedure devolveu (economico)
-    // se TODAS as empresas selecionadas sao "sem ativos", as procedures
-    // retornariam 0 (Centro_de_Custo nao tem essas empresas) — pula a chamada
-    // pesada; com o checkbox o resultado vem do historico de Posicao_Economica
-    $rodarProc = !$empSel || (bool) array_diff(array_keys($empSel), array_keys($semAtivosAll));
+    $rodarProc = !$empSel || (bool) array_diff(array_keys($empSel), array_keys($semAtivos));
     $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
         // lado vivo: "despesa" = RDZ='2D'
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
@@ -427,10 +426,10 @@ function dre_dados_arquivada(array $o): array
             (float) $r['EntItemApl_Valor']);
     }
 
-    // checkbox "incl_inativas": empresas sem centro ativo nao existem na
-    // view (ela filtra por Vw_Centro_Ativo) — busca o historico na tabela
+    // empresas sem centro ativo nao existem na view (ela filtra por
+    // Vw_Centro_Ativo) — selecionadas, buscam o historico na tabela
     // Posicao_Economica, que TEM os dados (CV1: 2020-23, CV2/CV3: 2022-24)
-    if (!empty($o['incl_inativas']) && $empSel) {
+    if ($empSel) {
         dre_posicao_historico($acc, $mapa, $o,
             array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
                                          array_keys($empSel))));

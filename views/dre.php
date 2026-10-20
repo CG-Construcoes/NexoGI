@@ -69,10 +69,6 @@ $fmtV = fn(float $v): string => number_format($v, 2, ',', '.');
             <?php endforeach; ?>
         </div>
         <div class="dre-nota">Nenhuma marcada = todas (equivale ao "selecionar tudo" do BI).</div>
-        <label class="dre-nota" style="cursor:pointer">
-            <input type="checkbox" name="incl_inativas" value="1"
-                <?= !empty($o['incl_inativas']) ? 'checked' : '' ?>>
-            Incluir empresas sem centro ativo (ex.: CV1, CV2, CV3 — dados históricos)</label>
     </fieldset>
 
     <fieldset class="rel-econ-box rel-econ-centros">
