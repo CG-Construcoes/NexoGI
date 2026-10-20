@@ -169,25 +169,15 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Classificacao: `DRE_GR_CL` (par GO_Titulo+SubGO_Titulo -> Cod_Formato, m:n —
   '0007 Juros de Contrato' conta nos Cod 6 e 10, como no BI). `FormatoDRE`
   da ordem/rotulo; SubTotal=1 = acumulado dos niveis anteriores; Lucro Liquido
-  = soma de tudo mapeado. Pares sem mapa aparecem em "Nao classificado no DRE"
-  (~190 pares, -7,5M em 2025) e ficam FORA do Lucro Liquido.
+  = soma de tudo mapeado. Regra completa detalhada abaixo (validada vs BI).
 - "% DRE" = percentual sobre a Receita Operacional BRUTA da coluna
   (confirmado pelo print do BI: Bruta=100%, Receita Liquida=96,35%).
-- PENDENTE (retomar aqui): divergencia de valores vs BI no filtro
-  CGC/01/0107/2026 (Bruta bate: 51.669.879,21). No BI, Custo+DespOp =
-  -32.408.715,49 = TODA a despesa do centro — la nada fica nao-classificado;
-  os -4,05M de pares sem par em DRE_GR_CL (ex.: GO '0158 Materiais especiais
-  fornecidos', subgos 000040/000027/...) foram distribuidos entre Custo
-  (+3,92M) e DespOp (+131k) por uma classificacao que NAO e DRE_GR_CL por
-  par/GO/SubGO isolado. Candidatos investigados e descartados: RDZ (so
-  separa receita/despesa), ClasseTipo (todos 'Despesa operacional'),
-  DescontoDevolucao (insignificante), PosicaoFinanceira (so '58 Adm Obra'=0),
-  Grupo_Orcamentario/SubGrupo_Orcamentario do dbMGA (GERDRE_Cod vazio,
-  GO 0158 inexistente la — so 120 GOs). PROXIMO PASSO: ler os visual.json
-  do PBIX extraido em C:\Users\Usuario\AppData\Local\Temp\pbix_dre\extracted
-  para ver de qual tabela/coluna vem a classificacao DRE do modelo.
-  Alem disso: '0003 Retencao de impostos' -1.550.115,22 so existe AO VIVO
-  (nao esta na Posicao_Economica = lancamento posterior ao refresh do BI).
+- Classificacao DRE (validada vs BI no filtro CGC/01/0107/2026): par
+  GO+SubGO em DRE_GR_CL -> senao Cod do GO -> senao DESPESA (RDZ='2D') cai
+  no CUSTO (no BI o Custo absorve toda despesa nao classificada; Custo BI =
+  total despesas - DespOp ao centavo). Demais -> "Nao classificado no DRE".
+  Diferenca residual vs BI = dados ao vivo x snapshot (ex.: '0003 Retencao
+  de impostos' -1.550.115,22 so existe ao vivo — lancamento pos-refresh).
 - Filtros: empresas/nucleos/centros por checkbox com opcao "Todos" (vazio =
   todos); marcar empresa filtra Nucleo/Obra por data-emps (JS) e desmarca itens
   que saem da lista. DRE por Ano aceita intervalo de anos (max 10); DRE Mensal

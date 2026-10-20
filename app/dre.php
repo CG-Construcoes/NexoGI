@@ -21,12 +21,16 @@ declare(strict_types=1);
  *     (filtro literal da view — hoje nao retorna linhas porque o assunto gravado
  *     e 'USU58 Administracao de Obra'; mantido exato para fidelidade).
  *
- * Classificacao DRE: CGGestao.dbo.DRE_GR_CL mapeia o PAR (GO_Titulo, SubGO_
- * Titulo) -> Cod_Formato; CGGestao.dbo.FormatoDRE traz ordem/rotulo das linhas.
- * Linhas SubTotal=1 (Receita Liquida, Margem Bruta, EBITDA, EBIT, EBT) somam
- * acumulado dos niveis anteriores; "(=) Lucro Liquido" soma tudo que e mapeado.
- * Pares GO/SubGO sem mapeamento aparecem no grupo "Nao classificado no DRE"
- * (equivalente ao grupo em branco do BI) e nao entram no Lucro Liquido.
+ * Classificacao DRE (validada contra o BI no filtro CGC/01/0107/2026):
+ *   1) par (GO_Titulo, SubGO_Titulo) presente em DRE_GR_CL -> seu(s)
+ *      Cod_Formato (m:n: '0007 Juros de Contrato' conta nos Cod 6 e 10);
+ *   2) par ausente mas GO presente no mapa -> Cod do GO;
+ *   3) sem nenhum mapa e linha de DESPESA (RDZ='2D') -> cai no Custo (Cod 4):
+ *      no BI o Custo absorve toda despesa nao classificada (Custo = total de
+ *      despesas - DespOp, conferido ao centavo);
+ *   4) demais -> grupo "Nao classificado no DRE" (fora do Lucro Liquido).
+ * CGGestao.dbo.FormatoDRE traz ordem/rotulo; linhas SubTotal=1 acumulam os
+ * niveis anteriores; "(=) Lucro Liquido" soma tudo mapeado.
  */
 
 const DRE_ASSUNTO_FIN = '58 Administração de Obra';
@@ -96,15 +100,19 @@ function dre_centros(): array
     return $out;
 }
 
-/** (GO_Titulo, SubGO_Titulo) => [Cod_Formato, ...] — um par pode mapear p/ 2 linhas. */
+/** Mapa de classificacao DRE (DRE_GR_CL):
+ *  'par' => (GO_Titulo|SubGO_Titulo) => [Cod_Formato,...]
+ *  'go'  => GO_Titulo => [Cod_Formato,...]   (fallback quando o par nao existe —
+ *  validado contra o BI: DespOp fecha ao centavo com o fallback por GO). */
 function dre_mapa(): array
 {
-    $m = [];
+    $par = $go = [];
     foreach (query('SELECT RTRIM(GO_Titulo) g, RTRIM(SubGO_Titulo) s, Cod_Formato cf
                     FROM dbo.DRE_GR_CL') as $r) {
-        $m[$r['g'] . '|' . $r['s']][(int) $r['cf']] = true;
+        $par[$r['g'] . '|' . $r['s']][(int) $r['cf']] = true;
+        $go[$r['g']][(int) $r['cf']] = true;
     }
-    return array_map('array_keys', $m);
+    return ['par' => array_map('array_keys', $par), 'go' => array_map('array_keys', $go)];
 }
 
 /** Linhas do formato DRE, na ordem do Nivel. */
@@ -150,8 +158,13 @@ function dre_dados(array $o): array
     $cenSel = dre_set((array) ($o['centros'] ?? []));
 
     $acc = [];
-    $somar = function (string $go, string $sub, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
-        $cfs = $mapa[$go . '|' . $sub] ?? [null];
+    $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
+        // 1) par GO+SubGO no mapa; 2) senao, Cod do proprio GO;
+        // 3) senao, despesa (RDZ='2D') cai no Custo (cf=4) — no BI o Custo
+        //    absorve TODA a despesa nao classificada (validado: Custo =
+        //    total de despesas - DespOp, ao centavo);
+        // 4) resto -> "Nao classificado no DRE".
+        $cfs = $mapa['par'][$go . '|' . $sub] ?? $mapa['go'][$go] ?? ($rdz === '2D' ? [4] : [null]);
         foreach ($cfs as $cf) {
             $k = ($cf ?? -1) . "\x1f" . $go . "\x1f" . $sub . "\x1f" . $ano . "\x1f" . $mes;
             $acc[$k] = ($acc[$k] ?? 0.0) + $v;
@@ -192,6 +205,7 @@ function dre_dados(array $o): array
                     }
                     $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
                     $somar(trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+                           trim((string) $r['RDZ']),
                            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
                            (float) $r['EntItemApl_Valor']);
                 }
@@ -220,6 +234,7 @@ function dre_dados(array $o): array
                     }
                     $d = substr((string) $r['MovFin_Data'], 0, 10);
                     $somar(trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+                           trim((string) $r['RDZ']),
                            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
                            (float) $r['MovFinItem_ValorOrig']);
                 }
