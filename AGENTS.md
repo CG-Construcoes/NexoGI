@@ -216,7 +216,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `dre_posicao_historico()` compartilhado; no vivo aplica-se so as empresas
   sem-ativos selecionadas que a procedure nao cobriu (`$linhasProc`), e se
   TODAS as selecionadas sao sem-ativos as procedures nem rodam (`$rodarProc`
-  = false -> resposta em <1s em vez de ~3min). Como o Informakon gera RelEco
+  = false -> resposta em <1s em vez de ~3min). ODBC (NexoGI): colunas
+  char(90) de Posicao_Economica/view (GO_Titulo, SubGO_Titulo,
+  ClasseTipo_Titulo) estouram o buffer do PDO_ODBC com acentos em UTF-8
+  (SQLSTATE 01004) — sempre SELECTar com CONVERT(varchar(4000), col); EXEC
+  de procedure nao sofre (testado). Como o Informakon gera RelEco
   de CV1 (RelEco_CV1.pdf: Total Geral 42.375,99) ficou em aberto — a base
   viva dele deve estar em outro servidor/banco inacessivel ao nosso login
   (dbCONV_INT/DbFortes negados).
