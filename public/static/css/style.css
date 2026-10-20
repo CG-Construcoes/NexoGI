@@ -542,13 +542,56 @@ body.sidebar-fixa .sidebar-pin {
 }
 
 .nav-subgrupo-titulo {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 10.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: rgba(255, 255, 255, 0.5);
     padding: 6px 10px 3px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 6px;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.nav-subgrupo-titulo:hover {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-subgrupo-seta {
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.6;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: rotate(-90deg);
+}
+
+.nav-subgrupo.aberto .nav-subgrupo-seta {
+    transform: rotate(0deg);
+}
+
+.nav-subgrupo-itens {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+}
+
+.nav-subgrupo.aberto .nav-subgrupo-itens {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.nav-subgrupo-itens-inner {
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .nav-subitem {

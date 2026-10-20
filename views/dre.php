@@ -291,8 +291,21 @@ function dreSyncTodos(id) {
             </tr>
             <?php endif; ?>
             <tr class="dre-tempo">
+                <?php
+                    $t = (int) round($dados['tempo']);
+                    $h = intdiv($t, 3600);
+                    $mi = intdiv($t % 3600, 60);
+                    $sg = $t % 60;
+                    $partes = [];
+                    if ($h)  $partes[] = $h . ' ' . ($h === 1 ? 'hora' : 'horas');
+                    if ($mi) $partes[] = $mi . ' ' . ($mi === 1 ? 'minuto' : 'minutos');
+                    if ($sg || !$partes) $partes[] = $sg . ' ' . ($sg === 1 ? 'segundo' : 'segundos');
+                    $tempoTxt = count($partes) > 1
+                        ? implode(' ', array_slice($partes, 0, -1)) . ' e ' . end($partes)
+                        : $partes[0];
+                ?>
                 <td colspan="<?= 1 + 2 * count($cols) ?>">Relatório gerado em
-                    <?= e(number_format($dados['tempo'], 1, ',', '')) ?> segundos.</td>
+                    <?= e($tempoTxt) ?>.</td>
             </tr>
         </tbody>
     </table>

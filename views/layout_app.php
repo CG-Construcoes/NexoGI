@@ -60,15 +60,23 @@ try {
                 <div class="nav-subitens-wrap">
                     <div class="nav-subitens">
                         <?php foreach ($g['itens'] as $item):
-                            if (isset($item['itens'])): ?>
-                            <div class="nav-subgrupo">
-                                <span class="nav-subgrupo-titulo"><?= e($item['nome']) ?></span>
-                                <?php foreach ($item['itens'] as $sub):
-                                    if (!usuario_pode($sub['slug'])) continue; ?>
+                            if (isset($item['itens'])):
+                                $subsVisiveis = array_values(array_filter($item['itens'],
+                                    fn($sub) => usuario_pode($sub['slug'])));
+                                if (!$subsVisiveis) continue;
+                                $subAberto = in_array($active, array_column($subsVisiveis, 'slug'), true); ?>
+                            <div class="nav-subgrupo <?= $subAberto ? 'aberto' : '' ?>">
+                                <span class="nav-subgrupo-titulo">
+                                    <span class="nav-subgrupo-label"><?= e($item['nome']) ?></span>
+                                    <span class="nav-subgrupo-seta"><?= icone_svg('chevron', 12) ?></span>
+                                </span>
+                                <div class="nav-subgrupo-itens"><div class="nav-subgrupo-itens-inner">
+                                <?php foreach ($subsVisiveis as $sub): ?>
                                 <a href="<?= $sub['pronto'] ? url($sub['slug']) : '#' ?>"
                                    class="nav-subitem <?= $active === $sub['slug'] ? 'ativo' : '' ?> <?= $sub['pronto'] ? '' : 'desativado' ?>"
                                    <?= $sub['pronto'] ? '' : 'title="Em breve"' ?>><?= e($sub['nome']) ?></a>
                                 <?php endforeach; ?>
+                                </div></div>
                             </div>
                             <?php else:
                                 if (!usuario_pode($item['slug'])) continue; ?>
@@ -189,6 +197,12 @@ try {
 
 (function () {
     document.querySelectorAll('.nav-grupo-titulo').forEach(titulo => {
+        titulo.addEventListener('click', () => {
+            titulo.parentElement.classList.toggle('aberto');
+        });
+    });
+
+    document.querySelectorAll('.nav-subgrupo-titulo').forEach(titulo => {
         titulo.addEventListener('click', () => {
             titulo.parentElement.classList.toggle('aberto');
         });
