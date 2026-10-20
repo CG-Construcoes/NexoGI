@@ -157,6 +157,24 @@ function dre_centros_ativos_set(): array
     return $s;
 }
 
+/** Empresas SEM nenhum centro ativo (Vw_Empresa_Ativa - Vw_Centro_Ativo) —
+ *  codigos legados de empresas encerradas (CV1/CV2/CV3): tem historico em
+ *  Posicao_Economica mas sao excluidos pela view/BI. Selecionadas no filtro,
+ *  o DRE busca o historico automaticamente (dre_posicao_historico). */
+function dre_empresas_sem_ativos(): array
+{
+    $ativas = $out = [];
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) e FROM dbo.Vw_Centro_Ativo') as $r) {
+        $ativas[strtoupper($r['e'])] = true;
+    }
+    foreach (query('SELECT DISTINCT RTRIM(Empresa_Cod) e FROM dbo.Vw_Empresa_Ativa') as $r) {
+        if (!isset($ativas[strtoupper($r['e'])])) {
+            $out[strtoupper($r['e'])] = true;
+        }
+    }
+    return $out;
+}
+
 function dre_set(array $vals): array
 {
     $s = [];
@@ -167,6 +185,46 @@ function dre_set(array $vals): array
         }
     }
     return $s;
+}
+
+/** Complemento historico: empresas sem centro ativo cujos dados nao existem
+ *  mais nas bases vivas (CV1/CV2/CV3 foram purgadas de dbMGA — Empresa,
+ *  Centro_de_Custo e movimentos zerados; a procedure retorna 0). O historico
+ *  so sobrevive no snapshot CGGestao.dbo.Posicao_Economica, populado pelas
+ *  spBI* quando os dados ainda existiam. Acumula em $acc como as demais
+ *  fontes; Chave_Centro/Chave_Nucleo sao recriadas como na view
+ *  (trim(Database1)+Empresa+Filial+Centro; Database1 vazio -> 'DBMGA'). */
+function dre_posicao_historico(array &$acc, array $mapa, array $o, array $alvo): void
+{
+    if (!$alvo) {
+        return;
+    }
+    $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))
+              AND Empresa_Cod IN (' . implode(',', array_fill(0, count($alvo), '?')) . ')';
+    $par = array_merge([$o['data_ini'], $o['data_fim']], $alvo);
+    $cenSel = dre_set((array) ($o['centros'] ?? []));
+    $nucSel = dre_set((array) ($o['nucleos'] ?? []));
+    foreach (query("SELECT RTRIM(Database1) db1, Empresa_Cod, Filial_Cod, Centro_Cod,
+                           Nucleo_Cod, GO_Titulo, SubGO_Titulo, RDZ,
+                           EntItemApl_Valor, Ent_DataEntrada
+                    FROM dbo.Posicao_Economica WHERE $where", $par) as $r) {
+        $pfx = strtoupper(trim((string) $r['db1'])) ?: 'DBMGA';
+        $cen = $pfx . trim((string) $r['Empresa_Cod']) . trim((string) $r['Filial_Cod'])
+             . trim((string) $r['Centro_Cod']);
+        $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
+        if ($cenSel && !isset($cenSel[$cen])) {
+            continue;
+        }
+        if ($nucSel && !isset($nucSel[$nuc])) {
+            continue;
+        }
+        $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
+        dre_acumular($acc, $mapa,
+            trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
+            trim((string) $r['RDZ']) === '2D',
+            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
+            (float) $r['EntItemApl_Valor']);
+    }
 }
 
 /** Acumula valor na grade cf x GO x SubGO x ano x mes.
@@ -210,6 +268,14 @@ function dre_dados(array $o): array
     $cenSel = dre_set((array) ($o['centros'] ?? []));
 
     $acc = [];
+    // empresas sem centro ativo (CV1/CV2/CV3 — historicas purgadas das bases
+    // vivas): quando selecionadas, dispensam o filtro Vw_Centro_Ativo e caem
+    // no historico de Posicao_Economica; se TODAS as selecionadas forem
+    // historicas, as procedures nem rodam (retornariam 0 — INNER JOIN em
+    // Centro_de_Custo, que nao tem essas empresas)
+    $semAtivos = $empSel ? dre_empresas_sem_ativos() : [];
+    $linhasProc = []; // empresas que a procedure devolveu (economico)
+    $rodarProc = !$empSel || (bool) array_diff(array_keys($empSel), array_keys($semAtivos));
     $somar = function (string $go, string $sub, string $rdz, int $ano, int $mes, float $v) use (&$acc, $mapa): void {
         // lado vivo: "despesa" = RDZ='2D'
         dre_acumular($acc, $mapa, $go, $sub, $rdz === '2D', $ano, $mes, $v);
@@ -227,7 +293,7 @@ function dre_dados(array $o): array
         return true;
     };
 
-    foreach (dre_bases() as $base => $banco) {
+    foreach ($rodarProc ? dre_bases() : [] as $base => $banco) {
         $tag = 'Db' . ucfirst(strtolower($base)); // prefixo das chaves: DbMga / DbConv
         $pdo = conexao($banco);
 
@@ -239,12 +305,22 @@ function dre_dados(array $o): array
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                     $emp = trim((string) $r['Empresa_Cod']);
+                    if ($empSel && !isset($empSel[strtoupper($emp)])) {
+                        continue;
+                    }
+                    $linhasProc[strtoupper($emp)] = true;
                     $nuc = trim((string) $r['Nucleo_Cod']);
                     $chaveC = $tag . $emp . trim((string) $r['Filial_Cod']) . trim((string) $r['Centro_Cod']);
-                    if (!isset($ativos[strtoupper($chaveC) . '|' . $nuc])) {
-                        continue; // a view so aceita centros presentes em Vw_Centro_Ativo
+                    // a view so aceita centros de Vw_Centro_Ativo — exceto
+                    // empresas "sem ativos" selecionadas com incl_inativas
+                    if (!isset($semAtivos[strtoupper($emp)])
+                        && !isset($ativos[strtoupper($chaveC) . '|' . $nuc])) {
+                        continue;
                     }
-                    if (!$filtro($emp, $chaveC, $nuc, $tag)) {
+                    if ($cenSel && !isset($cenSel[strtoupper($chaveC)])) {
+                        continue;
+                    }
+                    if ($nucSel && !isset($nucSel[strtoupper($tag . $nuc)])) {
                         continue;
                     }
                     $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
@@ -288,6 +364,15 @@ function dre_dados(array $o): array
             }
         }
         $st->closeCursor();
+    }
+
+    // empresa sem centro ativo que a procedure NAO cobriu (dados purgados da
+    // base viva — ex.: CV1/CV2/CV3): cai no historico de Posicao_Economica.
+    // Se a proc retornou linhas, o dado vivo vale e nada e somado 2x.
+    if ($semAtivos) {
+        dre_posicao_historico($acc, $mapa, $o,
+            array_values(array_diff(array_intersect(array_keys($semAtivos), array_keys($empSel)),
+                                    array_keys($linhasProc))));
     }
 
     return ['linhas' => dre_linhas_de_acc($acc)];
@@ -339,6 +424,15 @@ function dre_dados_arquivada(array $o): array
             trim((string) $r['ClasseTipo_Titulo']) === 'Despesa operacional',
             (int) substr($d, 0, 4), (int) substr($d, 5, 2),
             (float) $r['EntItemApl_Valor']);
+    }
+
+    // empresas sem centro ativo nao existem na view (ela filtra por
+    // Vw_Centro_Ativo) — selecionadas, buscam o historico na tabela
+    // Posicao_Economica, que TEM os dados (CV1: 2020-23, CV2/CV3: 2022-24)
+    if ($empSel) {
+        dre_posicao_historico($acc, $mapa, $o,
+            array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
+                                         array_keys($empSel))));
     }
     return ['linhas' => dre_linhas_de_acc($acc)];
 }

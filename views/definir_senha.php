@@ -1,6 +1,6 @@
 <div class="login-page">
     <div class="login-card">
-        <div class="login-logo">nouvellesobra</div>
+        <div class="login-logo">Nouvellesobra</div>
         <?php if ($status !== null): ?>
         <p class="login-sub">Senha cadastrada</p>
         <div class="alert-ok">

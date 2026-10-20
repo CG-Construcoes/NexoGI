@@ -200,6 +200,26 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   completo; `dre_emp_alias()` = forma curta (rotulos de centro).
   Nucleo/centro da arquivada: prefixo da base NAO tem tamanho fixo
   ('DBMGA'=5, 'DBCONV'=6) — usar str_starts_with, nunca LEFT fixo.
+  Empresas sem centro ativo (CV1/CV2/CV3 — dados historicos 2020-24 em
+  Posicao_Economica, excluidos pela view porque ela JOINa Vw_Centro_Ativo):
+  basta SELECIONA-LAS no filtro Empresa — sem checkbox (pedido: os casos sao
+  unicos, selecionar ja implica incluir). Arquivada complementa com SELECT
+  direto em
+  Posicao_Economica (Chave_Centro = trim(Database1)+Emp+Fil+Centro — a
+  coluna nao existe na tabela; Database1 vazio conta como 'DBMGA').
+  **2026-10-20: CV1/CV2/CV3 NAO existem mais nas bases vivas** — dbMGA/dbConv
+  tem 0 linhas em Empresa, Centro_de_Custo e todas as tabelas de movimento
+  (dados purgados; sobraram apenas no snapshot Posicao_Economica do CGGestao).
+  spMovEconomicoDetalhe faz INNER JOIN Centro_de_Custo via #TAB_FILTRO_
+  Extendido, entao retorna 0 para elas em qualquer periodo (testado). Logo o
+  modo AO VIVO tambem cai no historico de Posicao_Economica para elas —
+  `dre_posicao_historico()` compartilhado; no vivo aplica-se so as empresas
+  sem-ativos selecionadas que a procedure nao cobriu (`$linhasProc`), e se
+  TODAS as selecionadas sao sem-ativos as procedures nem rodam (`$rodarProc`
+  = false -> resposta em <1s em vez de ~3min). Como o Informakon gera RelEco
+  de CV1 (RelEco_CV1.pdf: Total Geral 42.375,99) ficou em aberto — a base
+  viva dele deve estar em outro servidor/banco inacessivel ao nosso login
+  (dbCONV_INT/DbFortes negados).
 
 ## Matriz de Prioridades (2026-10-05)
 - Suprimentos > Solicitacoes > Matriz de Prioridades (rota `matriz-prioridades`, permissao propria).
