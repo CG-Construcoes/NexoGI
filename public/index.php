@@ -613,6 +613,8 @@ switch ($rota) {
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
             'grupos' => $grupos,
             'fcPag' => fcs_pagar_salvo($grupos),
+            'sugIni' => date('Y-m-d', strtotime('monday last week')),
+            'sugFim' => date('Y-m-d', strtotime('monday this week')),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);

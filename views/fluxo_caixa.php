@@ -28,9 +28,9 @@
                 <span class="fcs-periodo-label">Período</span>
                 <div style="display:flex; align-items:center; gap:6px">
                     <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
-                    <input type="date" id="fcs-ini" name="data_ini">
+                    <input type="date" id="fcs-ini" name="data_ini" value="<?= e($sugIni) ?>">
                     <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
-                    <input type="date" id="fcs-fim" name="data_fim">
+                    <input type="date" id="fcs-fim" name="data_fim" value="<?= e($sugFim) ?>">
                 </div>
             </div>
             <?php endif; ?>
