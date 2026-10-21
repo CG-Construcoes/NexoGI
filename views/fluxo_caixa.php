@@ -86,7 +86,6 @@
                 </td>
                 <td>
                     <span class="fcs-grupo"><?= e($g['FCGrupo_Nome']) ?>
-                        <span class="fcs-desc">(trimestral)</span>
                         <?php if ($centros): ?>
                         <span class="fcs-tip"><?php foreach ($centros as $c): ?>
                             <span class="fcs-tip-item"><?= e($c) ?></span>
