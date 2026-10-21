@@ -1,4 +1,5 @@
 <?php // Acompanhamento Financeiro — grupos com saldo (Financeiro > Diretoria) ?>
+<?php require ROOT . '/views/fluxo_caixa_marca.php'; ?>
 <div id="fcs-aviso-relatorio" style="position:fixed; inset:0; z-index:1000;
      background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center">
     <div style="background:#fff; border-radius:10px; padding:32px 40px; max-width:430px;

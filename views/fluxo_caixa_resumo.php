@@ -1,4 +1,5 @@
-<?php // Acompanhamento Financeiro — resumo dos 7 grupos (Financeiro > Fluxo de Caixa) ?>
+<?php // Acompanhamento Financeiro — resumo dos 7 grupos (Financeiro > Diretoria) ?>
+<?php require ROOT . '/views/fluxo_caixa_marca.php'; ?>
 <?php if ($aviso): ?>
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
