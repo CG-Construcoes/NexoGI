@@ -1,4 +1,15 @@
-<?php // Acompanhamento Financeiro — grupos com saldo (Financeiro > Fluxo de Caixa) ?>
+<?php // Acompanhamento Financeiro — grupos com saldo (Financeiro > Diretoria) ?>
+<div id="fcs-aviso-relatorio" style="position:fixed; inset:0; z-index:1000;
+     background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center">
+    <div style="background:#fff; border-radius:10px; padding:32px 40px; max-width:430px;
+                text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.3)">
+        <div style="font-size:52px; line-height:1; color:#e0a800">&#9888;</div>
+        <p style="margin:16px 0 22px; font-size:16px; color:#333">
+            Atenção - Este Relatório está em período de avaliação!</p>
+        <button type="button" class="btn"
+                onclick="document.getElementById('fcs-aviso-relatorio').remove()">Continuar</button>
+    </div>
+</div>
 <?php if ($aviso): ?>
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
