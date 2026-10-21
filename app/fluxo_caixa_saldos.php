@@ -155,17 +155,53 @@ function fcs_codcs_base(string $banco): array
 }
 
 /**
- * Bases ERP selecionadas pelos checkboxes DBMGA/DBCONV da tela.
- * Le POST (Atualizar) e GET (impressao). Padrao = as duas; nenhuma
- * marcada tambem cai no padrao (nunca devolve vazio).
+ * Selecao de bases enviada pelo formulario — o campo oculto
+ * "bases_enviadas" marca que o pedido veio da tela (POST do Atualizar,
+ * URL do imprimir). Devolve a lista marcada (pode ser [] quando o
+ * usuario desmarca as duas) ou null quando o pedido nao e da tela
+ * (GET de exibicao, reordenar, mover).
  */
-function fcs_bases_selecionadas(): array
+function fcs_bases_post(): ?array
 {
     $src = $_POST + $_GET;
+    if (empty($src['bases_enviadas'])) {
+        return null;
+    }
     $b = [];
     if (!empty($src['base_mga']))  { $b[] = 'MGA'; }
     if (!empty($src['base_conv'])) { $b[] = 'CONV'; }
-    return $b ?: ['MGA', 'CONV'];
+    return $b;
+}
+
+/**
+ * Bases usadas no ultimo Atualizar — gravadas no snapshot do item 1
+ * (FluxoCaixa_Posicao.Bases). Padrao: as duas. A exibicao da tela usa
+ * esta lista para que todos os itens reflitam a selecao salva.
+ */
+function fcs_bases_salvas(): array
+{
+    try {
+        $r = query('SELECT Bases FROM msoft.FluxoCaixa_Posicao');
+    } catch (Throwable) {
+        $r = []; // coluna ainda nao migrada
+    }
+    if ($r && trim((string) $r[0]['Bases']) !== '') {
+        $b = array_values(array_intersect(['MGA', 'CONV'],
+            array_map('trim', explode(',', (string) $r[0]['Bases']))));
+        if ($b) {
+            return $b;
+        }
+    }
+    return ['MGA', 'CONV'];
+}
+
+/**
+ * Bases em vigor nas rotinas da tela: a selecao enviada pelo
+ * formulario; sem ela, a gravada no ultimo Atualizar.
+ */
+function fcs_bases_selecionadas(): array
+{
+    return fcs_bases_post() ?? fcs_bases_salvas();
 }
 
 /** base => banco, apenas das bases selecionadas na tela. */
@@ -656,7 +692,8 @@ function fcs_posicao_calcular_salvar(): array
     }
 
     $tot = ['saldo' => 0.0, 'aplic' => 0.0];
-    foreach (fcs_bases_selecionadas() as $base) {
+    $bases = fcs_bases_selecionadas();
+    foreach ($bases as $base) {
         try {
             $d = posicao_contas_dados($base, [
                 'empresas' => [], 'tipo' => 'BC', 'data' => $hoje,
@@ -683,9 +720,10 @@ function fcs_posicao_calcular_salvar(): array
     execute('DELETE FROM msoft.FluxoCaixa_Posicao');
     execute('INSERT INTO msoft.FluxoCaixa_Posicao
              (SaldoBancario, Aplicacoes, SaldoMes1, SaldoMes2, SaldoMes3,
-              UltimaAtualizacao)
-             VALUES (?, ?, ?, ?, ?, GETDATE())',
-            [$tot['saldo'], $tot['aplic'], $mes[0], $mes[1], $mes[2]]);
+              Bases, UltimaAtualizacao)
+             VALUES (?, ?, ?, ?, ?, ?, GETDATE())',
+            [$tot['saldo'], $tot['aplic'], $mes[0], $mes[1], $mes[2],
+             implode(',', $bases)]);
     $tot['mes'] = $mes;
     return ['tot' => $tot, 'erros' => $erros];
 }

@@ -569,6 +569,17 @@ switch ($rota) {
                 echo json_encode(['ok' => true]);
                 exit;
             }
+            // Bases: formulario da tela enviado sem nenhuma marcada.
+            if (fcs_bases_post() === []) {
+                $msgBases = 'Marque ao menos uma base (DBMGA / DBCONV).';
+                if (!empty($_POST['ajax'])) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['ok' => false, 'erro' => $msgBases]);
+                    exit;
+                }
+                definir_aviso(['tipo' => 'erro', 'html' => e($msgBases)]);
+                redirecionar('fluxo-caixa');
+            }
             $ini = trim((string) ($_POST['data_ini'] ?? ''));
             $fim = trim((string) ($_POST['data_fim'] ?? ''));
             // Recalculo do item 5 (contas a pagar) — dispara so pelo Atualizar.
@@ -671,6 +682,7 @@ switch ($rota) {
                     }
                     $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
                         . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim)
+                        . '&bases_enviadas=1'
                         . (!empty($_POST['base_mga']) ? '&base_mga=1' : '')
                         . (!empty($_POST['base_conv']) ? '&base_conv=1' : '')
                         . ($avParam !== '' ? '&av=' . urlencode($avParam) : '');
@@ -691,6 +703,7 @@ switch ($rota) {
             'sugFim' => '2050-12-31',
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
+            'basesSel' => fcs_bases_salvas(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
         break;
 

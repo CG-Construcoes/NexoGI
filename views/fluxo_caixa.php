@@ -17,6 +17,17 @@
 
 <form method="post" action="<?= url('fluxo-caixa') ?>">
     <?= csrf_campo() ?>
+    <input type="hidden" name="bases_enviadas" value="1">
+
+    <div style="margin:0 0 14px; display:flex; align-items:center; gap:14px">
+        <strong>Bases:</strong>
+        <label title="Informações da base dbMGA">
+            <input type="checkbox" id="fcs-base-mga" name="base_mga" value="1"
+                   <?= in_array('MGA', $basesSel, true) ? 'checked' : '' ?>> DBMGA</label>
+        <label title="Informações da base dbConv">
+            <input type="checkbox" id="fcs-base-conv" name="base_conv" value="1"
+                   <?= in_array('CONV', $basesSel, true) ? 'checked' : '' ?>> DBCONV</label>
+    </div>
 
     <div class="fcs-secao">
         <div class="fcs-secao-tit fcs-fech" data-tog>1. POSIÇÃO FINANCEIRA</div>
@@ -37,13 +48,6 @@
             <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
             <?php if ($podeAtualizar): ?>
             <div class="fcs-periodo">
-                <span class="fcs-periodo-label">Bases</span>
-                <div style="display:flex; align-items:center; gap:6px">
-                    <label style="font-size:13px; color:#cde" title="Somente informações da base dbMGA">
-                        <input type="checkbox" id="fcs-base-mga" name="base_mga" value="1" checked> DBMGA</label>
-                    <label style="font-size:13px; color:#cde" title="Somente informações da base dbConv">
-                        <input type="checkbox" id="fcs-base-conv" name="base_conv" value="1" checked> DBCONV</label>
-                </div>
                 <span class="fcs-periodo-label">Período</span>
                 <div style="display:flex; align-items:center; gap:6px">
                     <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
@@ -269,7 +273,8 @@
     function urlImpressao(ids, ini, fim) {
         var u = urlImpBase + '?grupos=' + ids.join(',')
             + '&data_ini=' + encodeURIComponent(ini)
-            + '&data_fim=' + encodeURIComponent(fim);
+            + '&data_fim=' + encodeURIComponent(fim)
+            + '&bases_enviadas=1';
         ['fcs-base-mga', 'fcs-base-conv'].forEach(function (id) {
             var b = document.getElementById(id);
             if (b && b.checked) { u += '&' + b.name + '=1'; }
