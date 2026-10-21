@@ -788,14 +788,16 @@ switch ($rota) {
             'analitico'      => isset($_GET['analitico']),
             'sec_receitas'   => isset($_GET['sec_receitas']),
             'sec_despesas'   => isset($_GET['sec_despesas']),
+            'sec_sociedade'  => isset($_GET['sec_sociedade']),
             'sec_outros'     => isset($_GET['sec_outros']),
             'det_centro'     => isset($_GET['det_centro']),
             'apenas_periodo' => isset($_GET['apenas_periodo']),
             'resumo_agente'  => isset($_GET['resumo_agente']),
         ];
         if ($gerado && !in_array(true, [$opcoes['sec_receitas'], $opcoes['sec_despesas'],
-                $opcoes['sec_outros']], true)) {
-            $opcoes['sec_receitas'] = $opcoes['sec_despesas'] = $opcoes['sec_outros'] = true;
+                $opcoes['sec_sociedade'], $opcoes['sec_outros']], true)) {
+            $opcoes['sec_receitas'] = $opcoes['sec_despesas'] = $opcoes['sec_sociedade']
+                = $opcoes['sec_outros'] = true;
         }
         $dados = null;
         $erro = '';
