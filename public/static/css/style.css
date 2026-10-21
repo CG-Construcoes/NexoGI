@@ -2746,7 +2746,8 @@ tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
 .fcs-secao-tit-flex .fcs-periodo-label { color: #cde; }
 /* no cabecalho flex o caret fica dentro do span do titulo (alinhamento
    igual aos demais itens, sem o gap do flex container) */
-.fcs-secao-tit.fcs-secao-tit-flex[data-tog]::before { content: none; }
+.fcs-secao-tit.fcs-secao-tit-flex[data-tog]::before,
+.fcs-secao-tit.fcs-secao-tit-flex.fcs-fech[data-tog]::before { content: none; }
 .fcs-secao-tit-flex[data-tog] > span::before { content: '\25BE\00A0\00A0'; }
 .fcs-secao-tit-flex.fcs-fech[data-tog] > span::before { content: '\25B8\00A0\00A0'; }
 .fcs-emb { border: 1px dashed #b6c4d4; color: var(--text-muted, #666);
