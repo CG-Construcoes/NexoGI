@@ -363,19 +363,18 @@ function fcs_pagar_meses(): array
             date('Y-m', strtotime("$ym-01 +2 month"))];
 }
 
-/** Rotulo de mes no padrao do modelo ("OUT/26"). */
+/** Rotulo de mes por extenso ("Outubro/2026"). */
 function fcs_mes_rotulo(string $ym): string
 {
-    static $ab = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
-                  'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-    return $ab[(int) substr($ym, 5, 2) - 1] . '/' . substr($ym, 2, 2);
+    static $nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    return $nomes[(int) substr($ym, 5, 2) - 1] . '/' . substr($ym, 0, 4);
 }
 
-/** Tag do subgrupo pela posicao no trimestre (0=atual, 1, 2=fecha). */
+/** Tag do subgrupo pela posicao no trimestre (0=vigente, 1=posterior, 2=subsequente). */
 function fcs_mes_tag(int $i): string
 {
-    return ['mes atual', 'mes posterior',
-            'mes posterior (fecha o trimestre)'][$i] ?? '';
+    return ['Mês Vigente', 'Mês Posterior', 'Mês Subsequente'][$i] ?? '';
 }
 
 /** [Y-m => ['c'=>comprometido, 'p'=>previsto]] de um grupo de centros. */
