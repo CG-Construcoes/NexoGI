@@ -685,8 +685,8 @@ switch ($rota) {
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),
             'fcApo' => fcs_aportes_salvo($grupos),
-            'sugIni' => date('Y-m-d', strtotime('monday last week')),
-            'sugFim' => date('Y-m-d', strtotime('monday this week')),
+            'sugIni' => '2014-01-01',
+            'sugFim' => '2050-12-31',
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
