@@ -24,7 +24,7 @@ const MODULES = [
         ]],
         ['nome' => 'Fluxo de Caixa', 'itens' => [
             ['slug' => 'fluxo-caixa-grupos', 'nome' => 'Grupos de Centros', 'pronto' => true],
-            ['slug' => 'fluxo-caixa', 'nome' => 'Fluxo de Caixa', 'pronto' => true],
+            ['slug' => 'fluxo-caixa', 'nome' => 'Acompanhamento Financeiro', 'pronto' => true],
         ]],
         ['nome' => 'Diretoria', 'itens' => [
             ['slug' => 'dre-ano', 'nome' => 'DRE por Ano', 'pronto' => true],

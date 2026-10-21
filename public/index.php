@@ -583,7 +583,7 @@ switch ($rota) {
             }
             redirecionar('fluxo-caixa');
         }
-        render('fluxo_caixa', ['titulo' => 'Fluxo de Caixa',
+        render('fluxo_caixa', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
             'grupos' => fcs_listar(),
             'centrosPorGrupo' => fcs_centros_por_grupo(),

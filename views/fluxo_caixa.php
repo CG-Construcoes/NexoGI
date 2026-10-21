@@ -1,4 +1,4 @@
-<?php // Fluxo de Caixa — grupos com saldo (Financeiro > Fluxo de Caixa) ?>
+<?php // Acompanhamento Financeiro — grupos com saldo (Financeiro > Fluxo de Caixa) ?>
 <?php if ($aviso): ?>
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
@@ -7,30 +7,36 @@
     <?= csrf_campo() ?>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit">1. POSIÇÃO FINANCEIRA</div>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        <div class="fcs-secao-tit fcs-fech" data-tog>1. POSIÇÃO FINANCEIRA</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit">2. APORTES A RETORNAR</div>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        <div class="fcs-secao-tit fcs-fech" data-tog>2. APORTES A RETORNAR</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
     </div>
 
-    <div class="fcs-secao fcs-secao-tit fcs-secao-tit-flex">
-        <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
-        <?php if ($podeAtualizar): ?>
-        <div class="fcs-periodo">
-            <span class="fcs-periodo-label">Período</span>
-            <div style="display:flex; align-items:center; gap:6px">
-                <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
-                <input type="date" id="fcs-ini" name="data_ini" required>
-                <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
-                <input type="date" id="fcs-fim" name="data_fim" required>
-                <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit fcs-secao-tit-flex" data-tog>
+            <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
+            <?php if ($podeAtualizar): ?>
+            <div class="fcs-periodo">
+                <span class="fcs-periodo-label">Período</span>
+                <div style="display:flex; align-items:center; gap:6px">
+                    <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
+                    <input type="date" id="fcs-ini" name="data_ini" required>
+                    <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
+                    <input type="date" id="fcs-fim" name="data_fim" required>
+                    <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
+                </div>
             </div>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
-    </div>
+        <div class="fcs-secao-corpo">
 
     <?php if ($grupos): ?>
     <table class="tabela">
@@ -122,28 +128,52 @@
     <p class="vazio">Nenhum grupo cadastrado. Cadastre em
         <a href="<?= url('fluxo-caixa-grupos') ?>">Grupos de Centros</a>.</p>
     <?php endif; ?>
-
+        </div>
+    </div>
 </form>
 
 <div class="fcs-secao">
-    <div class="fcs-secao-tit">4. CONTAS A RECEBER</div>
-    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    <div class="fcs-secao-tit fcs-fech" data-tog>4. CONTAS A RECEBER</div>
+    <div class="fcs-secao-corpo" hidden>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
 </div>
 
 <div class="fcs-secao">
-    <div class="fcs-secao-tit">5. CONTAS A PAGAR</div>
-    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    <div class="fcs-secao-tit fcs-fech" data-tog>5. CONTAS A PAGAR</div>
+    <div class="fcs-secao-corpo" hidden>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
 </div>
 
 <div class="fcs-secao">
-    <div class="fcs-secao-tit">6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
-    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    <div class="fcs-secao-tit fcs-fech" data-tog>6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
+    <div class="fcs-secao-corpo" hidden>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
 </div>
 
 <div class="fcs-secao">
-    <div class="fcs-secao-tit">7. CONSÓRCIOS</div>
-    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    <div class="fcs-secao-tit fcs-fech" data-tog>7. CONSÓRCIOS</div>
+    <div class="fcs-secao-corpo" hidden>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
 </div>
+
+<script>
+(function () {
+    // Recolhe/expande cada secao numerada; cliques no Periodo nao alternam.
+    document.querySelectorAll('.fcs-secao-tit[data-tog]').forEach(function (tit) {
+        tit.addEventListener('click', function (ev) {
+            if (ev.target.closest('.fcs-periodo')) { return; }
+            var corpo = tit.parentElement.querySelector('.fcs-secao-corpo');
+            if (!corpo) { return; }
+            corpo.hidden = !corpo.hidden;
+            tit.classList.toggle('fcs-fech', corpo.hidden);
+        });
+    });
+})();
+</script>
 
 <?php if ($podeAtualizar && $grupos): ?>
 <div id="fcs-progresso" class="fcs-progresso" hidden>
