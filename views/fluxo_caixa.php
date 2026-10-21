@@ -5,15 +5,26 @@
 
 <form method="post" action="<?= url('fluxo-caixa') ?>">
     <?= csrf_campo() ?>
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
-        <h2 style="margin:0">Grupos</h2>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit">1. POSIÇÃO FINANCEIRA</div>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit">2. APORTES A RETORNAR</div>
+        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+    </div>
+
+    <div class="fcs-secao fcs-secao-tit fcs-secao-tit-flex">
+        <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
         <?php if ($podeAtualizar): ?>
         <div class="fcs-periodo">
             <span class="fcs-periodo-label">Período</span>
             <div style="display:flex; align-items:center; gap:6px">
-                <label for="fcs-ini" style="font-size:13px; color:#445">De</label>
+                <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
                 <input type="date" id="fcs-ini" name="data_ini" required>
-                <label for="fcs-fim" style="font-size:13px; color:#445">a</label>
+                <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
                 <input type="date" id="fcs-fim" name="data_fim" required>
                 <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
             </div>
@@ -111,7 +122,28 @@
     <p class="vazio">Nenhum grupo cadastrado. Cadastre em
         <a href="<?= url('fluxo-caixa-grupos') ?>">Grupos de Centros</a>.</p>
     <?php endif; ?>
+
 </form>
+
+<div class="fcs-secao">
+    <div class="fcs-secao-tit">4. CONTAS A RECEBER</div>
+    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+</div>
+
+<div class="fcs-secao">
+    <div class="fcs-secao-tit">5. CONTAS A PAGAR</div>
+    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+</div>
+
+<div class="fcs-secao">
+    <div class="fcs-secao-tit">6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
+    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+</div>
+
+<div class="fcs-secao">
+    <div class="fcs-secao-tit">7. CONSÓRCIOS</div>
+    <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+</div>
 
 <?php if ($podeAtualizar && $grupos): ?>
 <div id="fcs-progresso" class="fcs-progresso" hidden>
