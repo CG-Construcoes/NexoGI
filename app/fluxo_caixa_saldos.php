@@ -439,12 +439,73 @@ function fcs_pagar_dados(array $grupos, ?string $ini, ?string $fim): array
     foreach ($grupos as $g) {
         $gid = (int) $g['FCGrupo_Id'];
         try {
-            $linhas[] = ['nome' => trim((string) $g['FCGrupo_Nome']),
+            $linhas[] = ['id' => $gid, 'nome' => trim((string) $g['FCGrupo_Nome']),
                          'mes' => fcs_pagar_grupo(fc_centros_do_grupo($gid), $meses)];
         } catch (Throwable $t) {
             $erros[] = trim((string) $g['FCGrupo_Nome']) . ': ' . $t->getMessage();
-            $linhas[] = ['nome' => trim((string) $g['FCGrupo_Nome']), 'mes' => []];
+            $linhas[] = ['id' => $gid,
+                         'nome' => trim((string) $g['FCGrupo_Nome']), 'mes' => []];
         }
     }
     return ['meses' => $meses, 'linhas' => $linhas, 'erros' => $erros];
+}
+
+/** Recalcula o item 5 e grava em msoft.FluxoCaixa_Pagar (so no Atualizar). */
+function fcs_pagar_calcular_salvar(array $grupos, ?string $ini, ?string $fim): array
+{
+    $dados = fcs_pagar_dados($grupos, $ini, $fim);
+    execute('DELETE FROM msoft.FluxoCaixa_Pagar');
+    foreach ($dados['linhas'] as $l) {
+        foreach ($l['mes'] as $ym => $v) {
+            execute('INSERT INTO msoft.FluxoCaixa_Pagar
+                     (FCGrupo_Id, Mes, Comprometido, Previsto, UltimaAtualizacao)
+                     VALUES (?, ?, ?, ?, GETDATE())',
+                    [$l['id'], $ym, $v['c'], $v['p']]);
+        }
+    }
+    $dados['ultima'] = date('Y-m-d H:i:s');
+    return $dados;
+}
+
+/** Ultimo quadro salvo (mesma forma de fcs_pagar_dados + 'ultima'). */
+function fcs_pagar_salvo(array $grupos): array
+{
+    $meses = [];
+    $porGrupo = [];
+    $ultima = null;
+    foreach (query('SELECT FCGrupo_Id, RTRIM(Mes) Mes, Comprometido, Previsto,
+                          UltimaAtualizacao
+                    FROM msoft.FluxoCaixa_Pagar') as $r) {
+        $meses[$r['Mes']] = true;
+        $porGrupo[(int) $r['FCGrupo_Id']][$r['Mes']] = [
+            'c' => (float) $r['Comprometido'], 'p' => (float) $r['Previsto']];
+        $u = (string) $r['UltimaAtualizacao'];
+        if ($ultima === null || $u > $ultima) {
+            $ultima = $u;
+        }
+    }
+    $meses = array_keys($meses);
+    sort($meses);
+    $linhas = [];
+    foreach ($grupos as $g) {
+        $gid = (int) $g['FCGrupo_Id'];
+        $linhas[] = ['id' => $gid, 'nome' => trim((string) $g['FCGrupo_Nome']),
+                     'mes' => $porGrupo[$gid] ?? []];
+    }
+    return ['meses' => $meses, 'linhas' => $linhas, 'erros' => [],
+            'ultima' => $ultima];
+}
+
+/** Remove linhas sem valor em nenhum mes (resumo pos-Atualizar). */
+function fcs_pagar_sem_zeros(array $dados): array
+{
+    $dados['linhas'] = array_values(array_filter($dados['linhas'], function ($l) {
+        foreach ($l['mes'] as $m) {
+            if ($m['c'] != 0.0 || $m['p'] != 0.0) {
+                return true;
+            }
+        }
+        return false;
+    }));
+    return $dados;
 }

@@ -86,6 +86,7 @@
                 </td>
                 <td>
                     <span class="fcs-grupo"><?= e($g['FCGrupo_Nome']) ?>
+                        <span class="fcs-desc">(trimestral)</span>
                         <?php if ($centros): ?>
                         <span class="fcs-tip"><?php foreach ($centros as $c): ?>
                             <span class="fcs-tip-item"><?= e($c) ?></span>
@@ -199,6 +200,22 @@
         if (fimEl.value) { u += 'fim=' + fimEl.value + '&'; }
         if (ids && ids.length) { u += 'att=' + ids.join(','); }
         return u;
+    }
+    // Recalcula o item 5 (contas a pagar) no servidor; fim(erro|null).
+    function calcularPagar(fim) {
+        var corpo = new URLSearchParams(new FormData(form));
+        corpo.set('ajax', '1');
+        corpo.set('acao', 'pagar');
+        corpo.delete('grupos[]');
+        corpo.delete('imprimir[]');
+        corpo.forEach(function (v, k) {
+            if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
+        });
+        texto.textContent = 'Calculando contas a pagar...';
+        fetch(form.action, { method: 'POST', body: corpo })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })
+            .catch(function () { fim('falha de rede'); });
     }
 
     // Retorno do reload pos-calculo: imprime os relatorios pendentes.
@@ -347,9 +364,14 @@
         var impMarcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-imp:checked'));
         if (!marcados.length && !impMarcados.length) {
-            // nada a calcular nem imprimir: abre so o resumo com saldos salvos
+            // nada marcado: so recalcula o item 5 e abre o resumo
             ev.preventDefault();
-            location.href = resumoUrl();
+            btn.disabled = true;
+            prog.hidden = false;
+            calcularPagar(function (erro) {
+                if (erro) { alert('Contas a pagar: ' + erro); }
+                location.href = resumoUrl();
+            });
             return;
         }
         if (!iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
@@ -380,9 +402,14 @@
                            iniEl.value, fimEl.value)
             : null;
         if (!marcados.length) {
-            // so impressao: o resumo abre o iframe ao carregar
+            // so impressao: recalcula o item 5; o resumo abre o iframe
             sessionStorage.setItem('fcs_imprimir', urlImp);
-            location.href = resumoUrl();
+            btn.disabled = true;
+            prog.hidden = false;
+            calcularPagar(function (erro) {
+                if (erro) { alert('Contas a pagar: ' + erro); }
+                location.href = resumoUrl();
+            });
             return;
         }
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
@@ -423,18 +450,22 @@
                 return;
             }
             if (i >= marcados.length) {
-                prog.hidden = true;
-                var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
-                    + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
-                    + '\n\nTempo total: ' + tempoDecorrido();
-                if (falhas.length) {
-                    msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
-                }
-                if (urlImp) {
-                    sessionStorage.setItem('fcs_imprimir', urlImp);
-                }
-                alert(msg);
-                location.href = resumoUrl(concluidosIds);
+                // ultimo passo: recalcula e grava o item 5 (contas a pagar)
+                calcularPagar(function (erro) {
+                    prog.hidden = true;
+                    if (erro) { falhas.push('Contas a pagar: ' + erro); }
+                    var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
+                        + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
+                        + '\n\nTempo total: ' + tempoDecorrido();
+                    if (falhas.length) {
+                        msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
+                    }
+                    if (urlImp) {
+                        sessionStorage.setItem('fcs_imprimir', urlImp);
+                    }
+                    alert(msg);
+                    location.href = resumoUrl(concluidosIds);
+                });
                 return;
             }
             var cb = marcados[i];

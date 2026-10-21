@@ -38,7 +38,8 @@
                 <?php foreach ($grupos as $g):
                     $att = in_array((int) $g['FCGrupo_Id'], $atualizados, true); ?>
                 <tr<?= $att ? ' class="fcs-att"' : '' ?>>
-                    <td><?= e($g['FCGrupo_Nome']) ?><?= $att
+                    <td><?= e($g['FCGrupo_Nome']) ?>
+                        <span class="fcs-desc">(trimestral)</span><?= $att
                         ? ' <span class="fcs-att-tag">recalculado</span>' : '' ?></td>
                     <td><?= (int) $g['QtdeCentros'] ?></td>
                     <td class="col-valor"><?= $g['SaldoGrupo'] !== null

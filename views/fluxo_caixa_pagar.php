@@ -1,12 +1,22 @@
-<?php // Item 5 — CONTAS A PAGAR: blocos por mes, linhas = grupos do item 3.
-      // Espera $fcPag = fcs_pagar_dados(...). ?>
+<?php // Item 5 — CONTAS A PAGAR: blocos por mes (recolhiveis), linhas =
+      // grupos do item 3. Espera $fcPag (fcs_pagar_dados/fcs_pagar_salvo). ?>
 <?php if ($fcPag['erros'] ?? []): ?>
 <div class="alert-erro" style="margin-bottom:10px">
     Falha ao consultar contas a pagar: <?= e(implode(' | ', $fcPag['erros'])) ?>
 </div>
 <?php endif; ?>
 
-<?php if ($fcPag['linhas'] ?? []): ?>
+<?php if (($fcPag['ultima'] ?? null) !== null): ?>
+<p class="fcs-ult">Último cálculo: <?= e(data_br((string) $fcPag['ultima'], true)) ?>
+    — clique em Atualizar para recalcular.</p>
+<?php endif; ?>
+
+<?php if (!($fcPag['meses'] ?? [])): ?>
+<p class="vazio">Contas a pagar ainda não calculado — preencha o período e clique
+    em Atualizar.</p>
+<?php elseif (!($fcPag['linhas'] ?? [])): ?>
+<p class="vazio">Nenhum grupo com valores no período.</p>
+<?php else: ?>
 <table class="tabela fcs-pagar">
     <thead>
         <tr>
@@ -31,12 +41,12 @@
         $acSub['p'] += $sub['p'];
         $rot = fcs_mes_rotulo($ym); ?>
     <tbody>
-        <tr class="fcs-mes"><td colspan="5">&nbsp;&nbsp;<?= e($rot) ?></td></tr>
+        <tr class="fcs-mes" data-mtog><td colspan="5">&nbsp;&nbsp;<?= e($rot) ?></td></tr>
         <?php foreach ($fcPag['linhas'] as $i => $li):
             $m = $li['mes'][$ym] ?? ['c' => 0.0, 'p' => 0.0];
             $tot = $m['c'] + $m['p'];
             $acLinha[$i] += $tot; ?>
-        <tr>
+        <tr class="fcs-mrow" hidden>
             <td>&nbsp;&nbsp;<?= e($li['nome']) ?></td>
             <td class="col-valor"><?= number_format($m['c'], 2, ',', '.') ?></td>
             <td class="col-valor"><?= number_format($m['p'], 2, ',', '.') ?></td>
@@ -63,7 +73,20 @@
         </tr>
     </tfoot>
 </table>
-<?php else: ?>
-<p class="vazio">Nenhum grupo cadastrado. Cadastre em
-    <a href="<?= url('fluxo-caixa-grupos') ?>">Grupos de Centros</a>.</p>
 <?php endif; ?>
+
+<script>
+(function () {
+    // Meses do item 5: recolhido = so o mes e o subtotal; clique expande.
+    document.querySelectorAll('.fcs-pagar tr.fcs-mes[data-mtog]').forEach(function (tr) {
+        tr.addEventListener('click', function () {
+            var aberto = tr.classList.toggle('fcs-mab');
+            var n = tr.nextElementSibling;
+            while (n && n.classList.contains('fcs-mrow')) {
+                n.hidden = !aberto;
+                n = n.nextElementSibling;
+            }
+        });
+    });
+})();
+</script>
