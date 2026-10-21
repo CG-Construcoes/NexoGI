@@ -876,3 +876,20 @@ quando `$sec['id'] === 'despesas'`.
   partial compartilhado; fcs_pagar_* em fluxo_caixa_saldos.php). Sem a
   coluna "Grupo" do modelo (Obras Ativas/Demais Centros) — aqui cada linha
   ja e um grupo.
+- **Item 1 POSICAO FINANCEIRA**: snapshot msoft.FluxoCaixa_Posicao (1
+  linha/base, migrar_fluxo_caixa_posicao.php); fcs_posicao_calcular_salvar()
+  roda posicao_contas_dados tipo 'BC' (Bancos), todas empresas, dbMGA+dbConv
+  (~30s, so no Atualizar) — SaldoBancario=Total Geral "Saldo Atual",
+  Aplicacoes="Valor Aplicado". Grid do modelo: linhas Saldo/Aplicacoes/
+  Posicao total x colunas hoje + fechamento dos 3 meses + Variacao —
+  colunas futuras sem regra definida exibem "—".
+- **Item 4 CONTAS A RECEBER**: fcs_receber_dados() le msoft.PrevisaoMedicao
+  (tela Medicoes) direto — sem snapshot (consulta local instantanea).
+  Mes = Med_Previsao na janela do trimestre rolante; dentro do mes as
+  linhas sao agrupadas pelo grupo do item 3 (centro em >1 grupo vale no
+  1o; sem grupo -> "Sem grupo") com subtotal por grupo + do mes + total.
+  Situacao: Med_EmissaoNF <= hoje = "Notas Fiscais Emitidas", senao
+  "Previsao De Medicao". Meses sem medicao ocultos.
+- Janela dos itens 4/5 = trimestre rolante fcs_pagar_meses() (mes atual
+  +2) — NAO segue mais o periodo do item 3 (que virou seg-seg). Rotulos
+  de mes por extenso + tag (Mes Vigente / Mes Posterior / Mes Subsequente).

@@ -572,6 +572,65 @@ function fcs_receber_dados(): array
     return ['meses' => $meses, 'linhas' => $linhas];
 }
 
+/**
+ * Item 1 — POSICAO FINANCEIRA. Fonte: Total Geral do relatorio Posicao
+ * de Contas (posicao_contas_dados), tipo BC (Bancos), todas as empresas,
+ * nas bases dbMGA + dbConv, na data do calculo:
+ *   Saldo bancario        = soma da coluna "Saldo Atual"
+ *   Aplicacoes financeiras = soma da coluna "Valor Aplicado"
+ * Persistido em msoft.FluxoCaixa_Posicao (1 linha por base) — o form so
+ * le o snapshot; o recalculo acontece no clique do Atualizar. As colunas
+ * de fechamento de mes do modelo ainda nao tem regra definida (a tela
+ * exibe "—" nelas).
+ */
+function fcs_posicao_calcular_salvar(): array
+{
+    $hoje = date('Y-m-d');
+    $tot = ['saldo' => 0.0, 'aplic' => 0.0];
+    $erros = [];
+    foreach (['MGA', 'CONV'] as $base) {
+        try {
+            $d = posicao_contas_dados($base, [
+                'empresas' => [], 'tipo' => 'BC', 'data' => $hoje,
+                'nucleo' => '', 'agente' => '', 'conciliados' => false,
+            ]);
+            execute('DELETE FROM msoft.FluxoCaixa_Posicao WHERE Base = ?', [$base]);
+            execute('INSERT INTO msoft.FluxoCaixa_Posicao
+                     (Base, SaldoBancario, Aplicacoes, UltimaAtualizacao)
+                     VALUES (?, ?, ?, GETDATE())',
+                    [$base, $d['tot']['atual'], $d['tot']['aplicado']]);
+            $tot['saldo'] += $d['tot']['atual'];
+            $tot['aplic'] += $d['tot']['aplicado'];
+        } catch (Throwable $t) {
+            $erros[] = "$base: " . $t->getMessage();
+        }
+    }
+    return ['tot' => $tot, 'erros' => $erros];
+}
+
+/** Ultimo snapshot do item 1 (['saldo'=>,'aplic'=>,'ultima'=>] | null). */
+function fcs_posicao_salva(): ?array
+{
+    $rows = query('SELECT RTRIM(Base) Base, SaldoBancario, Aplicacoes,
+                          UltimaAtualizacao
+                   FROM msoft.FluxoCaixa_Posicao');
+    if (!$rows) {
+        return null;
+    }
+    $saldo = 0.0;
+    $aplic = 0.0;
+    $ultima = null;
+    foreach ($rows as $r) {
+        $saldo += (float) $r['SaldoBancario'];
+        $aplic += (float) $r['Aplicacoes'];
+        $u = (string) $r['UltimaAtualizacao'];
+        if ($ultima === null || $u > $ultima) {
+            $ultima = $u;
+        }
+    }
+    return ['saldo' => $saldo, 'aplic' => $aplic, 'ultima' => $ultima];
+}
+
 /** Remove linhas sem valor em nenhum mes (resumo pos-Atualizar). */
 function fcs_pagar_sem_zeros(array $dados): array
 {

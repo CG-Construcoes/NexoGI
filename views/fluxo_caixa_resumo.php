@@ -10,7 +10,7 @@
 <div class="fcs-secao">
     <div class="fcs-secao-tit">1. POSIÇÃO FINANCEIRA</div>
     <div class="fcs-secao-corpo">
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        <?php require ROOT . '/views/fluxo_caixa_posicao.php'; ?>
     </div>
 </div>
 

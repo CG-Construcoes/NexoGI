@@ -9,7 +9,7 @@
     <div class="fcs-secao">
         <div class="fcs-secao-tit fcs-fech" data-tog>1. POSIÇÃO FINANCEIRA</div>
         <div class="fcs-secao-corpo" hidden>
-            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+            <?php require ROOT . '/views/fluxo_caixa_posicao.php'; ?>
         </div>
     </div>
 
@@ -211,7 +211,7 @@
         corpo.forEach(function (v, k) {
             if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
         });
-        texto.textContent = 'Calculando contas a pagar...';
+        texto.textContent = 'Calculando posição financeira e contas a pagar...';
         fetch(form.action, { method: 'POST', body: corpo })
             .then(function (r) { return r.json(); })
             .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })

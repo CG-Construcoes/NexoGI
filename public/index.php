@@ -517,8 +517,11 @@ switch ($rota) {
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600);
                 try {
+                    $rPos = fcs_posicao_calcular_salvar();
                     fcs_pagar_calcular_salvar(fcs_listar());
-                    echo json_encode(['ok' => true]);
+                    $erro = $rPos['erros']
+                        ? 'Item 1 falhou: ' . implode(' | ', $rPos['erros']) : null;
+                    echo json_encode(['ok' => $erro === null, 'erro' => $erro]);
                 } catch (Throwable $t) {
                     echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
                 }
@@ -552,6 +555,7 @@ switch ($rota) {
                 // (quem pode alterar) e abre o resumo.
                 if (usuario_pode('fluxo-caixa', 'alterar')) {
                     set_time_limit(600);
+                    fcs_posicao_calcular_salvar();
                     fcs_pagar_calcular_salvar(fcs_listar());
                 }
                 redirecionar('fluxo-caixa/resumo');
@@ -579,6 +583,7 @@ switch ($rota) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
                     $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
+                    fcs_posicao_calcular_salvar();
                     fcs_pagar_calcular_salvar(fcs_listar());
                     $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
                                          : $r['ok'] . ' grupos atualizados.';
@@ -610,6 +615,7 @@ switch ($rota) {
             'grupos' => $grupos,
             'fcPag' => fcs_pagar_salvo($grupos),
             'fcRec' => fcs_receber_dados(),
+            'fcPos' => fcs_posicao_salva(),
             'sugIni' => date('Y-m-d', strtotime('monday last week')),
             'sugFim' => date('Y-m-d', strtotime('monday this week')),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
@@ -670,6 +676,7 @@ switch ($rota) {
             // le so o ultimo quadro calculado; grupos zerados ficam ocultos
             'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo($grupos)),
             'fcRec' => fcs_receber_dados(),
+            'fcPos' => fcs_posicao_salva(),
             'atualizados' => $att]);
         break;
 
