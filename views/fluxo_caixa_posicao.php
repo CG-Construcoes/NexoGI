@@ -11,11 +11,16 @@
     <thead>
         <tr>
             <th></th>
-            <th class="col-valor"><?= e(data_br(date('Y-m-d'))) ?></th>
-            <?php foreach (fcs_pagar_meses() as $ym): ?>
-            <th class="col-valor"><?= e(data_br(date('Y-m-d',
+            <th class="col-valor" title="Saldo bancário = coluna Saldo Atual, e Aplicações financeiras = coluna Valor Aplicado, do Total Geral da Posição de Contas (Bancos, todas as empresas, dbMGA + dbConv)"><?= e(data_br(date('Y-m-d'))) ?></th>
+            <?php $ant = 'Saldo bancário de ' . data_br(date('Y-m-d'));
+            foreach (fcs_pagar_meses() as $ym):
+                $mm = fcs_mes_rotulo($ym);
+                $tip = "Saldo bancário = $ant − Contas a Pagar ($mm) + Contas a Receber ($mm). Aplicações constantes; Posição total = soma das duas."; ?>
+            <th class="col-valor" title="<?= e($tip) ?>"><?= e(data_br(date('Y-m-d',
                 strtotime("$ym-01 +1 month -1 day")))) ?></th>
-            <?php endforeach; ?>
+            <?php $ant = 'saldo de ' . data_br(date('Y-m-d',
+                strtotime("$ym-01 +1 month -1 day")));
+            endforeach; ?>
         </tr>
     </thead>
     <tbody>
