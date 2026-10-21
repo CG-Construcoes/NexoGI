@@ -580,9 +580,9 @@ switch ($rota) {
                     // item 5 antes: as projecoes (itens 3 e 1) leem o snapshot dele
                     fcs_pagar_calcular_salvar(fcs_listar());
                     fcs_aportes_calcular_salvar();
-                    if (!empty($_POST['calc_item3'])) {
-                        fcs_projecao_calcular_salvar();
-                    }
+                    // projecao do item 3: so dos grupos atualizados neste Atualizar
+                    fcs_projecao_calcular_salvar(
+                        array_filter(array_map('intval', (array) ($_POST['grupos'] ?? []))));
                     $rPos = fcs_posicao_calcular_salvar();
                     $erro = $rPos['erros']
                         ? 'Item 1 falhou: ' . implode(' | ', $rPos['erros']) : null;
@@ -601,11 +601,6 @@ switch ($rota) {
                     exit;
                 }
                 exigir_tela('fluxo-caixa', 'alterar');
-                if (empty($_POST['calc_item3'])) {
-                    // "Calcular" desmarcado: o item 3 nao recalcula
-                    echo json_encode(['ok' => true]);
-                    exit;
-                }
                 set_time_limit(600); // a proc roda 2x por centro do grupo
                 $avMap = [];
                 foreach ((array) ($_POST['avulso'][$id] ?? []) as $aid => $v) {
@@ -627,9 +622,6 @@ switch ($rota) {
                     set_time_limit(600);
                     fcs_pagar_calcular_salvar(fcs_listar());
                     fcs_aportes_calcular_salvar();
-                    if (!empty($_POST['calc_item3'])) {
-                        fcs_projecao_calcular_salvar();
-                    }
                     fcs_posicao_calcular_salvar();
                 }
                 redirecionar('fluxo-caixa/resumo');
@@ -656,25 +648,17 @@ switch ($rota) {
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
-                    $r = ['ok' => 0, 'erros' => []];
-                    if (!empty($_POST['calc_item3'])) {
-                        $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
-                    }
+                    $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
                     fcs_pagar_calcular_salvar(fcs_listar());
                     fcs_aportes_calcular_salvar();
-                    if (!empty($_POST['calc_item3'])) {
-                        fcs_projecao_calcular_salvar();
-                    }
+                    fcs_projecao_calcular_salvar(array_values($ids));
                     fcs_posicao_calcular_salvar();
-                    $msg = empty($_POST['calc_item3'])
-                        ? 'Item 3 não recalculado (checkbox desmarcado): exibido o último cálculo.'
-                        : ($r['ok'] === 1 ? '1 grupo atualizado.'
-                                          : $r['ok'] . ' grupos atualizados.');
+                    $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
+                                         : $r['ok'] . ' grupos atualizados.';
                     if ($r['erros']) {
                         $msg .= ' Falhas: ' . e(implode(' | ', $r['erros']));
                     }
-                    definir_aviso(['tipo' => ($r['erros'] || ($r['ok'] === 0 && !empty($_POST['calc_item3']))) ? 'erro' : 'ok',
-                                   'html' => $msg]);
+                    definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
                 }
                 if ($impIds) {
                     $avParam = '';

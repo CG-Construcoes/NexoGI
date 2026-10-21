@@ -8,7 +8,7 @@ declare(strict_types=1);
  * SaldoMes1..3 = projecao do SaldoGrupo no fechamento de cada mes do
  * trimestre rolante: mesN = mes(N-1) - Contas a Pagar(N) + Contas a
  * Receber(N) — mesma formula da projecao do item 1, por grupo.
- * Gravadas so no clique do Atualizar (checkbox "Calcular" do item 3).
+ * Gravadas junto com o calculo do grupo no clique do Atualizar.
  */
 if (PHP_SAPI !== 'cli') {
     exit("Somente linha de comando.\n");

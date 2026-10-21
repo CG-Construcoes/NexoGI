@@ -31,8 +31,6 @@
                     <input type="date" id="fcs-ini" name="data_ini" value="<?= e($sugIni) ?>">
                     <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
                     <input type="date" id="fcs-fim" name="data_fim" value="<?= e($sugFim) ?>">
-                    <label style="font-size:13px; color:#cde" title="Desmarcado: o item 3 não é recalculado e mostra o último cálculo">
-                        <input type="checkbox" id="fcs-calc3" name="calc_item3" value="1" checked> Calcular</label>
                 </div>
             </div>
             <?php endif; ?>
@@ -215,11 +213,13 @@
         return u;
     }
     // Recalcula o item 5 (contas a pagar) no servidor; fim(erro|null).
-    function calcularPagar(fim) {
+    // ids = grupos recalculados neste Atualizar (projecao do item 3 so deles).
+    function calcularPagar(fim, ids) {
         var corpo = new URLSearchParams(new FormData(form));
         corpo.set('ajax', '1');
         corpo.set('acao', 'pagar');
         corpo.delete('grupos[]');
+        (ids || []).forEach(function (id) { corpo.append('grupos[]', id); });
         corpo.delete('imprimir[]');
         corpo.forEach(function (v, k) {
             if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
@@ -376,9 +376,6 @@
             form.querySelectorAll('.fcs-check:checked'));
         var impMarcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-imp:checked'));
-        // "Calcular" do item 3 desmarcado: nao recalcula (mostra o ultimo calculo)
-        var calc3 = document.getElementById('fcs-calc3');
-        if (calc3 && !calc3.checked) { marcados = []; }
         if (!marcados.length && !impMarcados.length) {
             // nada marcado: so recalcula o item 5 e abre o resumo
             ev.preventDefault();
@@ -467,6 +464,7 @@
             }
             if (i >= marcados.length) {
                 // ultimo passo: recalcula e grava o item 5 (contas a pagar)
+                // e a projecao do item 3 dos grupos que concluiram
                 calcularPagar(function (erro) {
                     prog.hidden = true;
                     if (erro) { falhas.push('Contas a pagar: ' + erro); }
@@ -481,7 +479,7 @@
                     }
                     alert(msg);
                     location.href = resumoUrl(concluidosIds);
-                });
+                }, concluidosIds);
                 return;
             }
             var cb = marcados[i];

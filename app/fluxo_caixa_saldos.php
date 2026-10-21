@@ -675,10 +675,12 @@ function fcs_pagar_sem_zeros(array $dados): array
  * trimestre rolante (mesma janela do item 5):
  *   mesN = mes(N-1) - Contas a Pagar(N) + Contas a Receber(N),
  * partindo do SaldoGrupo ("Saldo Atual" da linha). Gravada em
- * msoft.GruposSaldos.SaldoMes1..3 — so no Atualizar, com o checkbox
- * "Calcular" do item 3 marcado; desmarcado mantem o ultimo calculo.
- * Roda DEPOIS do item 5 (usa o FluxoCaixa_Pagar recem-gravado); o
- * "a receber" por grupo sai ao vivo de PrevisaoMedicao (base local).
+ * msoft.GruposSaldos.SaldoMes1..3 junto com o calculo do grupo — so
+ * no Atualizar, apenas dos grupos marcados (grupo nao marcado mantem
+ * o ultimo calculo). Roda DEPOIS do item 5 (usa o FluxoCaixa_Pagar
+ * recem-gravado); o "a receber" por grupo sai ao vivo de
+ * PrevisaoMedicao (base local). UltimaAtualizacao NAO muda aqui: a
+ * coluna mostra a data/hora do calculo do grupo (fcs_atualizar_saldos).
  */
 
 /** FCGrupo_Id => [Y-m => total a receber] — mesma regra de fcs_receber_dados. */
@@ -722,9 +724,13 @@ function fcs_receber_por_grupo(): array
     return $out;
 }
 
-/** Recalcula a projecao do item 3 e grava SaldoMes1..3 em GruposSaldos. */
-function fcs_projecao_calcular_salvar(): void
+/** Recalcula a projecao do item 3 dos grupos marcados ($ids). */
+function fcs_projecao_calcular_salvar(array $ids): void
 {
+    $ids = array_map('intval', $ids);
+    if (!$ids) {
+        return;
+    }
     $meses = fcs_pagar_meses();
     $pagMap = [];
     foreach (query('SELECT FCGrupo_Id, RTRIM(Mes) Mes, Comprometido, Previsto
@@ -735,8 +741,8 @@ function fcs_projecao_calcular_salvar(): void
     $recMap = fcs_receber_por_grupo();
     foreach (fcs_listar() as $g) {
         $gid = (int) $g['FCGrupo_Id'];
-        if ($g['SaldoGrupo'] === null) {
-            continue; // grupo nunca calculado: linha segue sem projecao
+        if (!in_array($gid, $ids, true) || $g['SaldoGrupo'] === null) {
+            continue; // nao marcado ou nunca calculado: mantem ultimo calculo
         }
         $s = (float) $g['SaldoGrupo'];
         $ms = [];
@@ -745,8 +751,7 @@ function fcs_projecao_calcular_salvar(): void
             $ms[] = $s;
         }
         execute('UPDATE msoft.GruposSaldos
-                 SET SaldoMes1 = ?, SaldoMes2 = ?, SaldoMes3 = ?,
-                     UltimaAtualizacao = GETDATE()
+                 SET SaldoMes1 = ?, SaldoMes2 = ?, SaldoMes3 = ?
                  WHERE FCGrupo_Id = ?', [$ms[0], $ms[1], $ms[2], $gid]);
     }
 }
