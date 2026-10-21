@@ -2769,6 +2769,9 @@ tr.fcs-att td { background: #e3f0e3; }
                           border-top: 1px solid #d5dfe9; }
 .fcs-pagar tr.fcs-sub td { font-weight: 600; background: #f7f9fc;
                           border-top: 1px solid #d5dfe9; }
+.fcs-pagar tr.fcs-subg td { font-weight: 600; background: #fbfcfe;
+                          font-size: 11.5px; color: #445566;
+                          border-top: 1px dotted #d5dfe9; }
 .fcs-pagar tfoot tr.fcs-tot td { font-weight: 700; background: #d7e6f5;
                                border-top: 2px solid var(--primary, #1974b8); }
 .fcs-desc { font-size: 10.5px; font-weight: 400; color: var(--text-muted, #666); }

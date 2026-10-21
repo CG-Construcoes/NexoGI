@@ -29,7 +29,17 @@
         <tr class="fcs-mes" data-mtog><td colspan="5">&nbsp;&nbsp;<?= e($rot) ?><?php
             if ($tag !== ''): ?> <span class="fcs-mes-tag">(<?= e($tag) ?>)</span><?php
             endif; ?></td></tr>
-        <?php foreach ($lins as $l): ?>
+        <?php $gAtual = null; $gSub = 0.0;
+        foreach ($lins as $li => $l):
+            if ($gAtual !== null && $l['gnome'] !== $gAtual): ?>
+        <tr class="fcs-mrow fcs-subg" hidden>
+            <td colspan="4">&nbsp;&nbsp;&nbsp;&nbsp;Subtotal <?= e($gAtual) ?></td>
+            <td class="col-valor"><?= number_format($gSub, 2, ',', '.') ?></td>
+        </tr>
+            <?php $gSub = 0.0;
+            endif;
+            $gAtual = $l['gnome'];
+            $gSub += $l['valor']; ?>
         <tr class="fcs-mrow" hidden>
             <td>&nbsp;&nbsp;<?= e($l['obra']) ?><?= $l['desc'] !== '' ? ' — ' . e($l['desc']) : '' ?></td>
             <td><?= e($l['sit']) ?></td>
@@ -37,7 +47,13 @@
             <td><?= e(data_br($l['prev'])) ?></td>
             <td class="col-valor"><?= number_format($l['valor'], 2, ',', '.') ?></td>
         </tr>
-        <?php endforeach; ?>
+        <?php endforeach;
+        if ($gAtual !== null): ?>
+        <tr class="fcs-mrow fcs-subg" hidden>
+            <td colspan="4">&nbsp;&nbsp;&nbsp;&nbsp;Subtotal <?= e($gAtual) ?></td>
+            <td class="col-valor"><?= number_format($gSub, 2, ',', '.') ?></td>
+        </tr>
+        <?php endif; ?>
         <tr class="fcs-sub">
             <td colspan="4">Subtotal <?= e($rot) ?></td>
             <td class="col-valor"><?= number_format($sub, 2, ',', '.') ?></td>

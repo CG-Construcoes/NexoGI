@@ -515,6 +515,21 @@ function fcs_receber_dados(): array
     $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
     $hoje = date('Y-m-d');
     $labels = mp_centros();
+    // CodC => [ordem, nome] do 1o grupo do item 3 que contem o centro
+    // (centro em mais de um grupo conta so no primeiro; sem grupo vai
+    // para o bloco "Sem grupo" — os subtotais fecham com o do mes).
+    $grupoDo = [];
+    foreach (query("SELECT RTRIM(c.Centro_CodC) codc, RTRIM(g.FCGrupo_Nome) nome,
+                          ISNULL(o.Ordem, 2147483647) ord, g.FCGrupo_Nome
+                    FROM msoft.FluxoCaixa_Centros c
+                    JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
+                    LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
+                        ON o.FCGrupo_Id = g.FCGrupo_Id") as $r) {
+        $codc = strtoupper($r['codc']);
+        if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][0]) {
+            $grupoDo[$codc] = [(int) $r['ord'], trim((string) $r['nome'])];
+        }
+    }
     foreach (query("SELECT m.PMed_Id, RTRIM(c.Centro_CodC) Centro_CodC,
                            CONVERT(varchar(120), m.Med_Descricao) Med_Descricao,
                            m.Med_Valor,
@@ -536,14 +551,23 @@ function fcs_receber_dados(): array
             $obra = substr($obra, strpos($obra, ' - ') + 3); // so o nome, como no modelo
         }
         $emitida = $r['Med_EmissaoNF'] !== null && $r['Med_EmissaoNF'] <= $hoje;
+        [$gord, $gnome] = $grupoDo[strtoupper((string) $r['Centro_CodC'])]
+                          ?? [PHP_INT_MAX, 'Sem grupo'];
         $linhas[$ym][] = [
+            'id'      => (int) $r['PMed_Id'],
             'obra'    => $obra,
             'desc'    => trim((string) $r['Med_Descricao']),
             'sit'     => $emitida ? 'Notas Fiscais Emitidas' : 'Previsão De Medição',
             'emissao' => $r['Med_EmissaoNF'],
             'prev'    => (string) $r['Med_Previsao'],
             'valor'   => (float) $r['Med_Valor'],
+            'gord'    => $gord,
+            'gnome'   => $gnome,
         ];
+    }
+    foreach ($linhas as &$ml) {
+        usort($ml, fn($a, $b) => [$a['gord'], $a['gnome'], $a['prev'], $a['id']]
+                              <=> [$b['gord'], $b['gnome'], $b['prev'], $b['id']]);
     }
     return ['meses' => $meses, 'linhas' => $linhas];
 }
