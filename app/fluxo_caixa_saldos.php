@@ -497,6 +497,57 @@ function fcs_pagar_salvo(array $grupos): array
             'ultima' => $ultima];
 }
 
+/**
+ * Item 4 — CONTAS A RECEBER. Fonte: medicoes previstas em
+ * msoft.PrevisaoMedicao (tela Engenharia > Previsoes > Medicoes),
+ * agrupadas pelo mes da previsao de recebimento na mesma janela do
+ * trimestre rolante do item 5. Consulta so na base local (sem
+ * procedures do ERP) — instantanea, dispensa snapshot.
+ * Situacao: NF emitida (Med_EmissaoNF <= hoje) = "Notas Fiscais
+ * Emitidas"; senao "Previsão De Medição". Previsoes vencidas caem no
+ * primeiro mes (ainda a receber).
+ */
+function fcs_receber_dados(): array
+{
+    $meses = fcs_pagar_meses();
+    $linhas = array_fill_keys($meses, []);
+    $iniYm = $meses[0];
+    $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
+    $hoje = date('Y-m-d');
+    $labels = mp_centros();
+    foreach (query("SELECT m.PMed_Id, RTRIM(c.Centro_CodC) Centro_CodC,
+                           CONVERT(varchar(120), m.Med_Descricao) Med_Descricao,
+                           m.Med_Valor,
+                           CONVERT(varchar(10), m.Med_EmissaoNF, 120) Med_EmissaoNF,
+                           CONVERT(varchar(10), m.Med_Previsao, 120) Med_Previsao
+                    FROM msoft.PrevisaoMedicao m
+                    JOIN msoft.PrevisaoMedicaoCentro c ON c.PMedC_Id = m.PMedC_Id
+                    WHERE m.Med_Previsao < ?
+                    ORDER BY m.Med_Previsao, m.PMed_Id", [$limite]) as $r) {
+        $ym = substr((string) $r['Med_Previsao'], 0, 7);
+        if ($ym < $iniYm) {
+            $ym = $iniYm; // a receber atrasada -> mes vigente
+        }
+        if (!isset($linhas[$ym])) {
+            continue;
+        }
+        $obra = $labels[$r['Centro_CodC']] ?? $r['Centro_CodC'];
+        if (str_contains($obra, ' - ')) {
+            $obra = substr($obra, strpos($obra, ' - ') + 3); // so o nome, como no modelo
+        }
+        $emitida = $r['Med_EmissaoNF'] !== null && $r['Med_EmissaoNF'] <= $hoje;
+        $linhas[$ym][] = [
+            'obra'    => $obra,
+            'desc'    => trim((string) $r['Med_Descricao']),
+            'sit'     => $emitida ? 'Notas Fiscais Emitidas' : 'Previsão De Medição',
+            'emissao' => $r['Med_EmissaoNF'],
+            'prev'    => (string) $r['Med_Previsao'],
+            'valor'   => (float) $r['Med_Valor'],
+        ];
+    }
+    return ['meses' => $meses, 'linhas' => $linhas];
+}
+
 /** Remove linhas sem valor em nenhum mes (resumo pos-Atualizar). */
 function fcs_pagar_sem_zeros(array $dados): array
 {

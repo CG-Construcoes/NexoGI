@@ -60,7 +60,7 @@
 <div class="fcs-secao">
     <div class="fcs-secao-tit">4. CONTAS A RECEBER</div>
     <div class="fcs-secao-corpo">
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        <?php require ROOT . '/views/fluxo_caixa_receber.php'; ?>
     </div>
 </div>
 

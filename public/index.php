@@ -609,6 +609,7 @@ switch ($rota) {
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
             'grupos' => $grupos,
             'fcPag' => fcs_pagar_salvo($grupos),
+            'fcRec' => fcs_receber_dados(),
             'sugIni' => date('Y-m-d', strtotime('monday last week')),
             'sugFim' => date('Y-m-d', strtotime('monday this week')),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
@@ -668,6 +669,7 @@ switch ($rota) {
             'grupos' => $grupos,
             // le so o ultimo quadro calculado; grupos zerados ficam ocultos
             'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo($grupos)),
+            'fcRec' => fcs_receber_dados(),
             'atualizados' => $att]);
         break;
 
