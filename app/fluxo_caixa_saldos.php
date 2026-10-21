@@ -35,7 +35,8 @@ function fcs_listar(): array
                           WHERE c.FCGrupo_Id = g.FCGrupo_Id) QtdeCentros,
                          (SELECT COUNT(*) FROM msoft.GrupoCentro_Avulso a
                           WHERE a.FCGrupo_Id = g.FCGrupo_Id) QtdeAvulsos,
-                         s.SaldoGrupo, s.UltimaAtualizacao
+                         s.SaldoGrupo, s.SaldoMes1, s.SaldoMes2, s.SaldoMes3,
+                         s.UltimaAtualizacao
                   FROM msoft.FluxoCaixa_Grupo g
                   LEFT JOIN msoft.GruposSaldos s ON s.FCGrupo_Id = g.FCGrupo_Id
                   LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
@@ -667,6 +668,87 @@ function fcs_pagar_sem_zeros(array $dados): array
         return false;
     }));
     return $dados;
+}
+
+/**
+ * Item 3 — projecao do SALDO de cada grupo no fechamento de cada mes do
+ * trimestre rolante (mesma janela do item 5):
+ *   mesN = mes(N-1) - Contas a Pagar(N) + Contas a Receber(N),
+ * partindo do SaldoGrupo ("Saldo Atual" da linha). Gravada em
+ * msoft.GruposSaldos.SaldoMes1..3 — so no Atualizar, com o checkbox
+ * "Calcular" do item 3 marcado; desmarcado mantem o ultimo calculo.
+ * Roda DEPOIS do item 5 (usa o FluxoCaixa_Pagar recem-gravado); o
+ * "a receber" por grupo sai ao vivo de PrevisaoMedicao (base local).
+ */
+
+/** FCGrupo_Id => [Y-m => total a receber] — mesma regra de fcs_receber_dados. */
+function fcs_receber_por_grupo(): array
+{
+    $meses = fcs_pagar_meses();
+    $iniYm = $meses[0];
+    $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
+    // CodC => [FCGrupo_Id, ordem]: centro em mais de um grupo conta so
+    // no de menor Ordem (mesmo desempate do item 4)
+    $grupoDo = [];
+    foreach (query("SELECT RTRIM(c.Centro_CodC) codc, c.FCGrupo_Id,
+                          ISNULL(o.Ordem, 2147483647) ord
+                    FROM msoft.FluxoCaixa_Centros c
+                    LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
+                        ON o.FCGrupo_Id = c.FCGrupo_Id") as $r) {
+        $codc = strtoupper($r['codc']);
+        if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][1]) {
+            $grupoDo[$codc] = [(int) $r['FCGrupo_Id'], (int) $r['ord']];
+        }
+    }
+    $out = [];
+    foreach (query("SELECT RTRIM(c.Centro_CodC) Centro_CodC, m.Med_Valor,
+                           CONVERT(varchar(10), m.Med_Previsao, 120) Med_Previsao
+                    FROM msoft.PrevisaoMedicao m
+                    JOIN msoft.PrevisaoMedicaoCentro c ON c.PMedC_Id = m.PMedC_Id
+                    WHERE m.Med_Previsao < ?", [$limite]) as $r) {
+        $ym = substr((string) $r['Med_Previsao'], 0, 7);
+        if ($ym < $iniYm) {
+            $ym = $iniYm; // a receber atrasada -> mes vigente
+        }
+        if (!in_array($ym, $meses, true)) {
+            continue;
+        }
+        $g = $grupoDo[strtoupper((string) $r['Centro_CodC'])] ?? null;
+        if ($g === null) {
+            continue;
+        }
+        $out[$g[0]][$ym] = ($out[$g[0]][$ym] ?? 0.0) + (float) $r['Med_Valor'];
+    }
+    return $out;
+}
+
+/** Recalcula a projecao do item 3 e grava SaldoMes1..3 em GruposSaldos. */
+function fcs_projecao_calcular_salvar(): void
+{
+    $meses = fcs_pagar_meses();
+    $pagMap = [];
+    foreach (query('SELECT FCGrupo_Id, RTRIM(Mes) Mes, Comprometido, Previsto
+                    FROM msoft.FluxoCaixa_Pagar') as $r) {
+        $pagMap[(int) $r['FCGrupo_Id']][$r['Mes']] =
+            (float) $r['Comprometido'] + (float) $r['Previsto'];
+    }
+    $recMap = fcs_receber_por_grupo();
+    foreach (fcs_listar() as $g) {
+        $gid = (int) $g['FCGrupo_Id'];
+        if ($g['SaldoGrupo'] === null) {
+            continue; // grupo nunca calculado: linha segue sem projecao
+        }
+        $s = (float) $g['SaldoGrupo'];
+        $ms = [];
+        foreach ($meses as $ym) {
+            $s += ($recMap[$gid][$ym] ?? 0.0) - ($pagMap[$gid][$ym] ?? 0.0);
+            $ms[] = $s;
+        }
+        execute('UPDATE msoft.GruposSaldos
+                 SET SaldoMes1 = ?, SaldoMes2 = ?, SaldoMes3 = ?,
+                     UltimaAtualizacao = GETDATE()
+                 WHERE FCGrupo_Id = ?', [$ms[0], $ms[1], $ms[2], $gid]);
+    }
 }
 
 /**

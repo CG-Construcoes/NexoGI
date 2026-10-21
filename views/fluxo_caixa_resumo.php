@@ -30,7 +30,15 @@
                 <tr>
                     <th>Grupo</th>
                     <th>Centros</th>
-                    <th class="col-valor">Saldo do Grupo</th>
+                    <th class="col-valor" title="Saldo do grupo calculado pelo Relatório Financeiro (Receitas + Despesas) no período informado">Saldo Atual</th>
+                    <?php $mesesRes = fcs_pagar_meses();
+                    foreach ($mesesRes as $miRes => $ymRes):
+                        $mmRes = fcs_mes_rotulo($ymRes);
+                        $fimRes = data_br(date('Y-m-d', strtotime("$ymRes-01 +1 month -1 day")));
+                        $antRes = $miRes === 0 ? 'Saldo Atual'
+                            : data_br(date('Y-m-d', strtotime($mesesRes[$miRes - 1] . '-01 +1 month -1 day'))); ?>
+                    <th class="col-valor" title="<?= e("$antRes − Contas a Pagar ($mmRes) + Contas a Receber ($mmRes)") ?>"><?= e($fimRes) ?></th>
+                    <?php endforeach; ?>
                     <th>Última Atualização</th>
                 </tr>
             </thead>
@@ -43,6 +51,10 @@
                     <td><?= (int) $g['QtdeCentros'] ?></td>
                     <td class="col-valor"><?= $g['SaldoGrupo'] !== null
                         ? number_format((float) $g['SaldoGrupo'], 2, ',', '.') : '&mdash;' ?></td>
+                    <?php foreach (['SaldoMes1', 'SaldoMes2', 'SaldoMes3'] as $colMesRes): ?>
+                    <td class="col-valor"><?= $g[$colMesRes] !== null
+                        ? number_format((float) $g[$colMesRes], 2, ',', '.') : '&mdash;' ?></td>
+                    <?php endforeach; ?>
                     <td><?= $g['UltimaAtualizacao']
                         ? e(data_br((string) $g['UltimaAtualizacao'], true)) : '&mdash;' ?></td>
                 </tr>

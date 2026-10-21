@@ -31,6 +31,8 @@
                     <input type="date" id="fcs-ini" name="data_ini" value="<?= e($sugIni) ?>">
                     <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
                     <input type="date" id="fcs-fim" name="data_fim" value="<?= e($sugFim) ?>">
+                    <label style="font-size:13px; color:#cde" title="Desmarcado: o item 3 não é recalculado e mostra o último cálculo">
+                        <input type="checkbox" id="fcs-calc3" name="calc_item3" value="1" checked> Calcular</label>
                 </div>
             </div>
             <?php endif; ?>
@@ -56,7 +58,15 @@
                 <th>Grupo</th>
                 <th>Centros</th>
                 <th style="width:90px">Avulso</th>
-                <th class="col-valor">Saldo do Grupo</th>
+                <th class="col-valor" title="Saldo do grupo calculado pelo Relatório Financeiro (Receitas + Despesas) no período informado">Saldo Atual</th>
+                <?php $mesesFc = fcs_pagar_meses();
+                foreach ($mesesFc as $mi => $ymFc):
+                    $mmFc = fcs_mes_rotulo($ymFc);
+                    $fimFc = data_br(date('Y-m-d', strtotime("$ymFc-01 +1 month -1 day")));
+                    $antFc = $mi === 0 ? 'Saldo Atual'
+                        : data_br(date('Y-m-d', strtotime($mesesFc[$mi - 1] . '-01 +1 month -1 day'))); ?>
+                <th class="col-valor" title="<?= e("$antFc − Contas a Pagar ($mmFc) + Contas a Receber ($mmFc)") ?>"><?= e($fimFc) ?></th>
+                <?php endforeach; ?>
                 <th>Ultima Atualizacao</th>
             </tr>
         </thead>
@@ -102,13 +112,17 @@
                 </td>
                 <td class="col-valor"><?= $g['SaldoGrupo'] !== null
                     ? number_format((float) $g['SaldoGrupo'], 2, ',', '.') : '&mdash;' ?></td>
+                <?php foreach (['SaldoMes1', 'SaldoMes2', 'SaldoMes3'] as $colMes): ?>
+                <td class="col-valor"><?= $g[$colMes] !== null
+                    ? number_format((float) $g[$colMes], 2, ',', '.') : '&mdash;' ?></td>
+                <?php endforeach; ?>
                 <td><?= $g['UltimaAtualizacao']
                     ? e(data_br((string) $g['UltimaAtualizacao'], true)) : '&mdash;' ?></td>
             </tr>
             <?php if ($avulsos): ?>
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
                 <td></td><td></td><td></td>
-                <td colspan="4">
+                <td colspan="8">
                     <?php foreach ($avulsos as $a): ?>
                     <label class="fcs-av-lab"><?= e($a['nome']) ?>
                         <input type="text" name="avulso[<?= $gid ?>][<?= (int) $a['id'] ?>]"
@@ -362,6 +376,9 @@
             form.querySelectorAll('.fcs-check:checked'));
         var impMarcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-imp:checked'));
+        // "Calcular" do item 3 desmarcado: nao recalcula (mostra o ultimo calculo)
+        var calc3 = document.getElementById('fcs-calc3');
+        if (calc3 && !calc3.checked) { marcados = []; }
         if (!marcados.length && !impMarcados.length) {
             // nada marcado: so recalcula o item 5 e abre o resumo
             ev.preventDefault();
