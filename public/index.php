@@ -517,8 +517,9 @@ switch ($rota) {
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600);
                 try {
-                    $rPos = fcs_posicao_calcular_salvar();
+                    // item 5 antes: a projecao do item 1 le o snapshot dele
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    $rPos = fcs_posicao_calcular_salvar();
                     $erro = $rPos['erros']
                         ? 'Item 1 falhou: ' . implode(' | ', $rPos['erros']) : null;
                     echo json_encode(['ok' => $erro === null, 'erro' => $erro]);
@@ -555,8 +556,8 @@ switch ($rota) {
                 // (quem pode alterar) e abre o resumo.
                 if (usuario_pode('fluxo-caixa', 'alterar')) {
                     set_time_limit(600);
-                    fcs_posicao_calcular_salvar();
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_posicao_calcular_salvar();
                 }
                 redirecionar('fluxo-caixa/resumo');
             } elseif ($ini === '' || $fim === '') {
@@ -583,8 +584,8 @@ switch ($rota) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
                     $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
-                    fcs_posicao_calcular_salvar();
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_posicao_calcular_salvar();
                     $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
                                          : $r['ok'] . ' grupos atualizados.';
                     if ($r['erros']) {

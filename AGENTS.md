@@ -877,12 +877,16 @@ quando `$sec['id'] === 'despesas'`.
   coluna "Grupo" do modelo (Obras Ativas/Demais Centros) — aqui cada linha
   ja e um grupo.
 - **Item 1 POSICAO FINANCEIRA**: snapshot msoft.FluxoCaixa_Posicao (1
-  linha/base, migrar_fluxo_caixa_posicao.php); fcs_posicao_calcular_salvar()
-  roda posicao_contas_dados tipo 'BC' (Bancos), todas empresas, dbMGA+dbConv
-  (~30s, so no Atualizar) — SaldoBancario=Total Geral "Saldo Atual",
-  Aplicacoes="Valor Aplicado". Grid do modelo: linhas Saldo/Aplicacoes/
-  Posicao total x colunas hoje + fechamento dos 3 meses + Variacao —
-  colunas futuras sem regra definida exibem "—".
+  linha consolidada, migrar_fluxo_caixa_posicao.php);
+  fcs_posicao_calcular_salvar() roda posicao_contas_dados tipo 'BC'
+  (Bancos), todas empresas, dbMGA+dbConv (~30s, so no Atualizar) —
+  SaldoBancario=Total Geral "Saldo Atual", Aplicacoes="Valor Aplicado".
+  Grid: linhas Saldo/Aplicacoes/Posicao total x colunas hoje + fechamento
+  dos 3 meses do trimestre (sem Variacao). Projecao do saldo: mesN =
+  saldo anterior - Contas a Pagar(N) + Contas a Receber(N), partindo do
+  saldo de hoje; aplicacoes constantes (modelo). ATENCAO: o Atualizar
+  roda o item 5 ANTES do item 1 — a projecao le o FluxoCaixa_Pagar
+  recem-gravado; contas a receber vem ao vivo (base local).
 - **Item 4 CONTAS A RECEBER**: fcs_receber_dados() le msoft.PrevisaoMedicao
   (tela Medicoes) direto — sem snapshot (consulta local instantanea).
   Mes = Med_Previsao na janela do trimestre rolante; dentro do mes as
