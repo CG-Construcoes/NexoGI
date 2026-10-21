@@ -37,6 +37,13 @@
             <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
             <?php if ($podeAtualizar): ?>
             <div class="fcs-periodo">
+                <span class="fcs-periodo-label">Bases</span>
+                <div style="display:flex; align-items:center; gap:6px">
+                    <label style="font-size:13px; color:#cde" title="Somente informações da base dbMGA">
+                        <input type="checkbox" id="fcs-base-mga" name="base_mga" value="1" checked> DBMGA</label>
+                    <label style="font-size:13px; color:#cde" title="Somente informações da base dbConv">
+                        <input type="checkbox" id="fcs-base-conv" name="base_conv" value="1" checked> DBCONV</label>
+                </div>
                 <span class="fcs-periodo-label">Período</span>
                 <div style="display:flex; align-items:center; gap:6px">
                     <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
@@ -263,6 +270,10 @@
         var u = urlImpBase + '?grupos=' + ids.join(',')
             + '&data_ini=' + encodeURIComponent(ini)
             + '&data_fim=' + encodeURIComponent(fim);
+        ['fcs-base-mga', 'fcs-base-conv'].forEach(function (id) {
+            var b = document.getElementById(id);
+            if (b && b.checked) { u += '&' + b.name + '=1'; }
+        });
         var pares = [];
         ids.forEach(function (gid) {
             form.querySelectorAll('.fcs-av[data-grupo="' + gid + '"]').forEach(function (o) {

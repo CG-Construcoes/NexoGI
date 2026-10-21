@@ -155,6 +155,54 @@ function fcs_codcs_base(string $banco): array
 }
 
 /**
+ * Bases ERP selecionadas pelos checkboxes DBMGA/DBCONV da tela.
+ * Le POST (Atualizar) e GET (impressao). Padrao = as duas; nenhuma
+ * marcada tambem cai no padrao (nunca devolve vazio).
+ */
+function fcs_bases_selecionadas(): array
+{
+    $src = $_POST + $_GET;
+    $b = [];
+    if (!empty($src['base_mga']))  { $b[] = 'MGA'; }
+    if (!empty($src['base_conv'])) { $b[] = 'CONV'; }
+    return $b ?: ['MGA', 'CONV'];
+}
+
+/** base => banco, apenas das bases selecionadas na tela. */
+function fcs_bases_mapa(): array
+{
+    $m = ['MGA' => env('DB_ERP_MGA', 'dbMGA'),
+          'CONV' => env('DB_ERP_CONV', 'dbConv')];
+    return array_intersect_key($m, array_flip(fcs_bases_selecionadas()));
+}
+
+/**
+ * CodCs que ficam fora do "a receber" com as bases selecionadas:
+ * o centro so e excluido quando existe em alguma base ERP e nenhuma
+ * das bases onde ele existe esta marcada (CodC sem cadastro em base
+ * alguma continua entrando — dado local). null = sem filtro.
+ */
+function fcs_codcs_fora_das_bases(): ?array
+{
+    if (count(fcs_bases_selecionadas()) === 2) {
+        return null;
+    }
+    $dentro = $fora = [];
+    $sel = fcs_bases_selecionadas();
+    foreach (['MGA' => env('DB_ERP_MGA', 'dbMGA'),
+              'CONV' => env('DB_ERP_CONV', 'dbConv')] as $base => $banco) {
+        foreach (fcs_codcs_base($banco) as $codc => $x) {
+            if (in_array($base, $sel, true)) {
+                $dentro[$codc] = true;
+            } else {
+                $fora[$codc] = true;
+            }
+        }
+    }
+    return array_diff_key($fora, $dentro);
+}
+
+/**
  * base => empresa => [Centro_Cod] dos CodCs do grupo: localiza a(s) base(s)
  * onde cada centro existe (dbMGA e/ou dbConv — empresas CVC/CVJ/CVP existem
  * nas duas) e quebra o CodC (Empresa3+Filial2+Centro4).
@@ -162,8 +210,7 @@ function fcs_codcs_base(string $banco): array
 function fcs_alvos_grupo(array $codcs): array
 {
     $alvo = [];
-    foreach (['MGA' => env('DB_ERP_MGA', 'dbMGA'), 'CONV' => env('DB_ERP_CONV', 'dbConv')]
-             as $base => $banco) {
+    foreach (fcs_bases_mapa() as $base => $banco) {
         $existem = fcs_codcs_base($banco);
         foreach ($codcs as $codc) {
             if (strlen($codc) === 9 && isset($existem[strtoupper($codc)])) {
@@ -339,8 +386,7 @@ function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avuls
 function fcs_alvos_filcen(array $codcs): array
 {
     $alvo = [];
-    foreach (['MGA' => env('DB_ERP_MGA', 'dbMGA'), 'CONV' => env('DB_ERP_CONV', 'dbConv')]
-             as $base => $banco) {
+    foreach (fcs_bases_mapa() as $base => $banco) {
         $existem = fcs_codcs_base($banco);
         foreach ($codcs as $codc) {
             if (strlen($codc) === 9 && isset($existem[strtoupper($codc)])) {
@@ -516,6 +562,7 @@ function fcs_receber_dados(): array
     $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
     $hoje = date('Y-m-d');
     $labels = mp_centros();
+    $fora = fcs_codcs_fora_das_bases(); // centros so de base desmarcada
     // CodC => [ordem, nome] do 1o grupo do item 3 que contem o centro
     // (centro em mais de um grupo conta so no primeiro; sem grupo vai
     // para o bloco "Sem grupo" — os subtotais fecham com o do mes).
@@ -540,6 +587,10 @@ function fcs_receber_dados(): array
                     JOIN msoft.PrevisaoMedicaoCentro c ON c.PMedC_Id = m.PMedC_Id
                     WHERE m.Med_Previsao < ?
                     ORDER BY m.Med_Previsao, m.PMed_Id", [$limite]) as $r) {
+        if ($fora !== null
+            && isset($fora[strtoupper(trim((string) $r['Centro_CodC']))])) {
+            continue;
+        }
         $ym = substr((string) $r['Med_Previsao'], 0, 7);
         if ($ym < $iniYm) {
             $ym = $iniYm; // a receber atrasada -> mes vigente
@@ -605,7 +656,7 @@ function fcs_posicao_calcular_salvar(): array
     }
 
     $tot = ['saldo' => 0.0, 'aplic' => 0.0];
-    foreach (['MGA', 'CONV'] as $base) {
+    foreach (fcs_bases_selecionadas() as $base) {
         try {
             $d = posicao_contas_dados($base, [
                 'empresas' => [], 'tipo' => 'BC', 'data' => $hoje,
@@ -703,11 +754,16 @@ function fcs_receber_por_grupo(): array
         }
     }
     $out = [];
+    $fora = fcs_codcs_fora_das_bases(); // centros so de base desmarcada
     foreach (query("SELECT RTRIM(c.Centro_CodC) Centro_CodC, m.Med_Valor,
                            CONVERT(varchar(10), m.Med_Previsao, 120) Med_Previsao
                     FROM msoft.PrevisaoMedicao m
                     JOIN msoft.PrevisaoMedicaoCentro c ON c.PMedC_Id = m.PMedC_Id
                     WHERE m.Med_Previsao < ?", [$limite]) as $r) {
+        if ($fora !== null
+            && isset($fora[strtoupper(trim((string) $r['Centro_CodC']))])) {
+            continue;
+        }
         $ym = substr((string) $r['Med_Previsao'], 0, 7);
         if ($ym < $iniYm) {
             $ym = $iniYm; // a receber atrasada -> mes vigente

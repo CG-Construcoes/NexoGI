@@ -671,6 +671,8 @@ switch ($rota) {
                     }
                     $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
                         . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim)
+                        . (!empty($_POST['base_mga']) ? '&base_mga=1' : '')
+                        . (!empty($_POST['base_conv']) ? '&base_conv=1' : '')
                         . ($avParam !== '' ? '&av=' . urlencode($avParam) : '');
                 }
                 redirecionar($destino);
