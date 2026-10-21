@@ -2755,3 +2755,12 @@ tr.ap-det td { background: #f6f8fb; font-size: 11px; color: #334;
 tr.fcs-att td { background: #e3f0e3; }
 .fcs-att-tag { font-size: 10.5px; font-weight: 600; color: #2e7d32;
                border: 1px solid #a5d6a7; border-radius: 8px; padding: 0 6px; }
+.fcs-pagar { font-size: 12.5px; }
+.fcs-pagar td { white-space: nowrap; }
+.fcs-pagar td:first-child { white-space: normal; }
+.fcs-pagar tr.fcs-mes td { font-weight: 700; background: #eef3f8; color: #1e3a5f;
+                          border-top: 1px solid #d5dfe9; }
+.fcs-pagar tr.fcs-sub td { font-weight: 600; background: #f7f9fc;
+                          border-top: 1px solid #d5dfe9; }
+.fcs-pagar tfoot tr.fcs-tot td { font-weight: 700; background: #d7e6f5;
+                               border-top: 2px solid var(--primary, #1974b8); }

@@ -855,3 +855,24 @@ quando `$sec['id'] === 'despesas'`.
   resultados. O cabecalho mostra "Centro: Todos", o centro unico ou
   "N centros selecionados" + linha com a lista completa.
 - Botao Imprimir usa window.print() com CSS de impressao (esconde filtros/sidebar).
+
+## Acompanhamento Financeiro (era "Fluxo de Caixa") — 7 secoes (2026-10-21)
+- Tela `fluxo-caixa` renomeada para "Acompanhamento Financeiro" (titulo + menu);
+  secoes numeradas 1-7 recolhiveis (.fcs-secao-tit[data-tog]); secao 3 = a
+  tabela de Grupos (saldo por obra/centro), unica com conteudo ate aqui.
+- Botao Atualizar no rodape -> GET `fluxo-caixa/resumo` (views/
+  fluxo_caixa_resumo.php): mostra as 7 secoes expandidas; secao 3 lista
+  grupos + SaldoGrupo gravado/recalculado (?att=ids destaca). Sem checkbox
+  marcado o botao so abre o resumo; "imprimir[]" abre o iframe de impressao
+  na carga do resumo (sessionStorage fcs_imprimir).
+- **Item 5 CONTAS A PAGAR** (premissas pendentes de critica do usuario):
+  Titulos_a_Pagar + Documento_de_Entrada (mesma fonte do Relatorio de
+  Contas a Pagar); EntDocTipo_Cod 'ED' = Comprometido, 'EP' = Previsto;
+  mes = TitaPag_DataVencimentoFluxo; Situacao 'A' (+ 'L' pre-datado) e sem
+  pagamento conciliado; vencidos < 1o mes caem no 1o mes (atrasados).
+  Meses = periodo da tela (resumo via ?ini/?fim; padrao mes atual..dez).
+  Linhas = TODOS os grupos do item 3; colunas Comprometido/Previsto/Total/
+  Acumulado + Subtotal por mes + TOTAL acumulado (views/fluxo_caixa_pagar.php
+  partial compartilhado; fcs_pagar_* em fluxo_caixa_saldos.php). Sem a
+  coluna "Grupo" do modelo (Obras Ativas/Demais Centros) — aqui cada linha
+  ja e um grupo.

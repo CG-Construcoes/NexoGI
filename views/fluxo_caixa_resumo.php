@@ -66,7 +66,7 @@
 <div class="fcs-secao">
     <div class="fcs-secao-tit">5. CONTAS A PAGAR</div>
     <div class="fcs-secao-corpo">
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        <?php require ROOT . '/views/fluxo_caixa_pagar.php'; ?>
     </div>
 </div>
 

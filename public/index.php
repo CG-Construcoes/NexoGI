@@ -536,7 +536,9 @@ switch ($rota) {
             $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
             if (!$ids && !$impIds) {
                 // Nada a calcular nem imprimir: o botao apenas abre o resumo
-                redirecionar('fluxo-caixa/resumo');
+                $q = ($ini !== '' && $fim !== '' && $ini <= $fim)
+                    ? '?ini=' . urlencode($ini) . '&fim=' . urlencode($fim) : '';
+                redirecionar('fluxo-caixa/resumo' . $q);
             } elseif ($ini === '' || $fim === '') {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
             } elseif ($ini > $fim) {
@@ -556,7 +558,8 @@ switch ($rota) {
                     $avFlat += $vals;
                 }
                 fcs_salvar_avulsos($avFlat);
-                $destino = 'fluxo-caixa/resumo';
+                $destino = 'fluxo-caixa/resumo?ini=' . urlencode($ini)
+                    . '&fim=' . urlencode($fim);
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
@@ -585,9 +588,11 @@ switch ($rota) {
             }
             redirecionar('fluxo-caixa');
         }
+        $grupos = fcs_listar();
         render('fluxo_caixa', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => fcs_listar(),
+            'grupos' => $grupos,
+            'fcPag' => fcs_pagar_dados($grupos, null, null),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
@@ -639,9 +644,14 @@ switch ($rota) {
         exigir_login();
         $att = array_filter(array_map('intval',
             explode(',', (string) ($_GET['att'] ?? ''))));
+        $rIni = trim((string) ($_GET['ini'] ?? ''));
+        $rFim = trim((string) ($_GET['fim'] ?? ''));
+        $grupos = fcs_listar();
         render('fluxo_caixa_resumo', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => fcs_listar(),
+            'grupos' => $grupos,
+            'fcPag' => fcs_pagar_dados($grupos,
+                $rIni !== '' ? $rIni : null, $rFim !== '' ? $rFim : null),
             'atualizados' => $att]);
         break;
 

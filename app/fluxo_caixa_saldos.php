@@ -324,3 +324,127 @@ function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avuls
     }
     return ['ok' => $ok, 'erros' => $erros];
 }
+
+/**
+ * Item 5 — CONTAS A PAGAR. Mesma fonte do Relatorio de Contas a Pagar
+ * (Titulos_a_Pagar + Documento_de_Entrada), somando o ValorLiquido por
+ * mes de TitaPag_DataVencimentoFluxo e por tipo de entrada:
+ *   ED (documento real) -> Comprometido; EP (previsao) -> Previsto.
+ * Titulos ja pagos/conciliados nao entram; vencidos antes do primeiro
+ * mes do quadro caem no primeiro mes (atrasados viram compromisso atual).
+ */
+
+/** base => empresa => [Filial+Centro] dos CodCs do grupo (para DocEnt). */
+function fcs_alvos_filcen(array $codcs): array
+{
+    $alvo = [];
+    foreach (['MGA' => env('DB_ERP_MGA', 'dbMGA'), 'CONV' => env('DB_ERP_CONV', 'dbConv')]
+             as $base => $banco) {
+        $existem = fcs_codcs_base($banco);
+        foreach ($codcs as $codc) {
+            if (strlen($codc) === 9 && isset($existem[strtoupper($codc)])) {
+                $alvo[$base][substr($codc, 0, 3)][] = substr($codc, 3, 6);
+            }
+        }
+    }
+    return $alvo;
+}
+
+/** ['Y-m', ...] entre os meses de $ini/$fim (default: mes atual..dezembro). */
+function fcs_pagar_meses(?string $ini, ?string $fim): array
+{
+    $iniYm = preg_match('/^\d{4}-\d{2}/', (string) $ini) ? substr((string) $ini, 0, 7)
+                                                         : date('Y-m');
+    $fimYm = preg_match('/^\d{4}-\d{2}/', (string) $fim) ? substr((string) $fim, 0, 7)
+                                                         : substr($iniYm, 0, 4) . '-12';
+    if ($fimYm < $iniYm) {
+        $fimYm = $iniYm;
+    }
+    $meses = [];
+    for ($ym = $iniYm; $ym <= $fimYm && count($meses) < 24;) {
+        $meses[] = $ym;
+        $ym = date('Y-m', strtotime("$ym-01 +1 month"));
+    }
+    return $meses;
+}
+
+/** Rotulo de mes no padrao do modelo ("OUT/26"). */
+function fcs_mes_rotulo(string $ym): string
+{
+    static $ab = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
+                  'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+    return $ab[(int) substr($ym, 5, 2) - 1] . '/' . substr($ym, 2, 2);
+}
+
+/** [Y-m => ['c'=>comprometido, 'p'=>previsto]] de um grupo de centros. */
+function fcs_pagar_grupo(array $codcs, array $meses): array
+{
+    $out = [];
+    foreach ($meses as $ym) {
+        $out[$ym] = ['c' => 0.0, 'p' => 0.0];
+    }
+    if (!$meses) {
+        return $out;
+    }
+    $hoje = date('Y-m-d H:i:s');
+    $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
+    $iniYm = $meses[0];
+    foreach (fcs_alvos_filcen($codcs) as $base => $emps) {
+        foreach ($emps as $emp => $pares) {
+            $ph = implode(',', array_fill(0, count($pares), '?'));
+            $rows = query(
+                "SELECT CONVERT(char(7), TitaPag.TitaPag_DataVencimentoFluxo, 120) ym,
+                        RTRIM(DocEnt.EntDocTipo_Cod) tipo,
+                        SUM(TitaPag.TitaPag_Valor + TitaPag.TitaPag_EncargosFin
+                            + TitaPag.TitaPag_Multa + TitaPag.TitaPag_Acrescimos
+                            - TitaPag.TitaPag_Descontos
+                            - TitaPag.TitaPag_DescontoAdiantamento) val
+                 FROM dbo.Titulos_a_Pagar TitaPag
+                 JOIN dbo.Documento_de_Entrada DocEnt
+                     ON TitaPag.Ent_Numero = DocEnt.Ent_Numero
+                 WHERE DocEnt.Empresa_Cod = ?
+                   AND DocEnt.EntDocTipo_Cod IN ('ED','EP')
+                   AND ( TitaPag.TitaPag_Situacao = 'A'
+                      OR ( TitaPag.TitaPag_Situacao = 'L'
+                           AND TitaPag.Pag_DataPagamento > ?
+                           AND TitaPag.Pag_DataDocumento > TitaPag.Pag_DataEmissao ) )
+                   AND NOT EXISTS ( SELECT * FROM Movimento_Financeiro MovFin,
+                                          Pagamentos Pagto
+                                    WHERE MovFin.MovFin_Numero = Pagto.MovFin_Numero
+                                      AND TitaPag.Pag_Numero = Pagto.Pag_Numero
+                                      AND MovFin.MovFin_Conciliado = 'C' )
+                   AND TitaPag.TitaPag_DataVencimentoFluxo < ?
+                   AND DocEnt.Filial_Cod + DocEnt.Centro_Cod IN ($ph)
+                 GROUP BY CONVERT(char(7), TitaPag.TitaPag_DataVencimentoFluxo, 120),
+                          RTRIM(DocEnt.EntDocTipo_Cod)",
+                array_merge([$emp, $hoje, $limite], $pares), banco_da_base($base));
+            foreach ($rows as $r) {
+                $ym = $r['ym'] < $iniYm ? $iniYm : $r['ym']; // vencidos -> 1o mes
+                if (!isset($out[$ym])) {
+                    continue;
+                }
+                $out[$ym][$r['tipo'] === 'EP' ? 'p' : 'c'] += (float) $r['val'];
+            }
+        }
+    }
+    return $out;
+}
+
+/** Dados do quadro: meses + uma linha por grupo + erros por grupo. */
+function fcs_pagar_dados(array $grupos, ?string $ini, ?string $fim): array
+{
+    $meses = fcs_pagar_meses($ini, $fim);
+    $linhas = [];
+    $erros = [];
+    foreach ($grupos as $g) {
+        $gid = (int) $g['FCGrupo_Id'];
+        try {
+            $linhas[] = ['nome' => trim((string) $g['FCGrupo_Nome']),
+                         'mes' => fcs_pagar_grupo(fc_centros_do_grupo($gid), $meses)];
+        } catch (Throwable $t) {
+            $erros[] = trim((string) $g['FCGrupo_Nome']) . ': ' . $t->getMessage();
+            $linhas[] = ['nome' => trim((string) $g['FCGrupo_Nome']), 'mes' => []];
+        }
+    }
+    return ['meses' => $meses, 'linhas' => $linhas, 'erros' => $erros];
+}

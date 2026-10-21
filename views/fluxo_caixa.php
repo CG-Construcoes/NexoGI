@@ -140,7 +140,7 @@
     <div class="fcs-secao">
         <div class="fcs-secao-tit fcs-fech" data-tog>5. CONTAS A PAGAR</div>
         <div class="fcs-secao-corpo" hidden>
-            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+            <?php require ROOT . '/views/fluxo_caixa_pagar.php'; ?>
         </div>
     </div>
 
@@ -194,7 +194,11 @@
     var urlImpBase = '<?= e(url('fluxo-caixa/imprimir')) ?>';
     var urlResumoBase = '<?= e(url('fluxo-caixa/resumo')) ?>';
     function resumoUrl(ids) {
-        return urlResumoBase + (ids && ids.length ? '?att=' + ids.join(',') : '');
+        var u = urlResumoBase + '?';
+        if (iniEl.value) { u += 'ini=' + iniEl.value + '&'; }
+        if (fimEl.value) { u += 'fim=' + fimEl.value + '&'; }
+        if (ids && ids.length) { u += 'att=' + ids.join(','); }
+        return u;
     }
 
     // Retorno do reload pos-calculo: imprime os relatorios pendentes.
