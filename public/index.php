@@ -24,6 +24,7 @@ $ROTAS_TELA = [
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
+    'fluxo-caixa/resumo' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
@@ -534,7 +535,8 @@ switch ($rota) {
             $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
             $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
             if (!$ids && !$impIds) {
-                definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
+                // Nada a calcular nem imprimir: o botao apenas abre o resumo
+                redirecionar('fluxo-caixa/resumo');
             } elseif ($ini === '' || $fim === '') {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
             } elseif ($ini > $fim) {
@@ -554,7 +556,7 @@ switch ($rota) {
                     $avFlat += $vals;
                 }
                 fcs_salvar_avulsos($avFlat);
-                $destino = 'fluxo-caixa';
+                $destino = 'fluxo-caixa/resumo';
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
@@ -631,6 +633,16 @@ switch ($rota) {
             }
         }
         require ROOT . '/views/fluxo_caixa_impressao.php';
+        break;
+
+    case 'fluxo-caixa/resumo':
+        exigir_login();
+        $att = array_filter(array_map('intval',
+            explode(',', (string) ($_GET['att'] ?? ''))));
+        render('fluxo_caixa_resumo', ['titulo' => 'Acompanhamento Financeiro',
+            'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
+            'grupos' => fcs_listar(),
+            'atualizados' => $att]);
         break;
 
     case 'fluxo-caixa-grupos/relatorio':

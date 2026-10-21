@@ -28,10 +28,9 @@
                 <span class="fcs-periodo-label">Período</span>
                 <div style="display:flex; align-items:center; gap:6px">
                     <label for="fcs-ini" style="font-size:13px; color:#cde">De</label>
-                    <input type="date" id="fcs-ini" name="data_ini" required>
+                    <input type="date" id="fcs-ini" name="data_ini">
                     <label for="fcs-fim" style="font-size:13px; color:#cde">a</label>
-                    <input type="date" id="fcs-fim" name="data_fim" required>
-                    <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
+                    <input type="date" id="fcs-fim" name="data_fim">
                 </div>
             </div>
             <?php endif; ?>
@@ -130,35 +129,39 @@
     <?php endif; ?>
         </div>
     </div>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit fcs-fech" data-tog>4. CONTAS A RECEBER</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
+    </div>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit fcs-fech" data-tog>5. CONTAS A PAGAR</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
+    </div>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit fcs-fech" data-tog>6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
+    </div>
+
+    <div class="fcs-secao">
+        <div class="fcs-secao-tit fcs-fech" data-tog>7. CONSÓRCIOS</div>
+        <div class="fcs-secao-corpo" hidden>
+            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+        </div>
+    </div>
+
+    <div class="fcs-rodape">
+        <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
+    </div>
 </form>
-
-<div class="fcs-secao">
-    <div class="fcs-secao-tit fcs-fech" data-tog>4. CONTAS A RECEBER</div>
-    <div class="fcs-secao-corpo" hidden>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
-    </div>
-</div>
-
-<div class="fcs-secao">
-    <div class="fcs-secao-tit fcs-fech" data-tog>5. CONTAS A PAGAR</div>
-    <div class="fcs-secao-corpo" hidden>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
-    </div>
-</div>
-
-<div class="fcs-secao">
-    <div class="fcs-secao-tit fcs-fech" data-tog>6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
-    <div class="fcs-secao-corpo" hidden>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
-    </div>
-</div>
-
-<div class="fcs-secao">
-    <div class="fcs-secao-tit fcs-fech" data-tog>7. CONSÓRCIOS</div>
-    <div class="fcs-secao-corpo" hidden>
-        <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
-    </div>
-</div>
 
 <script>
 (function () {
@@ -189,6 +192,10 @@
 <script>
 (function () {
     var urlImpBase = '<?= e(url('fluxo-caixa/imprimir')) ?>';
+    var urlResumoBase = '<?= e(url('fluxo-caixa/resumo')) ?>';
+    function resumoUrl(ids) {
+        return urlResumoBase + (ids && ids.length ? '?att=' + ids.join(',') : '');
+    }
 
     // Retorno do reload pos-calculo: imprime os relatorios pendentes.
     var pendente = sessionStorage.getItem('fcs_imprimir');
@@ -335,8 +342,13 @@
             form.querySelectorAll('.fcs-check:checked'));
         var impMarcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-imp:checked'));
-        if ((!marcados.length && !impMarcados.length)
-                || !iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
+        if (!marcados.length && !impMarcados.length) {
+            // nada a calcular nem imprimir: abre so o resumo com saldos salvos
+            ev.preventDefault();
+            location.href = resumoUrl();
+            return;
+        }
+        if (!iniEl.value || !fimEl.value || iniEl.value > fimEl.value) {
             return; // deixa o POST normal validar no servidor
         }
         // Grupo marcado para atualizar precisa de todos os valores avulsos
@@ -364,8 +376,9 @@
                            iniEl.value, fimEl.value)
             : null;
         if (!marcados.length) {
-            // so impressao: sem calculo, abre direto
-            abrirImpressao(urlImp);
+            // so impressao: o resumo abre o iframe ao carregar
+            sessionStorage.setItem('fcs_imprimir', urlImp);
+            location.href = resumoUrl();
             return;
         }
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
@@ -374,6 +387,7 @@
         var t0 = null;
         var falhas = [];
         var concluidos = [];
+        var concluidosIds = [];
         var cancelar = false;
         var btnStop = document.getElementById('fcs-stop');
         btnStop.addEventListener('click', function () {
@@ -401,7 +415,7 @@
                     msgStop += '\n\nFalharam:\n - ' + falhas.join('\n - ');
                 }
                 alert(msgStop);
-                location.reload();
+                location.href = resumoUrl(concluidosIds);
                 return;
             }
             if (i >= marcados.length) {
@@ -416,7 +430,7 @@
                     sessionStorage.setItem('fcs_imprimir', urlImp);
                 }
                 alert(msg);
-                location.reload();
+                location.href = resumoUrl(concluidosIds);
                 return;
             }
             var cb = marcados[i];
@@ -439,7 +453,7 @@
             fetch(form.action, { method: 'POST', body: corpo })
                 .then(function (r) { return r.json(); })
                 .then(function (j) {
-                    if (j.ok) { concluidos.push(nome); }
+                    if (j.ok) { concluidos.push(nome); concluidosIds.push(cb.value); }
                     else { falhas.push(nome + ': ' + (j.erro || 'erro')); }
                 })
                 .catch(function () { falhas.push(nome + ': falha de rede'); })
