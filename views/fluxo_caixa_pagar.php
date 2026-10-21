@@ -12,10 +12,9 @@
 <?php endif; ?>
 
 <?php if (!($fcPag['meses'] ?? [])): ?>
-<p class="vazio">Contas a pagar ainda não calculado — preencha o período e clique
-    em Atualizar.</p>
+<p class="vazio">Contas a pagar ainda não calculado — clique em Atualizar.</p>
 <?php elseif (!($fcPag['linhas'] ?? [])): ?>
-<p class="vazio">Nenhum grupo com valores no período.</p>
+<p class="vazio">Nenhum grupo com valores no trimestre.</p>
 <?php else: ?>
 <table class="tabela fcs-pagar">
     <thead>
@@ -30,7 +29,7 @@
     <?php
     $acLinha = array_fill(0, count($fcPag['linhas']), 0.0);
     $acSub = ['c' => 0.0, 'p' => 0.0];
-    foreach ($fcPag['meses'] as $ym):
+    foreach ($fcPag['meses'] as $mi => $ym):
         $sub = ['c' => 0.0, 'p' => 0.0];
         foreach ($fcPag['linhas'] as $li) {
             $m = $li['mes'][$ym] ?? ['c' => 0.0, 'p' => 0.0];
@@ -39,9 +38,12 @@
         }
         $acSub['c'] += $sub['c'];
         $acSub['p'] += $sub['p'];
-        $rot = fcs_mes_rotulo($ym); ?>
+        $rot = fcs_mes_rotulo($ym);
+        $tag = fcs_mes_tag((int) $mi); ?>
     <tbody>
-        <tr class="fcs-mes" data-mtog><td colspan="5">&nbsp;&nbsp;<?= e($rot) ?></td></tr>
+        <tr class="fcs-mes" data-mtog><td colspan="5">&nbsp;&nbsp;<?= e($rot) ?><?php
+            if ($tag !== ''): ?> <span class="fcs-mes-tag">(<?= e($tag) ?>)</span><?php
+            endif; ?></td></tr>
         <?php foreach ($fcPag['linhas'] as $i => $li):
             $m = $li['mes'][$ym] ?? ['c' => 0.0, 'p' => 0.0];
             $tot = $m['c'] + $m['p'];

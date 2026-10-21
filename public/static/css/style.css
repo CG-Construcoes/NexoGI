@@ -2774,5 +2774,7 @@ tr.fcs-att td { background: #e3f0e3; }
 .fcs-desc { font-size: 10.5px; font-weight: 400; color: var(--text-muted, #666); }
 .fcs-ult { font-size: 11px; color: var(--text-muted, #666); margin: 0 0 8px; }
 .fcs-pagar tr.fcs-mes td { cursor: pointer; user-select: none; }
+.fcs-pagar .fcs-mes-tag { font-weight: 400; font-size: 10.5px;
+                        color: var(--text-muted, #5a6b80); }
 .fcs-pagar tr.fcs-mes td:first-child::before { content: '\25B8\00A0'; }
 .fcs-pagar tr.fcs-mes.fcs-mab td:first-child::before { content: '\25BE\00A0'; }

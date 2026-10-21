@@ -350,22 +350,17 @@ function fcs_alvos_filcen(array $codcs): array
     return $alvo;
 }
 
-/** ['Y-m', ...] entre os meses de $ini/$fim (default: mes atual..dezembro). */
-function fcs_pagar_meses(?string $ini, ?string $fim): array
+/**
+ * Janela fixa do item 5 (trimestre rolante, independente do periodo do
+ * item 3): mes atual + os dois seguintes. Subgrupos: "mes atual",
+ * "mes posterior" e "mes posterior que fecha o trimestre".
+ */
+function fcs_pagar_meses(): array
 {
-    $iniYm = preg_match('/^\d{4}-\d{2}/', (string) $ini) ? substr((string) $ini, 0, 7)
-                                                         : date('Y-m');
-    $fimYm = preg_match('/^\d{4}-\d{2}/', (string) $fim) ? substr((string) $fim, 0, 7)
-                                                         : substr($iniYm, 0, 4) . '-12';
-    if ($fimYm < $iniYm) {
-        $fimYm = $iniYm;
-    }
-    $meses = [];
-    for ($ym = $iniYm; $ym <= $fimYm && count($meses) < 24;) {
-        $meses[] = $ym;
-        $ym = date('Y-m', strtotime("$ym-01 +1 month"));
-    }
-    return $meses;
+    $ym = date('Y-m');
+    return [$ym,
+            date('Y-m', strtotime("$ym-01 +1 month")),
+            date('Y-m', strtotime("$ym-01 +2 month"))];
 }
 
 /** Rotulo de mes no padrao do modelo ("OUT/26"). */
@@ -374,6 +369,13 @@ function fcs_mes_rotulo(string $ym): string
     static $ab = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
                   'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
     return $ab[(int) substr($ym, 5, 2) - 1] . '/' . substr($ym, 2, 2);
+}
+
+/** Tag do subgrupo pela posicao no trimestre (0=atual, 1, 2=fecha). */
+function fcs_mes_tag(int $i): string
+{
+    return ['mes atual', 'mes posterior',
+            'mes posterior (fecha o trimestre)'][$i] ?? '';
 }
 
 /** [Y-m => ['c'=>comprometido, 'p'=>previsto]] de um grupo de centros. */
@@ -431,9 +433,9 @@ function fcs_pagar_grupo(array $codcs, array $meses): array
 }
 
 /** Dados do quadro: meses + uma linha por grupo + erros por grupo. */
-function fcs_pagar_dados(array $grupos, ?string $ini, ?string $fim): array
+function fcs_pagar_dados(array $grupos): array
 {
-    $meses = fcs_pagar_meses($ini, $fim);
+    $meses = fcs_pagar_meses();
     $linhas = [];
     $erros = [];
     foreach ($grupos as $g) {
@@ -451,9 +453,9 @@ function fcs_pagar_dados(array $grupos, ?string $ini, ?string $fim): array
 }
 
 /** Recalcula o item 5 e grava em msoft.FluxoCaixa_Pagar (so no Atualizar). */
-function fcs_pagar_calcular_salvar(array $grupos, ?string $ini, ?string $fim): array
+function fcs_pagar_calcular_salvar(array $grupos): array
 {
-    $dados = fcs_pagar_dados($grupos, $ini, $fim);
+    $dados = fcs_pagar_dados($grupos);
     execute('DELETE FROM msoft.FluxoCaixa_Pagar');
     foreach ($dados['linhas'] as $l) {
         foreach ($l['mes'] as $ym => $v) {
