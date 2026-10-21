@@ -668,3 +668,46 @@ function fcs_pagar_sem_zeros(array $dados): array
     }));
     return $dados;
 }
+
+/**
+ * Item 2 — APORTES A RETORNAR. Soma dos aportes cadastrados por grupo
+ * em msoft.GrupoCentro_Aporte (tela Aportes a Retornar). Consulta so na
+ * base local — instantanea — mas segue a mesma regra dos demais itens:
+ * persistida em msoft.FluxoCaixa_Aportes (1 linha por grupo com aporte),
+ * a tela le so o snapshot e o recalculo so acontece no Atualizar.
+ */
+function fcs_aportes_calcular_salvar(): void
+{
+    execute('DELETE FROM msoft.FluxoCaixa_Aportes');
+    execute("INSERT INTO msoft.FluxoCaixa_Aportes
+             (FCGrupo_Id, TotalAportes, UltimaAtualizacao)
+             SELECT FCGrupo_Id, SUM(Aporte_Valor), GETDATE()
+             FROM msoft.GrupoCentro_Aporte GROUP BY FCGrupo_Id");
+}
+
+/** Ultimo quadro salvo do item 2: linhas por grupo + total + 'ultima'. */
+function fcs_aportes_salvo(array $grupos): array
+{
+    $totais = [];
+    $ultima = null;
+    foreach (query('SELECT FCGrupo_Id, TotalAportes, UltimaAtualizacao
+                    FROM msoft.FluxoCaixa_Aportes') as $r) {
+        $totais[(int) $r['FCGrupo_Id']] = (float) $r['TotalAportes'];
+        $u = (string) $r['UltimaAtualizacao'];
+        if ($ultima === null || $u > $ultima) {
+            $ultima = $u;
+        }
+    }
+    $linhas = [];
+    $total = 0.0;
+    foreach ($grupos as $g) {
+        $gid = (int) $g['FCGrupo_Id'];
+        if (!isset($totais[$gid])) {
+            continue;
+        }
+        $linhas[] = ['id' => $gid, 'nome' => trim((string) $g['FCGrupo_Nome']),
+                     'total' => $totais[$gid]];
+        $total += $totais[$gid];
+    }
+    return ['linhas' => $linhas, 'total' => $total, 'ultima' => $ultima];
+}

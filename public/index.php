@@ -22,6 +22,7 @@ $ROTAS_TELA = [
     'posicao-contas' => 'posicao-contas',
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
+    'fluxo-caixa-aportes' => 'fluxo-caixa-aportes',
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'fluxo-caixa/resumo' => 'fluxo-caixa',
@@ -483,6 +484,65 @@ switch ($rota) {
             'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
         break;
 
+    case 'fluxo-caixa-aportes':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('fluxo-caixa-aportes');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);          // FCGrupo_Id
+            $aporteId = (int) ($_POST['aporte_id'] ?? 0);
+            $destino = 'fluxo-caixa-aportes' . ($id ? "?grupo=$id" : '');
+            try {
+                // o aporte tem que pertencer ao grupo do formulario
+                if (in_array($acao, ['editar', 'excluir'], true)) {
+                    $ap = fca_get($aporteId);
+                    if (!$ap || (int) $ap['FCGrupo_Id'] !== $id) {
+                        throw new InvalidArgumentException('Aporte nao encontrado neste grupo.');
+                    }
+                }
+                if ($acao === 'excluir') {
+                    exigir_tela('fluxo-caixa-aportes', 'excluir');
+                    fca_excluir($aporteId);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Aporte excluido.']);
+                } else {
+                    $d = fca_validar($_POST);
+                    if ($acao === 'editar') {
+                        exigir_tela('fluxo-caixa-aportes', 'alterar');
+                        fca_atualizar($aporteId, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Aporte atualizado.']);
+                    } else {
+                        exigir_tela('fluxo-caixa-aportes', 'inserir');
+                        fca_inserir($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Aporte incluido no grupo.']);
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $grupoSel = isset($_GET['grupo']) ? fc_get((int) $_GET['grupo']) : null;
+        $edicao = $grupoSel && isset($_GET['editar'])
+                  && usuario_pode('fluxo-caixa-aportes', 'alterar')
+            ? fca_get((int) $_GET['editar']) : null;
+        if ($edicao && (int) $edicao['FCGrupo_Id'] !== (int) $grupoSel['FCGrupo_Id']) {
+            $edicao = null; // aporte de outro grupo
+        }
+        render('fluxo_caixa_aportes', ['titulo' => 'Aportes a Retornar',
+            'active' => 'fluxo-caixa-aportes', 'aviso' => consumir_aviso(),
+            'grupos' => fca_listar_grupos(), 'grupoSel' => $grupoSel,
+            'edicao' => $edicao,
+            'aportes' => $grupoSel ? fca_aportes_do_grupo((int) $grupoSel['FCGrupo_Id']) : [],
+            'podeInserir' => usuario_pode('fluxo-caixa-aportes', 'inserir'),
+            'podeAlterar' => usuario_pode('fluxo-caixa-aportes', 'alterar'),
+            'podeExcluir' => usuario_pode('fluxo-caixa-aportes', 'excluir')]);
+        break;
+
     case 'fluxo-caixa':
         exigir_login();
         if ($metodo === 'POST') {
@@ -519,6 +579,7 @@ switch ($rota) {
                 try {
                     // item 5 antes: a projecao do item 1 le o snapshot dele
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
                     $rPos = fcs_posicao_calcular_salvar();
                     $erro = $rPos['erros']
                         ? 'Item 1 falhou: ' . implode(' | ', $rPos['erros']) : null;
@@ -557,6 +618,7 @@ switch ($rota) {
                 if (usuario_pode('fluxo-caixa', 'alterar')) {
                     set_time_limit(600);
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
                     fcs_posicao_calcular_salvar();
                 }
                 redirecionar('fluxo-caixa/resumo');
@@ -585,6 +647,7 @@ switch ($rota) {
                     set_time_limit(600); // a proc roda 2x por centro do grupo
                     $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
                     fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
                     fcs_posicao_calcular_salvar();
                     $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
                                          : $r['ok'] . ' grupos atualizados.';
@@ -617,6 +680,7 @@ switch ($rota) {
             'fcPag' => fcs_pagar_salvo($grupos),
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),
+            'fcApo' => fcs_aportes_salvo($grupos),
             'sugIni' => date('Y-m-d', strtotime('monday last week')),
             'sugFim' => date('Y-m-d', strtotime('monday this week')),
             'centrosPorGrupo' => fcs_centros_por_grupo(),
@@ -678,6 +742,7 @@ switch ($rota) {
             'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo($grupos)),
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),
+            'fcApo' => fcs_aportes_salvo($grupos),
             'atualizados' => $att]);
         break;
 

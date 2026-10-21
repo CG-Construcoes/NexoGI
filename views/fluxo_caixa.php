@@ -16,7 +16,7 @@
     <div class="fcs-secao">
         <div class="fcs-secao-tit fcs-fech" data-tog>2. APORTES A RETORNAR</div>
         <div class="fcs-secao-corpo" hidden>
-            <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
+            <?php require ROOT . '/views/fluxo_caixa_aportes_item.php'; ?>
         </div>
     </div>
 
