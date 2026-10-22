@@ -909,6 +909,17 @@ switch ($rota) {
                 $erro = 'Erro ao listar filtros: ' . $t->getMessage();
             }
         }
+        if ($dados && !empty($_GET['excel'])) {
+            $nome = 'dre_' . ($modo === 'ano'
+                    ? $o['ano_ini'] . '-' . $o['ano_fim']
+                    : $o['ano'] . '_' . implode('-', $o['meses']))
+                  . ($arquivada ? '_arquivada' : '') . '.xls';
+            header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="' . $nome . '"');
+            $formato = dre_formato();
+            require ROOT . '/views/dre_excel.php';
+            exit;
+        }
         render('dre', [
             'titulo' => ($modo === 'ano' ? 'DRE por Ano' : 'DRE Mensal')
                         . ($arquivada ? ' Arquivada' : ''),
