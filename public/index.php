@@ -753,11 +753,10 @@ switch ($rota) {
             redirecionar('fluxo-caixa');
         }
         $grupos = fcs_listar();
-        $gruposVis = fcs_grupos_visiveis($grupos); // filtro Exibir (item 3)
         render('fluxo_caixa', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => $gruposVis,
-            'temOcultos' => count($gruposVis) !== count($grupos),
+            'grupos' => $grupos, // a tela de filtro lista todos; o Exibir so oculta do relatorio
+            'temOcultos' => count(fcs_grupos_visiveis($grupos)) !== count($grupos),
             'fcPag' => fcs_pagar_salvo($grupos),
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),

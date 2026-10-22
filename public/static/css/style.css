@@ -2615,6 +2615,8 @@ body.sidebar-fixa .pedidos-rodape {
 .fcs-anim-txt { font-size: 12px; color: #4a6a8a; }
 @keyframes fcs-girar { to { transform: rotate(360deg); } }
 .fcs-pend td { background: #fbdede; }
+/* grupo com Exibir desmarcado: linha fica na tela de filtro mas apagada */
+.fcs-oculto td { background: #f1f2f4; color: #98a2ae; }
 tr.fcs-av-row td { background: #fbf3e0; }
 /* Modal centralizado de progresso do calculo (Acompanhamento Financeiro) */
 .fcs-overlay { position: fixed; inset: 0; z-index: 9500; background: rgba(0,0,0,.45);

@@ -115,9 +115,11 @@
                 $centros = $centrosPorGrupo[$gid] ?? [];
                 $avulsos = $avulsosPorGrupo[$gid] ?? [];
                 $avPendente = (bool) array_filter($avulsos,
-                    function ($a) { return $a['valor'] === null; }); ?>
-            <tr data-gid="<?= $gid ?>"<?= $avulsos ? ' data-av="' . $gid . '"' : ''
-                . ($avPendente ? ' class="fcs-pend"' : '') ?>>
+                    function ($a) { return $a['valor'] === null; });
+                $clsTr = trim((($g['Exibir'] ?? 'Sim') === 'Não' ? 'fcs-oculto ' : '')
+                    . ($avPendente ? 'fcs-pend' : '')); ?>
+            <tr data-gid="<?= $gid ?>"<?= ($avulsos ? ' data-av="' . $gid . '"' : '')
+                . ($clsTr !== '' ? ' class="' . $clsTr . '"' : '') ?>>
                 <td class="fcs-ord">
                     <?php if ($podeAtualizar): ?>
                     <span class="fcs-grip" title="Arrastar para reordenar">&#x2807;&#x2807;</span>
@@ -130,7 +132,8 @@
                 </td>
                 <td>
                     <input type="checkbox" class="fcs-exibir" data-gid="<?= $gid ?>"
-                           title="Exibir o grupo nos itens" checked
+                           title="Exibir o grupo nos itens"
+                           <?= ($g['Exibir'] ?? 'Sim') !== 'Não' ? 'checked' : '' ?>
                            <?= $podeAtualizar ? '' : ' disabled' ?>>
                 </td>
                 <td>
@@ -178,6 +181,9 @@
         <?php $totCentros = 0;
         $totFc = ['SaldoGrupo' => null, 'SaldoMes1' => null, 'SaldoMes2' => null, 'SaldoMes3' => null];
         foreach ($grupos as $g) {
+            if (($g['Exibir'] ?? 'Sim') === 'Não') {
+                continue; // grupo oculto nao soma no total do relatorio
+            }
             $totCentros += (int) $g['QtdeCentros'];
             foreach (array_keys($totFc) as $cTot) {
                 if ($g[$cTot] !== null) {
