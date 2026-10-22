@@ -88,6 +88,7 @@ require ROOT . '/app/fluxo_caixa_saldos.php';
 require ROOT . '/app/fluxo_caixa_aportes.php';
 require ROOT . '/app/medicoes.php';
 require ROOT . '/app/contas_pagar.php';
+require ROOT . '/app/agenda_pagamentos_schema.php';
 require ROOT . '/app/agenda_pagamentos.php';
 require ROOT . '/app/faturamento.php';
 require ROOT . '/app/dre.php';

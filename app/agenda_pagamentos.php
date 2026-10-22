@@ -15,7 +15,7 @@ function ap_sql(string $v): string
 function ap_dados(string $base, array $f): array
 {
     // Empresa_Cod unitario na proc; multipla selecao e filtrada em PHP.
-    $sql = 'SET NOCOUNT ON; EXEC dbo.sp_ParcelasAgendaPagto'
+    $exec = 'EXEC dbo.sp_ParcelasAgendaPagto'
         . ' @Empresa_Cod=' . ap_sql('')
         . ', @Filial_Cod=NULL'
         . ', @Centro_Cod=NULL'
@@ -50,7 +50,16 @@ function ap_dados(string $base, array $f): array
         . ', @HabilitarARConcluido=' . ap_sql('N')
         . ', @OcultarARSemAutorizacao=' . ap_sql('N');
 
-    $rows = query($sql, [], banco_da_base($base));
+    $banco = banco_da_base($base);
+    $isOdbc = conexao($banco)->getAttribute(PDO::ATTR_DRIVER_NAME) === 'odbc';
+    // PDO_ODBC (servidor sem pdo_sqlsrv) trunca o fetch das colunas char(n)
+    // com acentos — SQLSTATE 01004. O INSERT...EXEC roda dentro do SQL
+    // Server (sem driver no meio) e o SELECT sai como varchar(4000).
+    $sql = 'SET NOCOUNT ON; ' . ($isOdbc
+        ? AP_CREATE_TABLE . ";\nINSERT INTO #ap\n" . $exec . ";\nSELECT * FROM #ap;"
+        : $exec);
+
+    $rows = query($sql, [], $banco);
 
     // Filtros em PHP que a proc não recebe por parâmetro.
     $emps = array_filter(array_map(
