@@ -51,6 +51,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `sudo systemctl reload apache2`.
 - `php -S :8000` (scripts/servidor.sh) virou apenas fallback/dev — nao sobe
   sozinho no boot; o Apache (systemd) e o servico principal.
+- **Auto-deploy**: crontab do usuario `suporte` roda `git pull --ff-only`
+  a cada 5 min (log em `storage/git-pull.log`). ATENCAO: qualquer arquivo
+  com alteracao local NAO commitada trava o pull ("Your local changes
+  would be overwritten") se o upstream tambem mexer nele — hotfix na
+  maquina deve ser commitado em `Misrain/meu-ambiente` o quanto antes.
 
 ## Estrutura
 - `public/index.php` — controlador unico (switch de rotas); `public/static/css/style.css` (copia do Python)
