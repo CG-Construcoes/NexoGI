@@ -83,9 +83,19 @@
         <thead>
             <tr>
                 <th style="width:60px" title="Ordem de exibição e impressão"></th>
-                <th style="width:36px" title="Selecionar para atualizar">
+                <th style="width:52px" title="Selecionar para atualizar">
+                    <span style="display:block; font-size:9px; font-weight:400;
+                          letter-spacing:.3px">Calcular</span>
                     <?php if ($podeAtualizar): ?>
                     <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
+                    <?php endif; ?>
+                </th>
+                <th style="width:44px" title="Exibir o grupo nos itens do relatório">
+                    <span style="display:block; font-size:9px; font-weight:400;
+                          letter-spacing:.3px">Exibir</span>
+                    <?php if ($podeAtualizar): ?>
+                    <input type="checkbox" id="fcs-exibir-todos" title="Exibir todos os grupos"
+                        <?= empty($temOcultos) ? 'checked' : '' ?>>
                     <?php endif; ?>
                 </th>
                 <th>Grupo</th>
@@ -109,9 +119,11 @@
                 $centros = $centrosPorGrupo[$gid] ?? [];
                 $avulsos = $avulsosPorGrupo[$gid] ?? [];
                 $avPendente = (bool) array_filter($avulsos,
-                    function ($a) { return $a['valor'] === null; }); ?>
-            <tr data-gid="<?= $gid ?>"<?= $avulsos ? ' data-av="' . $gid . '"' : ''
-                . ($avPendente ? ' class="fcs-pend"' : '') ?>>
+                    function ($a) { return $a['valor'] === null; });
+                $clsTr = trim((($g['Exibir'] ?? 'Sim') === 'Não' ? 'fcs-oculto ' : '')
+                    . ($avPendente ? 'fcs-pend' : '')); ?>
+            <tr data-gid="<?= $gid ?>"<?= ($avulsos ? ' data-av="' . $gid . '"' : '')
+                . ($clsTr !== '' ? ' class="' . $clsTr . '"' : '') ?>>
                 <td class="fcs-ord">
                     <?php if ($podeAtualizar): ?>
                     <span class="fcs-grip" title="Arrastar para reordenar">&#x2807;&#x2807;</span>
@@ -121,6 +133,12 @@
                     <input type="checkbox" name="grupos[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
                            class="fcs-check" data-nome="<?= e($g['FCGrupo_Nome']) ?>"
                            title="Atualizar" <?= $podeAtualizar ? '' : ' disabled' ?>>
+                </td>
+                <td>
+                    <input type="checkbox" class="fcs-exibir" data-gid="<?= $gid ?>"
+                           title="Exibir o grupo nos itens"
+                           <?= ($g['Exibir'] ?? 'Sim') !== 'Não' ? 'checked' : '' ?>
+                           <?= $podeAtualizar ? '' : ' disabled' ?>>
                 </td>
                 <td>
                     <span class="fcs-grupo"><?= e($g['FCGrupo_Nome']) ?>
@@ -149,7 +167,7 @@
             </tr>
             <?php if ($avulsos): ?>
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
-                <td></td><td></td>
+                <td></td><td></td><td></td>
                 <td colspan="8">
                     <?php foreach ($avulsos as $a): ?>
                     <label class="fcs-av-lab"><?= e($a['nome']) ?>
@@ -164,6 +182,31 @@
             <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
+        <?php $totCentros = 0;
+        $totFc = ['SaldoGrupo' => null, 'SaldoMes1' => null, 'SaldoMes2' => null, 'SaldoMes3' => null];
+        foreach ($grupos as $g) {
+            if (($g['Exibir'] ?? 'Sim') === 'Não') {
+                continue; // grupo oculto nao soma no total do relatorio
+            }
+            $totCentros += (int) $g['QtdeCentros'];
+            foreach (array_keys($totFc) as $cTot) {
+                if ($g[$cTot] !== null) {
+                    $totFc[$cTot] = ($totFc[$cTot] ?? 0) + (float) $g[$cTot];
+                }
+            }
+        } ?>
+        <tfoot>
+            <tr style="font-weight:700; background:#d7e6f5; border-top:2px solid #1974b8">
+                <td colspan="4">TOTAL GERAL</td>
+                <td><?= $totCentros ?></td>
+                <td></td>
+                <?php foreach ($totFc as $vTot): ?>
+                <td class="col-valor"><?= $vTot !== null
+                    ? number_format($vTot, 2, ',', '.') : '&mdash;' ?></td>
+                <?php endforeach; ?>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
     <?php else: ?>
     <p class="vazio">Nenhum grupo cadastrado. Cadastre em
@@ -324,6 +367,32 @@
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
+    // Checkbox Exibir: grava a visibilidade do grupo (vale p/ todos os
+    // itens — tela, totais e recalculo) e recarrega a tela ja filtrada.
+    function postExibir(acao, v, gid) {
+        var corpo = new URLSearchParams();
+        corpo.set('csrf', csrfTok);
+        corpo.set('acao', acao);
+        corpo.set('v', v ? '1' : '');
+        if (gid !== undefined) { corpo.set('id', gid); }
+        fetch(form.action, { method: 'POST', body: corpo })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                // keep=1: preserva o Exibir neste reload; entrada limpa reseta
+                if (j.ok) { location.href = location.pathname + '?keep=1'; }
+            });
+    }
+    form.querySelectorAll('.fcs-exibir').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            postExibir('exibir', cb.checked, cb.dataset.gid);
+        });
+    });
+    var exibirTodos = document.getElementById('fcs-exibir-todos');
+    if (exibirTodos) {
+        exibirTodos.addEventListener('change', function () {
+            postExibir('exibir_todos', exibirTodos.checked);
+        });
+    }
     function parcial(cbs, mestre) {
         var marcados = 0;
         cbs.forEach(function (cb) { if (cb.checked) { marcados++; } });

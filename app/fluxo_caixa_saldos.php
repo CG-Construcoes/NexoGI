@@ -36,11 +36,51 @@ function fcs_listar(): array
                          (SELECT COUNT(*) FROM msoft.GrupoCentro_Avulso a
                           WHERE a.FCGrupo_Id = g.FCGrupo_Id) QtdeAvulsos,
                          s.SaldoGrupo, s.SaldoMes1, s.SaldoMes2, s.SaldoMes3,
-                         s.UltimaAtualizacao
+                         s.UltimaAtualizacao,
+                         ISNULL(RTRIM(g.Exibir), 'Sim') Exibir
                   FROM msoft.FluxoCaixa_Grupo g
                   LEFT JOIN msoft.GruposSaldos s ON s.FCGrupo_Id = g.FCGrupo_Id
                   LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
                   ORDER BY ISNULL(o.Ordem, 2147483647), g.FCGrupo_Nome");
+}
+
+/**
+ * Filtro Exibir (checkbox do item 3): grupo com Exibir='Não' nao
+ * aparece em nenhum item da tela nem entra no recalculo do Atualizar.
+ * Gravado em msoft.FluxoCaixa_Grupo.Exibir ('Sim'/'Não').
+ */
+function fcs_grupos_visiveis(array $grupos): array
+{
+    return array_values(array_filter($grupos,
+        fn($g) => ($g['Exibir'] ?? 'Sim') !== 'Não'));
+}
+
+/** De $ids, devolve so os de grupos visiveis (gate do Exibir no calculo). */
+function fcs_ids_visiveis(array $ids): array
+{
+    $ids = array_map('intval', $ids);
+    if (!$ids) {
+        return [];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $ok = array_map(fn($r) => (int) $r['FCGrupo_Id'],
+        query("SELECT FCGrupo_Id FROM msoft.FluxoCaixa_Grupo
+               WHERE FCGrupo_Id IN ($ph)
+                 AND ISNULL(RTRIM(Exibir), 'Sim') <> N'Não'", $ids));
+    return array_values(array_intersect($ids, $ok));
+}
+
+/** Liga/desliga a visibilidade de um grupo. */
+function fcs_exibir_definir(int $id, bool $sim): void
+{
+    execute('UPDATE msoft.FluxoCaixa_Grupo SET Exibir = ? WHERE FCGrupo_Id = ?',
+        [$sim ? 'Sim' : 'Não', $id]);
+}
+
+/** Liga/desliga a visibilidade de todos os grupos (checkbox mestre). */
+function fcs_exibir_todos(bool $sim): void
+{
+    execute('UPDATE msoft.FluxoCaixa_Grupo SET Exibir = ?', [$sim ? 'Sim' : 'Não']);
 }
 
 /**
@@ -332,6 +372,7 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
  */
 function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $avulsos = []): array
 {
+    $ids = fcs_ids_visiveis($ids); // grupo sem Exibir nao sai na impressao
     $out = [];
     foreach ($ids as $id) {
         $g = fc_get((int) $id);
@@ -387,6 +428,7 @@ function fcs_relatorio_impressao(array $ids, string $ini, string $fim, array $av
  */
 function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avulsos = []): array
 {
+    $ids = fcs_ids_visiveis($ids); // grupo sem Exibir nao recalcula
     $ok = 0;
     $erros = [];
     foreach ($ids as $id) {
@@ -517,6 +559,7 @@ function fcs_pagar_grupo(array $codcs, array $meses): array
 /** Dados do quadro: meses + uma linha por grupo + erros por grupo. */
 function fcs_pagar_dados(array $grupos): array
 {
+    $grupos = fcs_grupos_visiveis($grupos); // filtro Exibir
     $meses = fcs_pagar_meses();
     $linhas = [];
     $erros = [];
@@ -538,7 +581,14 @@ function fcs_pagar_dados(array $grupos): array
 function fcs_pagar_calcular_salvar(array $grupos): array
 {
     $dados = fcs_pagar_dados($grupos);
-    execute('DELETE FROM msoft.FluxoCaixa_Pagar');
+    // recalcula so os grupos visiveis; linhas de grupo oculto sao
+    // preservadas p/ voltarem iguais quando o Exibir for religado
+    if ($dados['linhas']) {
+        $idsDel = array_map(fn($l) => $l['id'], $dados['linhas']);
+        $phDel = implode(',', array_fill(0, count($idsDel), '?'));
+        execute("DELETE FROM msoft.FluxoCaixa_Pagar WHERE FCGrupo_Id IN ($phDel)",
+            $idsDel);
+    }
     foreach ($dados['linhas'] as $l) {
         foreach ($l['mes'] as $ym => $v) {
             execute('INSERT INTO msoft.FluxoCaixa_Pagar
@@ -554,6 +604,7 @@ function fcs_pagar_calcular_salvar(array $grupos): array
 /** Ultimo quadro salvo (mesma forma de fcs_pagar_dados + 'ultima'). */
 function fcs_pagar_salvo(array $grupos): array
 {
+    $grupos = fcs_grupos_visiveis($grupos); // filtro Exibir
     $meses = [];
     $porGrupo = [];
     $ultima = null;
@@ -608,7 +659,8 @@ function fcs_receber_dados(): array
                     FROM msoft.FluxoCaixa_Centros c
                     JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
                     LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
-                        ON o.FCGrupo_Id = g.FCGrupo_Id") as $r) {
+                        ON o.FCGrupo_Id = g.FCGrupo_Id
+                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'") as $r) {
         $codc = strtoupper($r['codc']);
         if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][0]) {
             $grupoDo[$codc] = [(int) $r['ord'], trim((string) $r['nome'])];
@@ -784,8 +836,10 @@ function fcs_receber_por_grupo(): array
     foreach (query("SELECT RTRIM(c.Centro_CodC) codc, c.FCGrupo_Id,
                           ISNULL(o.Ordem, 2147483647) ord
                     FROM msoft.FluxoCaixa_Centros c
+                    JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
                     LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
-                        ON o.FCGrupo_Id = c.FCGrupo_Id") as $r) {
+                        ON o.FCGrupo_Id = c.FCGrupo_Id
+                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'") as $r) {
         $codc = strtoupper($r['codc']);
         if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][1]) {
             $grupoDo[$codc] = [(int) $r['FCGrupo_Id'], (int) $r['ord']];
@@ -821,7 +875,7 @@ function fcs_receber_por_grupo(): array
 /** Recalcula a projecao do item 3 dos grupos marcados ($ids). */
 function fcs_projecao_calcular_salvar(array $ids): void
 {
-    $ids = array_map('intval', $ids);
+    $ids = fcs_ids_visiveis($ids); // grupo sem Exibir nao recalcula
     if (!$ids) {
         return;
     }
@@ -859,16 +913,23 @@ function fcs_projecao_calcular_salvar(array $ids): void
  */
 function fcs_aportes_calcular_salvar(): void
 {
-    execute('DELETE FROM msoft.FluxoCaixa_Aportes');
+    // so grupos visiveis; linhas de grupo oculto sao preservadas
+    execute("DELETE FROM msoft.FluxoCaixa_Aportes
+             WHERE FCGrupo_Id IN (SELECT FCGrupo_Id FROM msoft.FluxoCaixa_Grupo
+                                  WHERE ISNULL(RTRIM(Exibir), 'Sim') <> N'Não')");
     execute("INSERT INTO msoft.FluxoCaixa_Aportes
              (FCGrupo_Id, TotalAportes, UltimaAtualizacao)
-             SELECT FCGrupo_Id, SUM(Aporte_Valor), GETDATE()
-             FROM msoft.GrupoCentro_Aporte GROUP BY FCGrupo_Id");
+             SELECT a.FCGrupo_Id, SUM(a.Aporte_Valor), GETDATE()
+             FROM msoft.GrupoCentro_Aporte a
+             JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = a.FCGrupo_Id
+             WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'
+             GROUP BY a.FCGrupo_Id");
 }
 
 /** Ultimo quadro salvo do item 2: linhas por grupo + total + 'ultima'. */
 function fcs_aportes_salvo(array $grupos): array
 {
+    $grupos = fcs_grupos_visiveis($grupos); // filtro Exibir
     $totais = [];
     $ultima = null;
     foreach (query('SELECT FCGrupo_Id, TotalAportes, UltimaAtualizacao
