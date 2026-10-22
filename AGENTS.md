@@ -216,7 +216,11 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `dre_posicao_historico()` compartilhado; no vivo aplica-se so as empresas
   sem-ativos selecionadas que a procedure nao cobriu (`$linhasProc`), e se
   TODAS as selecionadas sao sem-ativos as procedures nem rodam (`$rodarProc`
-  = false -> resposta em <1s em vez de ~3min). Como o Informakon gera RelEco
+  = false -> resposta em <1s em vez de ~3min). ODBC (NexoGI): colunas
+  char(90) de Posicao_Economica/view (GO_Titulo, SubGO_Titulo,
+  ClasseTipo_Titulo) estouram o buffer do PDO_ODBC com acentos em UTF-8
+  (SQLSTATE 01004) — sempre SELECTar com CONVERT(varchar(4000), col); EXEC
+  de procedure nao sofre (testado). Como o Informakon gera RelEco
   de CV1 (RelEco_CV1.pdf: Total Geral 42.375,99) ficou em aberto — a base
   viva dele deve estar em outro servidor/banco inacessivel ao nosso login
   (dbCONV_INT/DbFortes negados).
@@ -851,3 +855,45 @@ quando `$sec['id'] === 'despesas'`.
   resultados. O cabecalho mostra "Centro: Todos", o centro unico ou
   "N centros selecionados" + linha com a lista completa.
 - Botao Imprimir usa window.print() com CSS de impressao (esconde filtros/sidebar).
+
+## Acompanhamento Financeiro (era "Fluxo de Caixa") — 7 secoes (2026-10-21)
+- Tela `fluxo-caixa` renomeada para "Acompanhamento Financeiro" (titulo + menu);
+  secoes numeradas 1-7 recolhiveis (.fcs-secao-tit[data-tog]); secao 3 = a
+  tabela de Grupos (saldo por obra/centro), unica com conteudo ate aqui.
+- Botao Atualizar no rodape -> GET `fluxo-caixa/resumo` (views/
+  fluxo_caixa_resumo.php): mostra as 7 secoes expandidas; secao 3 lista
+  grupos + SaldoGrupo gravado/recalculado (?att=ids destaca). Sem checkbox
+  marcado o botao so abre o resumo; "imprimir[]" abre o iframe de impressao
+  na carga do resumo (sessionStorage fcs_imprimir).
+- **Item 5 CONTAS A PAGAR** (premissas pendentes de critica do usuario):
+  Titulos_a_Pagar + Documento_de_Entrada (mesma fonte do Relatorio de
+  Contas a Pagar); EntDocTipo_Cod 'ED' = Comprometido, 'EP' = Previsto;
+  mes = TitaPag_DataVencimentoFluxo; Situacao 'A' (+ 'L' pre-datado) e sem
+  pagamento conciliado; vencidos < 1o mes caem no 1o mes (atrasados).
+  Meses = periodo da tela (resumo via ?ini/?fim; padrao mes atual..dez).
+  Linhas = TODOS os grupos do item 3; colunas Comprometido/Previsto/Total/
+  Acumulado + Subtotal por mes + TOTAL acumulado (views/fluxo_caixa_pagar.php
+  partial compartilhado; fcs_pagar_* em fluxo_caixa_saldos.php). Sem a
+  coluna "Grupo" do modelo (Obras Ativas/Demais Centros) — aqui cada linha
+  ja e um grupo.
+- **Item 1 POSICAO FINANCEIRA**: snapshot msoft.FluxoCaixa_Posicao (1
+  linha consolidada, migrar_fluxo_caixa_posicao.php);
+  fcs_posicao_calcular_salvar() roda posicao_contas_dados tipo 'BC'
+  (Bancos), todas empresas, dbMGA+dbConv (~30s, so no Atualizar) —
+  SaldoBancario=Total Geral "Saldo Atual", Aplicacoes="Valor Aplicado".
+  Grid: linhas Saldo/Aplicacoes/Posicao total x colunas hoje + fechamento
+  dos 3 meses do trimestre (sem Variacao). Projecao do saldo: mesN =
+  saldo anterior - Contas a Pagar(N) + Contas a Receber(N), partindo do
+  saldo de hoje; aplicacoes constantes (modelo). ATENCAO: o Atualizar
+  roda o item 5 ANTES do item 1 — a projecao le o FluxoCaixa_Pagar
+  recem-gravado; contas a receber vem ao vivo (base local).
+- **Item 4 CONTAS A RECEBER**: fcs_receber_dados() le msoft.PrevisaoMedicao
+  (tela Medicoes) direto — sem snapshot (consulta local instantanea).
+  Mes = Med_Previsao na janela do trimestre rolante; dentro do mes as
+  linhas sao agrupadas pelo grupo do item 3 (centro em >1 grupo vale no
+  1o; sem grupo -> "Sem grupo") com subtotal por grupo + do mes + total.
+  Situacao: Med_EmissaoNF <= hoje = "Notas Fiscais Emitidas", senao
+  "Previsao De Medicao". Meses sem medicao ocultos.
+- Janela dos itens 4/5 = trimestre rolante fcs_pagar_meses() (mes atual
+  +2) — NAO segue mais o periodo do item 3 (que virou seg-seg). Rotulos
+  de mes por extenso + tag (Mes Vigente / Mes Posterior / Mes Subsequente).

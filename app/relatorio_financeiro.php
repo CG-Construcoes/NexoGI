@@ -6,14 +6,16 @@ declare(strict_types=1);
  * alimentado pela spMovFinLancamentosDetalhe. A procedure e chamada DUAS vezes:
  *   @Utilizacao='J' -> detalhe dos lancamentos (Classe/Assunto/GO + MovFin_*)
  *   @Utilizacao='5' -> Resumo por Agente Financeiro (Tipo/Agente/Conta/Valor)
- * Secoes pelo campo RDZ do detalhe: '1R' Receitas, '2D' Despesas, demais Outros.
+ * Secoes pelo campo RDZ do detalhe: '1R' Receitas, '2D' Despesas,
+ * '3S' Recursos em Sociedade (classes 90/91), '4Z' e demais = Outros.
  * SALDO = Receitas + Despesas (linhas com SALDO='1').
  */
 
 const REL_FIN_TIPOS = [
-    'receitas' => 'Receitas',
-    'despesas' => 'Despesas',
-    'outros'   => 'Outros Grupos',
+    'receitas'  => 'Receitas',
+    'despesas'  => 'Despesas',
+    'sociedade' => 'Recursos em Sociedade',
+    'outros'    => 'Outros Grupos',
 ];
 
 function relatorio_financeiro_centros(string $base, bool $incluirInativos = false): array
@@ -49,12 +51,13 @@ function relatorio_financeiro_empresas(string $base): array
     }
 }
 
-/** Secao da linha do detalhe pelo RDZ ('1R' Receitas, '2D' Despesas, resto Outros). */
+/** Secao da linha do detalhe pelo RDZ ('1R' Receitas, '2D' Despesas, '3S' Sociedade, resto Outros). */
 function rf_secao(string $rdz): string
 {
     return match (substr(trim($rdz), 0, 1)) {
         '1' => 'receitas',
         '2' => 'despesas',
+        '3' => 'sociedade',
         default => 'outros',
     };
 }
@@ -161,7 +164,7 @@ function relatorio_financeiro_dados(string $base, array $o): array
     // monta a saida: um relatorio por centro (ou um so)
     $secoesSel = array_keys(array_filter([
         'receitas' => !empty($o['sec_receitas']), 'despesas' => !empty($o['sec_despesas']),
-        'outros' => !empty($o['sec_outros'])]));
+        'sociedade' => !empty($o['sec_sociedade']), 'outros' => !empty($o['sec_outros'])]));
 
     $blocos = [];
     foreach ($classes as $centroNome => $cls) {

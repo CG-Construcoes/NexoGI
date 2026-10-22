@@ -56,6 +56,7 @@
             <legend>Grupos</legend>
             <label><input type="checkbox" name="sec_receitas" value="1" checked> Receitas</label>
             <label><input type="checkbox" name="sec_despesas" value="1" checked> Despesas</label>
+            <label><input type="checkbox" name="sec_sociedade" value="1" checked> Recursos em Sociedade</label>
             <label><input type="checkbox" name="sec_outros" value="1" checked> Outros</label>
         </fieldset>
     </div>
@@ -248,7 +249,8 @@
                 }
             endforeach; ?>
             <tr class="rel-total"><td></td><td></td>
-                <td><?= $sec['id'] === 'outros' ? 'Total Outros' : 'Total ' . e($sec['titulo']) ?></td>
+                <td><?= e(['outros' => 'Total Outros', 'sociedade' => 'Total Recursos da Sociedade'][$sec['id']]
+                    ?? 'Total ' . $sec['titulo']) ?></td>
                 <?php if (!$dados['apenas_periodo']): ?>
                 <td class="col-valor"><?= e(number_format($sec['ant'], 2, ',', '.')) ?></td>
                 <?php endif; ?>

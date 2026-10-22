@@ -22,8 +22,10 @@ $ROTAS_TELA = [
     'posicao-contas' => 'posicao-contas',
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
+    'fluxo-caixa-aportes' => 'fluxo-caixa-aportes',
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
+    'fluxo-caixa/resumo' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
@@ -369,6 +371,11 @@ switch ($rota) {
                     med_incluir_medicao($id, $_POST);
                     definir_aviso(['tipo' => 'ok', 'html' => 'Medicao incluida.']);
                     $destino = 'medicoes?centro=' . $id;
+                } elseif ($acao === 'alterar_medicao') {
+                    exigir_tela('medicoes', 'alterar');
+                    med_atualizar_medicao($id, (int) ($_POST['medicao_id'] ?? 0), $_POST);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao alterada.']);
+                    $destino = 'medicoes?centro=' . $id;
                 } elseif ($acao === 'excluir_medicao') {
                     exigir_tela('medicoes', 'excluir');
                     med_excluir_medicao($id, (int) ($_POST['medicao_id'] ?? 0));
@@ -386,13 +393,18 @@ switch ($rota) {
             redirecionar($destino);
         }
         $centroAberto = isset($_GET['centro']) ? med_get_centro((int) $_GET['centro']) : null;
+        $edicao = $centroAberto && isset($_GET['editar'])
+            ? med_get_medicao((int) $centroAberto['PMedC_Id'], (int) $_GET['editar'])
+            : null;
         render('medicoes', ['titulo' => 'Previsao de Medicoes',
             'active' => 'medicoes', 'aviso' => consumir_aviso(),
             'centros' => med_listar(), 'centrosDisp' => mp_centros(),
             'centroAberto' => $centroAberto,
             'medicoes' => $centroAberto
                 ? med_medicoes((int) $centroAberto['PMedC_Id']) : [],
+            'edicao' => $edicao,
             'podeInserir' => usuario_pode('medicoes', 'inserir'),
+            'podeAlterar' => usuario_pode('medicoes', 'alterar'),
             'podeExcluir' => usuario_pode('medicoes', 'excluir')]);
         break;
 
@@ -482,6 +494,65 @@ switch ($rota) {
             'podeExcluir' => usuario_pode('fluxo-caixa-grupos', 'excluir')]);
         break;
 
+    case 'fluxo-caixa-aportes':
+        exigir_login();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('fluxo-caixa-aportes');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);          // FCGrupo_Id
+            $aporteId = (int) ($_POST['aporte_id'] ?? 0);
+            $destino = 'fluxo-caixa-aportes' . ($id ? "?grupo=$id" : '');
+            try {
+                // o aporte tem que pertencer ao grupo do formulario
+                if (in_array($acao, ['editar', 'excluir'], true)) {
+                    $ap = fca_get($aporteId);
+                    if (!$ap || (int) $ap['FCGrupo_Id'] !== $id) {
+                        throw new InvalidArgumentException('Aporte nao encontrado neste grupo.');
+                    }
+                }
+                if ($acao === 'excluir') {
+                    exigir_tela('fluxo-caixa-aportes', 'excluir');
+                    fca_excluir($aporteId);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Aporte excluido.']);
+                } else {
+                    $d = fca_validar($_POST);
+                    if ($acao === 'editar') {
+                        exigir_tela('fluxo-caixa-aportes', 'alterar');
+                        fca_atualizar($aporteId, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Aporte atualizado.']);
+                    } else {
+                        exigir_tela('fluxo-caixa-aportes', 'inserir');
+                        fca_inserir($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Aporte incluido no grupo.']);
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $grupoSel = isset($_GET['grupo']) ? fc_get((int) $_GET['grupo']) : null;
+        $edicao = $grupoSel && isset($_GET['editar'])
+                  && usuario_pode('fluxo-caixa-aportes', 'alterar')
+            ? fca_get((int) $_GET['editar']) : null;
+        if ($edicao && (int) $edicao['FCGrupo_Id'] !== (int) $grupoSel['FCGrupo_Id']) {
+            $edicao = null; // aporte de outro grupo
+        }
+        render('fluxo_caixa_aportes', ['titulo' => 'Aportes a Retornar',
+            'active' => 'fluxo-caixa-aportes', 'aviso' => consumir_aviso(),
+            'grupos' => fca_listar_grupos(), 'grupoSel' => $grupoSel,
+            'edicao' => $edicao,
+            'aportes' => $grupoSel ? fca_aportes_do_grupo((int) $grupoSel['FCGrupo_Id']) : [],
+            'podeInserir' => usuario_pode('fluxo-caixa-aportes', 'inserir'),
+            'podeAlterar' => usuario_pode('fluxo-caixa-aportes', 'alterar'),
+            'podeExcluir' => usuario_pode('fluxo-caixa-aportes', 'excluir')]);
+        break;
+
     case 'fluxo-caixa':
         exigir_login();
         if ($metodo === 'POST') {
@@ -508,8 +579,40 @@ switch ($rota) {
                 echo json_encode(['ok' => true]);
                 exit;
             }
+            // Bases: formulario da tela enviado sem nenhuma marcada.
+            if (fcs_bases_post() === []) {
+                $msgBases = 'Marque ao menos uma base (DBMGA / DBCONV).';
+                if (!empty($_POST['ajax'])) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['ok' => false, 'erro' => $msgBases]);
+                    exit;
+                }
+                definir_aviso(['tipo' => 'erro', 'html' => e($msgBases)]);
+                redirecionar('fluxo-caixa');
+            }
             $ini = trim((string) ($_POST['data_ini'] ?? ''));
             $fim = trim((string) ($_POST['data_fim'] ?? ''));
+            // Recalculo do item 5 (contas a pagar) — dispara so pelo Atualizar.
+            if (!empty($_POST['ajax']) && ($_POST['acao'] ?? '') === 'pagar') {
+                header('Content-Type: application/json; charset=utf-8');
+                exigir_tela('fluxo-caixa', 'alterar');
+                set_time_limit(600);
+                try {
+                    // item 5 antes: as projecoes (itens 3 e 1) leem o snapshot dele
+                    fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
+                    // projecao do item 3: so dos grupos atualizados neste Atualizar
+                    fcs_projecao_calcular_salvar(
+                        array_filter(array_map('intval', (array) ($_POST['grupos'] ?? []))));
+                    $rPos = fcs_posicao_calcular_salvar();
+                    $erro = $rPos['erros']
+                        ? 'Item 1 falhou: ' . implode(' | ', $rPos['erros']) : null;
+                    echo json_encode(['ok' => $erro === null, 'erro' => $erro]);
+                } catch (Throwable $t) {
+                    echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+                }
+                exit;
+            }
             // Chamada AJAX da barra de progresso: um grupo por requisicao.
             if (!empty($_POST['ajax'])) {
                 header('Content-Type: application/json; charset=utf-8');
@@ -532,9 +635,16 @@ switch ($rota) {
                 exit;
             }
             $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
-            $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
-            if (!$ids && !$impIds) {
-                definir_aviso(['tipo' => 'erro', 'html' => 'Selecione ao menos um grupo.']);
+            if (!$ids) {
+                // Nada a calcular: o botao recalcula o item 5
+                // (quem pode alterar) e abre o resumo.
+                if (usuario_pode('fluxo-caixa', 'alterar')) {
+                    set_time_limit(600);
+                    fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
+                    fcs_posicao_calcular_salvar();
+                }
+                redirecionar('fluxo-caixa/resumo');
             } elseif ($ini === '' || $fim === '') {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Informe o periodo (De / a).']);
             } elseif ($ini > $fim) {
@@ -554,11 +664,14 @@ switch ($rota) {
                     $avFlat += $vals;
                 }
                 fcs_salvar_avulsos($avFlat);
-                $destino = 'fluxo-caixa';
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
                     $r = fcs_atualizar_saldos(array_values($ids), $ini, $fim, $avPost);
+                    fcs_pagar_calcular_salvar(fcs_listar());
+                    fcs_aportes_calcular_salvar();
+                    fcs_projecao_calcular_salvar(array_values($ids));
+                    fcs_posicao_calcular_salvar();
                     $msg = $r['ok'] === 1 ? '1 grupo atualizado.'
                                          : $r['ok'] . ' grupos atualizados.';
                     if ($r['erros']) {
@@ -566,28 +679,23 @@ switch ($rota) {
                     }
                     definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
                 }
-                if ($impIds) {
-                    $avParam = '';
-                    foreach ($avPost as $gid => $vals) {
-                        if (in_array($gid, $impIds, true)) {
-                            foreach ($vals as $aid => $val) {
-                                $avParam .= ($avParam === '' ? '' : ',') . $aid . ':' . $val;
-                            }
-                        }
-                    }
-                    $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
-                        . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim)
-                        . ($avParam !== '' ? '&av=' . urlencode($avParam) : '');
-                }
-                redirecionar($destino);
+                redirecionar('fluxo-caixa/resumo');
             }
             redirecionar('fluxo-caixa');
         }
-        render('fluxo_caixa', ['titulo' => 'Fluxo de Caixa',
+        $grupos = fcs_listar();
+        render('fluxo_caixa', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => fcs_listar(),
+            'grupos' => $grupos,
+            'fcPag' => fcs_pagar_salvo($grupos),
+            'fcRec' => fcs_receber_dados(),
+            'fcPos' => fcs_posicao_salva(),
+            'fcApo' => fcs_aportes_salvo($grupos),
+            'sugIni' => '2014-01-01',
+            'sugFim' => '2050-12-31',
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
+            'basesSel' => fcs_bases_salvas(),
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
         break;
 
@@ -631,6 +739,23 @@ switch ($rota) {
             }
         }
         require ROOT . '/views/fluxo_caixa_impressao.php';
+        break;
+
+    case 'fluxo-caixa/resumo':
+        exigir_login();
+        $att = array_filter(array_map('intval',
+            explode(',', (string) ($_GET['att'] ?? ''))));
+        $grupos = fcs_listar();
+        render('fluxo_caixa_resumo', ['titulo' => 'Acompanhamento Financeiro',
+            'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
+            'grupos' => $grupos,
+            // le so o ultimo quadro calculado; grupos zerados ficam ocultos
+            'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo($grupos)),
+            'fcRec' => fcs_receber_dados(),
+            'fcPos' => fcs_posicao_salva(),
+            'fcApo' => fcs_aportes_salvo($grupos),
+            'tempoCalc' => isset($_GET['tempo']) ? (int) $_GET['tempo'] : null,
+            'atualizados' => $att]);
         break;
 
     case 'fluxo-caixa-grupos/relatorio':
@@ -740,14 +865,16 @@ switch ($rota) {
             'analitico'      => isset($_GET['analitico']),
             'sec_receitas'   => isset($_GET['sec_receitas']),
             'sec_despesas'   => isset($_GET['sec_despesas']),
+            'sec_sociedade'  => isset($_GET['sec_sociedade']),
             'sec_outros'     => isset($_GET['sec_outros']),
             'det_centro'     => isset($_GET['det_centro']),
             'apenas_periodo' => isset($_GET['apenas_periodo']),
             'resumo_agente'  => isset($_GET['resumo_agente']),
         ];
         if ($gerado && !in_array(true, [$opcoes['sec_receitas'], $opcoes['sec_despesas'],
-                $opcoes['sec_outros']], true)) {
-            $opcoes['sec_receitas'] = $opcoes['sec_despesas'] = $opcoes['sec_outros'] = true;
+                $opcoes['sec_sociedade'], $opcoes['sec_outros']], true)) {
+            $opcoes['sec_receitas'] = $opcoes['sec_despesas'] = $opcoes['sec_sociedade']
+                = $opcoes['sec_outros'] = true;
         }
         $dados = null;
         $erro = '';

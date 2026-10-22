@@ -24,7 +24,7 @@ const MODULES = [
         ]],
         ['nome' => 'Fluxo de Caixa', 'itens' => [
             ['slug' => 'fluxo-caixa-grupos', 'nome' => 'Grupos de Centros', 'pronto' => true],
-            ['slug' => 'fluxo-caixa', 'nome' => 'Fluxo de Caixa', 'pronto' => true],
+            ['slug' => 'fluxo-caixa-aportes', 'nome' => 'Aportes a Retornar', 'pronto' => true],
         ]],
         ['nome' => 'Diretoria', 'itens' => [
             ['slug' => 'dre-ano', 'nome' => 'DRE por Ano', 'pronto' => true],
@@ -33,6 +33,7 @@ const MODULES = [
              'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
             ['slug' => 'dre-mes-arquivada', 'nome' => 'DRE Mês Arquivada', 'pronto' => true,
              'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
+            ['slug' => 'fluxo-caixa', 'nome' => 'Acompanhamento Financeiro', 'pronto' => true],
         ]],
         ['nome' => 'Relatorios', 'itens' => [
             ['slug' => 'relatorio-economico', 'nome' => 'Relatorio Economico', 'pronto' => true],

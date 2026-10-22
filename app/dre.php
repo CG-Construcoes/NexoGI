@@ -205,8 +205,10 @@ function dre_posicao_historico(array &$acc, array $mapa, array $o, array $alvo):
     $cenSel = dre_set((array) ($o['centros'] ?? []));
     $nucSel = dre_set((array) ($o['nucleos'] ?? []));
     foreach (query("SELECT RTRIM(Database1) db1, Empresa_Cod, Filial_Cod, Centro_Cod,
-                           Nucleo_Cod, GO_Titulo, SubGO_Titulo, RDZ,
-                           EntItemApl_Valor, Ent_DataEntrada
+                           Nucleo_Cod,
+                           CONVERT(varchar(4000), GO_Titulo) GO_Titulo,
+                           CONVERT(varchar(4000), SubGO_Titulo) SubGO_Titulo,
+                           RDZ, EntItemApl_Valor, Ent_DataEntrada
                     FROM dbo.Posicao_Economica WHERE $where", $par) as $r) {
         $pfx = strtoupper(trim((string) $r['db1'])) ?: 'DBMGA';
         $cen = $pfx . trim((string) $r['Empresa_Cod']) . trim((string) $r['Filial_Cod'])
@@ -402,8 +404,11 @@ function dre_dados_arquivada(array $o): array
         }
     }
     $acc = [];
-    foreach (query("SELECT Empresa_Cod, Chave_Centro, Nucleo_Cod, GO_Titulo, SubGO_Titulo,
-                           ClasseTipo_Titulo, EntItemApl_Valor, Ent_DataEntrada
+    foreach (query("SELECT Empresa_Cod, Chave_Centro, Nucleo_Cod,
+                           CONVERT(varchar(4000), GO_Titulo) GO_Titulo,
+                           CONVERT(varchar(4000), SubGO_Titulo) SubGO_Titulo,
+                           CONVERT(varchar(4000), ClasseTipo_Titulo) ClasseTipo_Titulo,
+                           EntItemApl_Valor, Ent_DataEntrada
                     FROM dbo.Rel_Posicao_Economica WHERE $where", $par) as $r) {
         // Chave_Centro da view e UPPER ('DBMGACGC010107'/'DBCONVCVC0101');
         // Chave_Nucleo da view e base+filial ('DBMGA01') — para filtrar por
