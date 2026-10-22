@@ -587,7 +587,7 @@ function fcs_pagar_salvo(array $grupos): array
  * trimestre rolante do item 5. Consulta so na base local (sem
  * procedures do ERP) — instantanea, dispensa snapshot.
  * Situacao: NF emitida (Med_EmissaoNF <= hoje) = "Notas Fiscais
- * Emitidas"; senao "Previsão De Medição". Previsoes vencidas caem no
+ * Faturadas"; senao "Previsão de Medição". Previsoes vencidas caem no
  * primeiro mes (ainda a receber).
  */
 function fcs_receber_dados(): array
@@ -645,7 +645,7 @@ function fcs_receber_dados(): array
             'id'      => (int) $r['PMed_Id'],
             'obra'    => $obra,
             'desc'    => trim((string) $r['Med_Descricao']),
-            'sit'     => $emitida ? 'Notas Fiscais Emitidas' : 'Previsão De Medição',
+            'sit'     => $emitida ? 'Notas Fiscais Faturadas' : 'Previsão de Medição',
             'emissao' => $r['Med_EmissaoNF'],
             'prev'    => (string) $r['Med_Previsao'],
             'valor'   => (float) $r['Med_Valor'],
