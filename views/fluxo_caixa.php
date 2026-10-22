@@ -276,6 +276,7 @@
     var todos = document.getElementById('fcs-todos');
     var form = todos.closest('form');
     var checks = form.querySelectorAll('.fcs-check');
+    var t0 = null; // inicio do calculo — resumoUrl usa p/ mandar &tempo=
     var btn = document.getElementById('fcs-btn');
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
@@ -413,7 +414,7 @@
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
         btn.disabled = true;
         prog.hidden = false;
-        var t0 = null;
+        t0 = null;
         var falhas = [];
         var concluidos = [];
         var concluidosIds = [];
