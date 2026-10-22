@@ -97,19 +97,4 @@
     </div>
 </div>
 
-<script>
-(function () {
-    // Se o fluxo pediu impressao, o resumo abre o iframe ao carregar.
-    var pendente = sessionStorage.getItem('fcs_imprimir');
-    if (!pendente) { return; }
-    sessionStorage.removeItem('fcs_imprimir');
-    var f = document.createElement('iframe');
-    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-    f.onload = function () {
-        f.contentWindow.focus();
-        f.contentWindow.print();
-    };
-    f.src = pendente;
-    document.body.appendChild(f);
-})();
-</script>
+

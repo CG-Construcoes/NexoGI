@@ -635,9 +635,8 @@ switch ($rota) {
                 exit;
             }
             $ids = array_filter(array_map('intval', (array) ($_POST['grupos'] ?? [])));
-            $impIds = array_filter(array_map('intval', (array) ($_POST['imprimir'] ?? [])));
-            if (!$ids && !$impIds) {
-                // Nada a calcular nem imprimir: o botao recalcula o item 5
+            if (!$ids) {
+                // Nada a calcular: o botao recalcula o item 5
                 // (quem pode alterar) e abre o resumo.
                 if (usuario_pode('fluxo-caixa', 'alterar')) {
                     set_time_limit(600);
@@ -665,7 +664,6 @@ switch ($rota) {
                     $avFlat += $vals;
                 }
                 fcs_salvar_avulsos($avFlat);
-                $destino = 'fluxo-caixa/resumo';
                 if ($ids) {
                     exigir_tela('fluxo-caixa', 'alterar');
                     set_time_limit(600); // a proc roda 2x por centro do grupo
@@ -681,23 +679,7 @@ switch ($rota) {
                     }
                     definir_aviso(['tipo' => $r['ok'] > 0 ? 'ok' : 'erro', 'html' => $msg]);
                 }
-                if ($impIds) {
-                    $avParam = '';
-                    foreach ($avPost as $gid => $vals) {
-                        if (in_array($gid, $impIds, true)) {
-                            foreach ($vals as $aid => $val) {
-                                $avParam .= ($avParam === '' ? '' : ',') . $aid . ':' . $val;
-                            }
-                        }
-                    }
-                    $destino = 'fluxo-caixa/imprimir?grupos=' . implode(',', $impIds)
-                        . '&data_ini=' . urlencode($ini) . '&data_fim=' . urlencode($fim)
-                        . '&bases_enviadas=1'
-                        . (!empty($_POST['base_mga']) ? '&base_mga=1' : '')
-                        . (!empty($_POST['base_conv']) ? '&base_conv=1' : '')
-                        . ($avParam !== '' ? '&av=' . urlencode($avParam) : '');
-                }
-                redirecionar($destino);
+                redirecionar('fluxo-caixa/resumo');
             }
             redirecionar('fluxo-caixa');
         }

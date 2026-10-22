@@ -70,12 +70,6 @@
                     <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
                     <?php endif; ?>
                 </th>
-                <th style="min-width:36px" title="Selecionar para imprimir">
-                    <?php if ($podeAtualizar): ?>
-                    <input type="checkbox" id="fcs-imp-todos" title="Selecionar todos para imprimir">
-                    <?php endif; ?>
-                    Imprimir
-                </th>
                 <th>Grupo</th>
                 <th>Centros</th>
                 <th style="width:90px">Avulso</th>
@@ -111,11 +105,6 @@
                            title="Atualizar" <?= $podeAtualizar ? '' : ' disabled' ?>>
                 </td>
                 <td>
-                    <input type="checkbox" name="imprimir[]" value="<?= (int) $g['FCGrupo_Id'] ?>"
-                           class="fcs-imp" title="Imprimir relatorio"
-                           <?= $podeAtualizar ? '' : ' disabled' ?>>
-                </td>
-                <td>
                     <span class="fcs-grupo"><?= e($g['FCGrupo_Nome']) ?>
                         <?php if ($centros): ?>
                         <span class="fcs-tip"><?php foreach ($centros as $c): ?>
@@ -142,7 +131,7 @@
             </tr>
             <?php if ($avulsos): ?>
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
-                <td></td><td></td><td></td>
+                <td></td><td></td>
                 <td colspan="8">
                     <?php foreach ($avulsos as $a): ?>
                     <label class="fcs-av-lab"><?= e($a['nome']) ?>
@@ -226,7 +215,6 @@
 </div>
 <script>
 (function () {
-    var urlImpBase = '<?= e(url('fluxo-caixa/imprimir')) ?>';
     var urlResumoBase = '<?= e(url('fluxo-caixa/resumo')) ?>';
     function resumoUrl(ids) {
         var u = urlResumoBase + '?';
@@ -243,7 +231,6 @@
         corpo.set('acao', 'pagar');
         corpo.delete('grupos[]');
         (ids || []).forEach(function (id) { corpo.append('grupos[]', id); });
-        corpo.delete('imprimir[]');
         corpo.forEach(function (v, k) {
             if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
         });
@@ -254,49 +241,9 @@
             .catch(function () { fim('falha de rede'); });
     }
 
-    // Retorno do reload pos-calculo: imprime os relatorios pendentes.
-    var pendente = sessionStorage.getItem('fcs_imprimir');
-    if (pendente) {
-        sessionStorage.removeItem('fcs_imprimir');
-        abrirImpressao(pendente);
-    }
-    function abrirImpressao(u) {
-        var f = document.createElement('iframe');
-        f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-        f.onload = function () {
-            f.contentWindow.focus();
-            f.contentWindow.print();
-        };
-        f.src = u;
-        document.body.appendChild(f);
-    }
-    function urlImpressao(ids, ini, fim) {
-        var u = urlImpBase + '?grupos=' + ids.join(',')
-            + '&data_ini=' + encodeURIComponent(ini)
-            + '&data_fim=' + encodeURIComponent(fim)
-            + '&bases_enviadas=1';
-        ['fcs-base-mga', 'fcs-base-conv'].forEach(function (id) {
-            var b = document.getElementById(id);
-            if (b && b.checked) { u += '&' + b.name + '=1'; }
-        });
-        var pares = [];
-        ids.forEach(function (gid) {
-            form.querySelectorAll('.fcs-av[data-grupo="' + gid + '"]').forEach(function (o) {
-                if (o.value.trim() !== '') {
-                    var m = o.name.match(/\[(\d+)\]$/);
-                    if (m) { pares.push(m[1] + ':' + encodeURIComponent(o.value.trim())); }
-                }
-            });
-        });
-        if (pares.length) { u += '&av=' + pares.join(','); }
-        return u;
-    }
-
     var todos = document.getElementById('fcs-todos');
     var form = todos.closest('form');
     var checks = form.querySelectorAll('.fcs-check');
-    var impTodos = document.getElementById('fcs-imp-todos');
-    var impChecks = form.querySelectorAll('.fcs-imp');
     var btn = document.getElementById('fcs-btn');
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
@@ -306,9 +253,6 @@
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
-    impTodos.addEventListener('change', function () {
-        impChecks.forEach(function (cb) { cb.checked = impTodos.checked; });
-    });
     function parcial(cbs, mestre) {
         var marcados = 0;
         cbs.forEach(function (cb) { if (cb.checked) { marcados++; } });
@@ -317,9 +261,6 @@
     }
     checks.forEach(function (cb) {
         cb.addEventListener('change', function () { parcial(checks, todos); });
-    });
-    impChecks.forEach(function (cb) {
-        cb.addEventListener('change', function () { parcial(impChecks, impTodos); });
     });
     // Arrastar e soltar: reordena as linhas e grava a ordem completa
     var csrfTok = form.querySelector('input[name="csrf"]').value;
@@ -402,9 +343,7 @@
     form.addEventListener('submit', function (ev) {
         var marcados = Array.prototype.slice.call(
             form.querySelectorAll('.fcs-check:checked'));
-        var impMarcados = Array.prototype.slice.call(
-            form.querySelectorAll('.fcs-imp:checked'));
-        if (!marcados.length && !impMarcados.length) {
+        if (!marcados.length) {
             // nada marcado: so recalcula o item 5 e abre o resumo
             ev.preventDefault();
             btn.disabled = true;
@@ -438,21 +377,6 @@
             return;
         }
         ev.preventDefault();
-        var urlImp = impMarcados.length
-            ? urlImpressao(impMarcados.map(function (c) { return c.value; }),
-                           iniEl.value, fimEl.value)
-            : null;
-        if (!marcados.length) {
-            // so impressao: recalcula o item 5; o resumo abre o iframe
-            sessionStorage.setItem('fcs_imprimir', urlImp);
-            btn.disabled = true;
-            prog.hidden = false;
-            calcularPagar(function (erro) {
-                if (erro) { alert('Contas a pagar: ' + erro); }
-                location.href = resumoUrl();
-            });
-            return;
-        }
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
         btn.disabled = true;
         prog.hidden = false;
@@ -502,9 +426,6 @@
                     if (falhas.length) {
                         msg += '\n\nFalharam:\n - ' + falhas.join('\n - ');
                     }
-                    if (urlImp) {
-                        sessionStorage.setItem('fcs_imprimir', urlImp);
-                    }
                     alert(msg);
                     location.href = resumoUrl(concluidosIds);
                 }, concluidosIds);
@@ -517,7 +438,6 @@
             var corpo = new URLSearchParams(new FormData(form));
             corpo.set('ajax', '1');
             corpo.delete('grupos[]');
-            corpo.delete('imprimir[]');
             corpo.set('grupo', cb.value);
             // envia apenas os valores avulsos do grupo em calculo
             var avKeys = [];
