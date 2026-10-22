@@ -83,12 +83,16 @@
         <thead>
             <tr>
                 <th style="width:60px" title="Ordem de exibição e impressão"></th>
-                <th style="width:36px" title="Selecionar para atualizar">
+                <th style="width:52px" title="Selecionar para atualizar">
+                    <span style="display:block; font-size:9px; font-weight:400;
+                          letter-spacing:.3px">Calcular</span>
                     <?php if ($podeAtualizar): ?>
                     <input type="checkbox" id="fcs-todos" title="Selecionar todos para atualizar">
                     <?php endif; ?>
                 </th>
                 <th style="width:44px" title="Exibir o grupo nos itens do relatório">
+                    <span style="display:block; font-size:9px; font-weight:400;
+                          letter-spacing:.3px">Exibir</span>
                     <?php if ($podeAtualizar): ?>
                     <input type="checkbox" id="fcs-exibir-todos" title="Exibir todos os grupos"
                         <?= empty($temOcultos) ? 'checked' : '' ?>>
@@ -373,7 +377,10 @@
         if (gid !== undefined) { corpo.set('id', gid); }
         fetch(form.action, { method: 'POST', body: corpo })
             .then(function (r) { return r.json(); })
-            .then(function (j) { if (j.ok) { location.reload(); } });
+            .then(function (j) {
+                // keep=1: preserva o Exibir neste reload; entrada limpa reseta
+                if (j.ok) { location.href = location.pathname + '?keep=1'; }
+            });
     }
     form.querySelectorAll('.fcs-exibir').forEach(function (cb) {
         cb.addEventListener('change', function () {
