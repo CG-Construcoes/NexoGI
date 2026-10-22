@@ -71,31 +71,41 @@ $disp = array_filter($centrosDisp,
 <!-- ===================== MEDICOES DO CENTRO ===================== -->
 <h2 style="margin-top:28px">Medicoes do centro: <?= e($centroAberto['Rotulo']) ?></h2>
 
-<?php if ($podeInserir): ?>
+<?php if ($podeInserir || $edicao): ?>
 <form method="post" action="<?= url('medicoes') ?>" class="filtros" style="margin-bottom:16px">
     <?= csrf_campo() ?>
-    <input type="hidden" name="acao" value="incluir_medicao">
+    <input type="hidden" name="acao" value="<?= $edicao ? 'alterar_medicao' : 'incluir_medicao' ?>">
     <input type="hidden" name="id" value="<?= (int) $centroAberto['PMedC_Id'] ?>">
+    <?php if ($edicao): ?>
+    <input type="hidden" name="medicao_id" value="<?= (int) $edicao['PMed_Id'] ?>">
+    <?php endif; ?>
     <div class="campo grow">
         <label for="med-desc">Descricao da medicao</label>
-        <input type="text" id="med-desc" name="descricao" required maxlength="120">
+        <input type="text" id="med-desc" name="descricao" required maxlength="120"
+               value="<?= e($edicao['Med_Descricao'] ?? '') ?>">
     </div>
     <div class="campo">
         <label for="med-valor">Valor liquido</label>
         <input type="text" id="med-valor" name="valor" required placeholder="0,00"
-               size="14" style="text-align:right">
+               size="14" style="text-align:right"
+               value="<?= isset($edicao['Med_Valor'])
+                   ? e(number_format((float) $edicao['Med_Valor'], 2, ',', '.')) : '' ?>">
     </div>
     <div class="campo">
         <label for="med-emissao">Emissao da NF <small class="fc-av-hint">(opcional)</small></label>
-        <input type="date" id="med-emissao" name="emissao">
+        <input type="date" id="med-emissao" name="emissao"
+               value="<?= e($edicao['Med_EmissaoNF'] ?? '') ?>">
     </div>
     <div class="campo">
         <label for="med-prev">Previsao de recebimento</label>
-        <input type="date" id="med-prev" name="previsao" required>
+        <input type="date" id="med-prev" name="previsao" required
+               value="<?= e($edicao['Med_Previsao'] ?? '') ?>">
     </div>
     <div class="campo acoes">
-        <button type="submit" class="btn">Incluir medicao</button>
-        <a href="<?= url('medicoes') ?>" class="btn btn-secundario">Voltar</a>
+        <button type="submit" class="btn"><?= $edicao ? 'Salvar alteracoes' : 'Incluir medicao' ?></button>
+        <a href="<?= e(url($edicao
+                ? 'medicoes?centro=' . (int) $centroAberto['PMedC_Id'] : 'medicoes')) ?>"
+           class="btn btn-secundario"><?= $edicao ? 'Cancelar' : 'Voltar' ?></a>
     </div>
 </form>
 <?php endif; ?>
@@ -105,7 +115,7 @@ $disp = array_filter($centrosDisp,
     <thead>
         <tr><th>Descricao</th><th style="width:140px">Valor liquido</th>
             <th style="width:110px">Emissao NF</th><th style="width:130px">Prev. recebimento</th>
-            <th style="width:160px">Situacao</th><th style="width:90px"></th></tr>
+            <th style="width:160px">Situacao</th><th style="width:140px"></th></tr>
     </thead>
     <tbody>
         <?php foreach ($medicoes as $m):
@@ -122,6 +132,10 @@ $disp = array_filter($centrosDisp,
                         : 'background:#fff3cd; color:#8a6d00; border:1px solid #f0dd9a' ?>">
                 <?= $faturada ? 'Nota Fiscal Faturada' : 'Previsão de Medição' ?></span></td>
             <td class="acoes">
+                <?php if ($podeAlterar): ?>
+                <a class="btn btn-sm" href="<?= e(url('medicoes?centro='
+                    . (int) $centroAberto['PMedC_Id'] . '&editar=' . (int) $m['PMed_Id'])) ?>">Editar</a>
+                <?php endif; ?>
                 <?php if ($podeExcluir): ?>
                 <form method="post" action="<?= url('medicoes') ?>" style="display:inline"
                       onsubmit="return confirm('Excluir esta medicao?')">

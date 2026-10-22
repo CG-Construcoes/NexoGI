@@ -112,7 +112,20 @@ function med_medicoes(int $pmedcId): array
                   WHERE PMedC_Id = ? ORDER BY Med_Previsao, PMed_Id', [$pmedcId]);
 }
 
-function med_incluir_medicao(int $pmedcId, array $post): void
+/** Uma medicao pelo id dentro do centro (para edicao). */
+function med_get_medicao(int $pmedcId, int $medId): ?array
+{
+    $rows = query('SELECT PMed_Id, CONVERT(varchar(120), Med_Descricao) Med_Descricao,
+                          Med_Valor,
+                          CONVERT(varchar(10), Med_EmissaoNF, 120) Med_EmissaoNF,
+                          CONVERT(varchar(10), Med_Previsao, 120) Med_Previsao
+                   FROM msoft.PrevisaoMedicao
+                   WHERE PMed_Id = ? AND PMedC_Id = ?', [$medId, $pmedcId]);
+    return $rows[0] ?? null;
+}
+
+/** Valida o formulario de medicao. Lanca InvalidArgumentException. */
+function med_validar_medicao(array $post): array
 {
     $desc = trim((string) ($post['descricao'] ?? ''));
     if ($desc === '') {
@@ -121,13 +134,31 @@ function med_incluir_medicao(int $pmedcId, array $post): void
     if (mb_strlen($desc) > 120) {
         throw new InvalidArgumentException('Descricao excede 120 caracteres.');
     }
-    $valor = med_valor($post['valor'] ?? '');
-    $emissao = med_data($post['emissao'] ?? '', false, 'A data de emissao da NF');
-    $previsao = med_data($post['previsao'] ?? '', true, 'A data de previsao de recebimento');
+    return [
+        'descricao' => $desc,
+        'valor'     => med_valor($post['valor'] ?? ''),
+        'emissao'   => med_data($post['emissao'] ?? '', false, 'A data de emissao da NF'),
+        'previsao'  => med_data($post['previsao'] ?? '', true, 'A data de previsao de recebimento'),
+    ];
+}
+
+function med_incluir_medicao(int $pmedcId, array $post): void
+{
+    $d = med_validar_medicao($post);
     execute('INSERT INTO msoft.PrevisaoMedicao
                  (PMedC_Id, Med_Descricao, Med_Valor, Med_EmissaoNF, Med_Previsao)
              VALUES (?, ?, ?, ?, ?)',
-            [$pmedcId, $desc, $valor, $emissao, $previsao]);
+            [$pmedcId, $d['descricao'], $d['valor'], $d['emissao'], $d['previsao']]);
+}
+
+function med_atualizar_medicao(int $pmedcId, int $medId, array $post): void
+{
+    $d = med_validar_medicao($post);
+    execute('UPDATE msoft.PrevisaoMedicao
+             SET Med_Descricao = ?, Med_Valor = ?, Med_EmissaoNF = ?, Med_Previsao = ?
+             WHERE PMed_Id = ? AND PMedC_Id = ?',
+            [$d['descricao'], $d['valor'], $d['emissao'], $d['previsao'],
+             $medId, $pmedcId]);
 }
 
 function med_excluir_medicao(int $pmedcId, int $medId): void

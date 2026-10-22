@@ -371,6 +371,11 @@ switch ($rota) {
                     med_incluir_medicao($id, $_POST);
                     definir_aviso(['tipo' => 'ok', 'html' => 'Medicao incluida.']);
                     $destino = 'medicoes?centro=' . $id;
+                } elseif ($acao === 'alterar_medicao') {
+                    exigir_tela('medicoes', 'alterar');
+                    med_atualizar_medicao($id, (int) ($_POST['medicao_id'] ?? 0), $_POST);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Medicao alterada.']);
+                    $destino = 'medicoes?centro=' . $id;
                 } elseif ($acao === 'excluir_medicao') {
                     exigir_tela('medicoes', 'excluir');
                     med_excluir_medicao($id, (int) ($_POST['medicao_id'] ?? 0));
@@ -388,13 +393,18 @@ switch ($rota) {
             redirecionar($destino);
         }
         $centroAberto = isset($_GET['centro']) ? med_get_centro((int) $_GET['centro']) : null;
+        $edicao = $centroAberto && isset($_GET['editar'])
+            ? med_get_medicao((int) $centroAberto['PMedC_Id'], (int) $_GET['editar'])
+            : null;
         render('medicoes', ['titulo' => 'Previsao de Medicoes',
             'active' => 'medicoes', 'aviso' => consumir_aviso(),
             'centros' => med_listar(), 'centrosDisp' => mp_centros(),
             'centroAberto' => $centroAberto,
             'medicoes' => $centroAberto
                 ? med_medicoes((int) $centroAberto['PMedC_Id']) : [],
+            'edicao' => $edicao,
             'podeInserir' => usuario_pode('medicoes', 'inserir'),
+            'podeAlterar' => usuario_pode('medicoes', 'alterar'),
             'podeExcluir' => usuario_pode('medicoes', 'excluir')]);
         break;
 
