@@ -215,6 +215,7 @@ switch ($rota) {
     case 'dica':
         // Dica aleatoria em JSON p/ o modal de progresso (?area=financeiro ...)
         exigir_login();
+        session_write_close(); // nao segurar o lock da sessao durante o calculo
         header('Content-Type: application/json; charset=utf-8');
         try {
             echo json_encode(['dica' => dc_aleatoria((string) ($_GET['area'] ?? ''))],
@@ -645,6 +646,8 @@ switch ($rota) {
                 header('Content-Type: application/json; charset=utf-8');
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600);
+                // libera o lock da sessao p/ o fetch das dicas nao ficar bloqueado
+                session_write_close();
                 try {
                     // item 5 antes: as projecoes (itens 3 e 1) leem o snapshot dele
                     fcs_pagar_calcular_salvar(fcs_listar());
@@ -671,6 +674,8 @@ switch ($rota) {
                 }
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600); // a proc roda 2x por centro do grupo
+                // libera o lock da sessao p/ o fetch das dicas nao ficar bloqueado
+                session_write_close();
                 $avMap = [];
                 foreach ((array) ($_POST['avulso'][$id] ?? []) as $aid => $v) {
                     if (trim((string) $v) !== '') {
