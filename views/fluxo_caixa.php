@@ -246,6 +246,7 @@
     }
     // Recalcula o item 5 (contas a pagar) no servidor; fim(erro|null).
     // ids = grupos recalculados neste Atualizar (projecao do item 3 so deles).
+    // Falha de transporte (rede/HTTP) tenta mais uma vez antes de desistir.
     function calcularPagar(fim, ids) {
         var corpo = new URLSearchParams(new FormData(form));
         corpo.set('ajax', '1');
@@ -256,10 +257,20 @@
             if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
         });
         texto.textContent = 'Calculando posição financeira e contas a pagar...';
-        fetch(form.action, { method: 'POST', body: corpo })
-            .then(function (r) { return r.json(); })
-            .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })
-            .catch(function () { fim('falha de rede'); });
+        var tentativa = 0;
+        function enviar() {
+            fetch(form.action, { method: 'POST', body: corpo })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.json();
+                })
+                .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })
+                .catch(function (e) {
+                    if (++tentativa < 2) { enviar(); return; }
+                    fim('falha de rede' + (e && e.message ? ' (' + e.message + ')' : ''));
+                });
+        }
+        enviar();
     }
 
     var todos = document.getElementById('fcs-todos');
@@ -470,12 +481,18 @@
                 if (k.indexOf('avulso[' + cb.value + ']') !== 0) { corpo.delete(k); }
             });
             fetch(form.action, { method: 'POST', body: corpo })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.json();
+                })
                 .then(function (j) {
                     if (j.ok) { concluidos.push(nome); concluidosIds.push(cb.value); }
                     else { falhas.push(nome + ': ' + (j.erro || 'erro')); }
                 })
-                .catch(function () { falhas.push(nome + ': falha de rede'); })
+                .catch(function (e) {
+                    falhas.push(nome + ': falha de rede'
+                        + (e && e.message ? ' (' + e.message + ')' : ''));
+                })
                 .finally(function () {
                     i++;
                     fill.style.width = Math.round(i / marcados.length * 100) + '%';
