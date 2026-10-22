@@ -221,14 +221,26 @@
 </script>
 
 <?php if ($podeAtualizar && $grupos): ?>
-<div id="fcs-progresso" class="fcs-progresso" hidden>
-    <div class="fcs-barra">
-        <div id="fcs-fill" class="fcs-fill"></div>
-        <span id="fcs-texto" class="fcs-texto"></span>
-    </div>
-    <div class="fcs-anim"><span class="fcs-spin"></span>
-        <span class="fcs-anim-txt">Os cálculos estão sendo processados. Por gentileza não feche esta tela!</span>
-        <button type="button" id="fcs-stop" class="btn btn-sm btn-danger fcs-stop">Interromper Cálculo</button>
+<div id="fcs-progresso" class="fcs-overlay" hidden>
+    <div style="background:#fff; border-radius:10px; padding:28px 34px; width:540px;
+                max-width:92vw; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.3)">
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px;
+                    font-size:16px; font-weight:700; color:#1e3a5f">
+            <span class="fcs-spin"></span> Cálculo em andamento
+        </div>
+        <p style="margin:10px 0 16px; font-size:13px; color:#4a6a8a">
+            Os cálculos estão sendo processados. Por gentileza não feche esta tela!</p>
+        <div class="fcs-barra">
+            <div id="fcs-fill" class="fcs-fill"></div>
+            <span id="fcs-texto" class="fcs-texto"></span>
+        </div>
+        <div id="fcs-dica-box" style="margin-top:16px; text-align:left; font-size:13.5px;
+                color:#444; line-height:1.5; background:#f7f8fa; border:1px solid #e3e6ea;
+                border-radius:8px; padding:12px 16px" hidden>
+            💡 <strong>Dica:</strong> <span id="fcs-dica"></span>
+        </div>
+        <button type="button" id="fcs-stop" class="btn btn-sm btn-danger"
+                style="margin-top:16px">Interromper Cálculo</button>
     </div>
 </div>
 <script>
@@ -246,6 +258,7 @@
     }
     // Recalcula o item 5 (contas a pagar) no servidor; fim(erro|null).
     // ids = grupos recalculados neste Atualizar (projecao do item 3 so deles).
+    // Falha de transporte (rede/HTTP) tenta mais uma vez antes de desistir.
     function calcularPagar(fim, ids) {
         var corpo = new URLSearchParams(new FormData(form));
         corpo.set('ajax', '1');
@@ -256,21 +269,58 @@
             if (k.indexOf('avulso[') === 0) { corpo.delete(k); }
         });
         texto.textContent = 'Calculando posição financeira e contas a pagar...';
-        fetch(form.action, { method: 'POST', body: corpo })
-            .then(function (r) { return r.json(); })
-            .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })
-            .catch(function () { fim('falha de rede'); });
+        var tentativa = 0;
+        function enviar() {
+            fetch(form.action, { method: 'POST', body: corpo })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.json();
+                })
+                .then(function (j) { fim(j.ok ? null : (j.erro || 'erro')); })
+                .catch(function (e) {
+                    if (++tentativa < 2) { enviar(); return; }
+                    fim('falha de rede' + (e && e.message ? ' (' + e.message + ')' : ''));
+                });
+        }
+        enviar();
     }
 
     var todos = document.getElementById('fcs-todos');
     var form = todos.closest('form');
     var checks = form.querySelectorAll('.fcs-check');
+    var t0 = null; // inicio do calculo — resumoUrl usa p/ mandar &tempo=
     var btn = document.getElementById('fcs-btn');
     var iniEl = document.getElementById('fcs-ini');
     var fimEl = document.getElementById('fcs-fim');
     var prog = document.getElementById('fcs-progresso');
     var fill = document.getElementById('fcs-fill');
     var texto = document.getElementById('fcs-texto');
+    // Dicas do modal de progresso (msoft.Dica, area Financeiro)
+    var dicaBox = document.getElementById('fcs-dica-box');
+    var dicaEl = document.getElementById('fcs-dica');
+    var dicaTimer = null;
+    var urlDica = '<?= e(url('dica?area=financeiro')) ?>';
+    function buscarDica() {
+        fetch(urlDica)
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (j.dica) { dicaEl.textContent = j.dica; dicaBox.hidden = false; }
+                else { dicaBox.hidden = true; }
+            })
+            .catch(function () {});
+    }
+    function mostrarProg() {
+        prog.hidden = false;
+        if (!dicaTimer) {
+            buscarDica();
+            dicaTimer = setInterval(buscarDica, 10000);
+        }
+    }
+    function esconderProg() {
+        prog.hidden = true;
+        clearInterval(dicaTimer);
+        dicaTimer = null;
+    }
     todos.addEventListener('change', function () {
         checks.forEach(function (cb) { cb.checked = todos.checked; });
     });
@@ -368,7 +418,7 @@
             // nada marcado: so recalcula o item 5 e abre o resumo
             ev.preventDefault();
             btn.disabled = true;
-            prog.hidden = false;
+            mostrarProg();
             t0 = performance.now();
             calcularPagar(function (erro) {
                 if (erro) { alert('Contas a pagar: ' + erro); }
@@ -401,8 +451,8 @@
         ev.preventDefault();
         alert('Os cálculos irão iniciar.\nNão feche esta tela.');
         btn.disabled = true;
-        prog.hidden = false;
-        var t0 = null;
+        mostrarProg();
+        t0 = null;
         var falhas = [];
         var concluidos = [];
         var concluidosIds = [];
@@ -424,7 +474,7 @@
         }
         function proximo() {
             if (cancelar) {
-                prog.hidden = true;
+                esconderProg();
                 var msgStop = 'Os cálculos foram interrompidos.'
                     + '\n\nGrupos atualizados:\n - '
                     + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
@@ -440,7 +490,7 @@
                 // ultimo passo: recalcula e grava o item 5 (contas a pagar)
                 // e a projecao do item 3 dos grupos que concluiram
                 calcularPagar(function (erro) {
-                    prog.hidden = true;
+                    esconderProg();
                     if (erro) { falhas.push('Contas a pagar: ' + erro); }
                     var msg = 'Cálculo concluído.\n\nGrupos atualizados:\n - '
                         + (concluidos.length ? concluidos.join('\n - ') : 'nenhum')
@@ -470,12 +520,18 @@
                 if (k.indexOf('avulso[' + cb.value + ']') !== 0) { corpo.delete(k); }
             });
             fetch(form.action, { method: 'POST', body: corpo })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.json();
+                })
                 .then(function (j) {
                     if (j.ok) { concluidos.push(nome); concluidosIds.push(cb.value); }
                     else { falhas.push(nome + ': ' + (j.erro || 'erro')); }
                 })
-                .catch(function () { falhas.push(nome + ': falha de rede'); })
+                .catch(function (e) {
+                    falhas.push(nome + ': falha de rede'
+                        + (e && e.message ? ' (' + e.message + ')' : ''));
+                })
                 .finally(function () {
                     i++;
                     fill.style.width = Math.round(i / marcados.length * 100) + '%';

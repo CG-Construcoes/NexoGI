@@ -176,6 +176,55 @@ switch ($rota) {
             'membros' => $grupoSel ? ug_membros((int) $grupoSel['UsGrupo_Id']) : []]);
         break;
 
+    case 'dicas':
+        exigir_admin();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('dicas');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);
+            try {
+                if ($acao === 'excluir') {
+                    dc_excluir($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Dica excluida.']);
+                } else {
+                    $d = dc_validar($_POST);
+                    if ($acao === 'editar') {
+                        dc_atualizar($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Dica atualizada.']);
+                    } else {
+                        dc_inserir($d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Dica cadastrada.']);
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar('dicas');
+        }
+        render('dicas', ['titulo' => 'Dicas',
+            'active' => 'dicas', 'aviso' => consumir_aviso(),
+            'dicas' => dc_listar(),
+            'edicao' => isset($_GET['editar']) ? dc_get((int) $_GET['editar']) : null]);
+        break;
+
+    case 'dica':
+        // Dica aleatoria em JSON p/ o modal de progresso (?area=financeiro ...)
+        exigir_login();
+        session_write_close(); // nao segurar o lock da sessao durante o calculo
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode(['dica' => dc_aleatoria((string) ($_GET['area'] ?? ''))],
+                JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $t) {
+            echo json_encode(['dica' => null]);
+        }
+        exit;
+
     case 'pedidos':
         exigir_login();
         $filtros = [
@@ -597,6 +646,8 @@ switch ($rota) {
                 header('Content-Type: application/json; charset=utf-8');
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600);
+                // libera o lock da sessao p/ o fetch das dicas nao ficar bloqueado
+                session_write_close();
                 try {
                     // item 5 antes: as projecoes (itens 3 e 1) leem o snapshot dele
                     fcs_pagar_calcular_salvar(fcs_listar());
@@ -623,6 +674,8 @@ switch ($rota) {
                 }
                 exigir_tela('fluxo-caixa', 'alterar');
                 set_time_limit(600); // a proc roda 2x por centro do grupo
+                // libera o lock da sessao p/ o fetch das dicas nao ficar bloqueado
+                session_write_close();
                 $avMap = [];
                 foreach ((array) ($_POST['avulso'][$id] ?? []) as $aid => $v) {
                     if (trim((string) $v) !== '') {

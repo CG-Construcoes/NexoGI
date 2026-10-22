@@ -60,6 +60,7 @@ const MODULES = [
         ['slug' => 'configuracoes', 'nome' => 'Painel de Configuracoes', 'pronto' => true],
         ['slug' => 'usuarios', 'nome' => 'Usuarios e Acessos', 'pronto' => true],
         ['slug' => 'grupos-usuarios', 'nome' => 'Grupos de Permissao', 'pronto' => true],
+        ['slug' => 'dicas', 'nome' => 'Dicas', 'pronto' => true],
     ]],
 ];
 
