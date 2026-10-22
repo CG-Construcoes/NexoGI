@@ -628,6 +628,22 @@ switch ($rota) {
                 echo json_encode(['ok' => true]);
                 exit;
             }
+            // Checkbox Exibir (item 3): liga/desliga a visibilidade do
+            // grupo em TODOS os itens — tela, totais e recalculo.
+            if (($_POST['acao'] ?? '') === 'exibir') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_exibir_definir((int) ($_POST['id'] ?? 0), !empty($_POST['v']));
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true]);
+                exit;
+            }
+            if (($_POST['acao'] ?? '') === 'exibir_todos') {
+                exigir_tela('fluxo-caixa', 'alterar');
+                fcs_exibir_todos(!empty($_POST['v']));
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true]);
+                exit;
+            }
             // Bases: formulario da tela enviado sem nenhuma marcada.
             if (fcs_bases_post() === []) {
                 $msgBases = 'Marque ao menos uma base (DBMGA / DBCONV).';
@@ -737,9 +753,11 @@ switch ($rota) {
             redirecionar('fluxo-caixa');
         }
         $grupos = fcs_listar();
+        $gruposVis = fcs_grupos_visiveis($grupos); // filtro Exibir (item 3)
         render('fluxo_caixa', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => $grupos,
+            'grupos' => $gruposVis,
+            'temOcultos' => count($gruposVis) !== count($grupos),
             'fcPag' => fcs_pagar_salvo($grupos),
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),
@@ -801,7 +819,7 @@ switch ($rota) {
         $grupos = fcs_listar();
         render('fluxo_caixa_resumo', ['titulo' => 'Acompanhamento Financeiro',
             'active' => 'fluxo-caixa', 'aviso' => consumir_aviso(),
-            'grupos' => $grupos,
+            'grupos' => fcs_grupos_visiveis($grupos),
             // le so o ultimo quadro calculado; grupos zerados ficam ocultos
             'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo($grupos)),
             'fcRec' => fcs_receber_dados(),
