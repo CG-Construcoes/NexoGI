@@ -105,15 +105,22 @@ $disp = array_filter($centrosDisp,
     <thead>
         <tr><th>Descricao</th><th style="width:140px">Valor liquido</th>
             <th style="width:110px">Emissao NF</th><th style="width:130px">Prev. recebimento</th>
-            <th style="width:90px"></th></tr>
+            <th style="width:160px">Situacao</th><th style="width:90px"></th></tr>
     </thead>
     <tbody>
-        <?php foreach ($medicoes as $m): ?>
+        <?php foreach ($medicoes as $m):
+            $faturada = $m['Med_EmissaoNF'] !== null
+                && (string) $m['Med_EmissaoNF'] <= date('Y-m-d'); ?>
         <tr>
             <td><?= e($m['Med_Descricao']) ?></td>
             <td class="col-valor"><?= number_format((float) $m['Med_Valor'], 2, ',', '.') ?></td>
             <td><?= e(data_br($m['Med_EmissaoNF'])) ?: '&mdash;' ?></td>
             <td><?= e(data_br($m['Med_Previsao'])) ?></td>
+            <td><span style="display:inline-block; padding:3px 10px; border-radius:12px;
+                    font-size:12px; font-weight:600; white-space:nowrap; <?= $faturada
+                        ? 'background:#d4edda; color:#1e7e34; border:1px solid #b7dfc2'
+                        : 'background:#fff3cd; color:#8a6d00; border:1px solid #f0dd9a' ?>">
+                <?= $faturada ? 'Nota Fiscal Faturada' : 'Previsão de Medição' ?></span></td>
             <td class="acoes">
                 <?php if ($podeExcluir): ?>
                 <form method="post" action="<?= url('medicoes') ?>" style="display:inline"
@@ -133,7 +140,7 @@ $disp = array_filter($centrosDisp,
         <tr>
             <td><strong>Total</strong></td>
             <td class="col-valor"><strong><?= number_format($total, 2, ',', '.') ?></strong></td>
-            <td colspan="3"></td>
+            <td colspan="4"></td>
         </tr>
     </tfoot>
 </table>
