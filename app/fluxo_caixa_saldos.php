@@ -655,7 +655,7 @@ function fcs_receber_dados(): array
     // para o bloco "Sem grupo" — os subtotais fecham com o do mes).
     $grupoDo = [];
     foreach (query("SELECT RTRIM(c.Centro_CodC) codc, RTRIM(g.FCGrupo_Nome) nome,
-                          ISNULL(o.Ordem, 2147483647) ord, g.FCGrupo_Nome
+                          ISNULL(o.Ordem, 2147483647) ord
                     FROM msoft.FluxoCaixa_Centros c
                     JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
                     LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
