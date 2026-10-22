@@ -61,6 +61,27 @@
                 </tr>
                 <?php endforeach; ?>
             </tbody>
+            <?php $totFc = ['SaldoGrupo' => null, 'SaldoMes1' => null, 'SaldoMes2' => null, 'SaldoMes3' => null];
+            $totCentros = 0;
+            foreach ($grupos as $g) {
+                $totCentros += (int) $g['QtdeCentros'];
+                foreach (array_keys($totFc) as $cTot) {
+                    if ($g[$cTot] !== null) {
+                        $totFc[$cTot] = ($totFc[$cTot] ?? 0) + (float) $g[$cTot];
+                    }
+                }
+            } ?>
+            <tfoot>
+            <tr style="font-weight:700; background:#d7e6f5; border-top:2px solid #1974b8">
+                <td>TOTAL GERAL</td>
+                <td><?= $totCentros ?></td>
+                <?php foreach ($totFc as $vTot): ?>
+                <td class="col-valor"><?= $vTot !== null
+                    ? number_format($vTot, 2, ',', '.') : '&mdash;' ?></td>
+                <?php endforeach; ?>
+                <td></td>
+            </tr>
+            </tfoot>
         </table>
         <?php else: ?>
         <p class="vazio">Nenhum grupo cadastrado. Cadastre em
