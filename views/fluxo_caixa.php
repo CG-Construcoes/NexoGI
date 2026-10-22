@@ -2,11 +2,29 @@
 <?php require ROOT . '/views/fluxo_caixa_marca.php'; ?>
 <div id="fcs-aviso-relatorio" style="position:fixed; inset:0; z-index:1000;
      background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center">
-    <div style="background:#fff; border-radius:10px; padding:32px 40px; max-width:430px;
+    <div style="background:#fff; border-radius:10px; padding:32px 40px; max-width:560px;
                 text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.3)">
         <div style="font-size:52px; line-height:1; color:#e0a800">&#9888;</div>
-        <p style="margin:16px 0 22px; font-size:16px; color:#333">
+        <p style="margin:16px 0 18px; font-size:16px; color:#333">
             Atenção - Este Relatório está em período de avaliação!</p>
+        <div style="text-align:left; font-size:13.5px; color:#444; line-height:1.55;
+                    background:#f7f8fa; border:1px solid #e3e6ea; border-radius:8px;
+                    padding:14px 18px; margin-bottom:22px">
+            <strong>Uso do Relatório:</strong>
+            <p style="margin:8px 0">O relatório de Acompanhamento Financeiro terá a
+                opção de realizar os cálculos usando os centros da Base DBMGA e/ou DBCONV.</p>
+            <p style="margin:8px 0 4px">Para o bom funcionamento do relatório, deverão
+                ser preenchidas as informações das telas:</p>
+            <ul style="margin:0; padding-left:22px">
+                <li style="margin-bottom:6px">“Financeiro\Fluxo de Caixa\Aportes a Retornar”
+                    – Informações referente a aportes;</li>
+                <li style="margin-bottom:6px">“Financeiro\Diretoria\Acompanhamento Financeiro”
+                    – Item 3. Saldos Financeiros por Obra/Centro, Centros Avulsos
+                    (Valores Complementares);</li>
+                <li>“Engenharia\Previsões\Medições”
+                    – Para preenchimento dos valores referentes a contas a Receber.</li>
+            </ul>
+        </div>
         <button type="button" class="btn"
                 onclick="document.getElementById('fcs-aviso-relatorio').remove()">Continuar</button>
     </div>
@@ -221,6 +239,9 @@
         if (iniEl.value) { u += 'ini=' + iniEl.value + '&'; }
         if (fimEl.value) { u += 'fim=' + fimEl.value + '&'; }
         if (ids && ids.length) { u += 'att=' + ids.join(','); }
+        if (t0) {
+            u += '&tempo=' + Math.max(0, Math.round((performance.now() - t0) / 1000));
+        }
         return u;
     }
     // Recalcula o item 5 (contas a pagar) no servidor; fim(erro|null).
@@ -348,6 +369,7 @@
             ev.preventDefault();
             btn.disabled = true;
             prog.hidden = false;
+            t0 = performance.now();
             calcularPagar(function (erro) {
                 if (erro) { alert('Contas a pagar: ' + erro); }
                 location.href = resumoUrl();

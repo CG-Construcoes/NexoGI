@@ -754,6 +754,7 @@ switch ($rota) {
             'fcRec' => fcs_receber_dados(),
             'fcPos' => fcs_posicao_salva(),
             'fcApo' => fcs_aportes_salvo($grupos),
+            'tempoCalc' => isset($_GET['tempo']) ? (int) $_GET['tempo'] : null,
             'atualizados' => $att]);
         break;
 

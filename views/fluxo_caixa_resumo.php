@@ -97,4 +97,11 @@
     </div>
 </div>
 
+<?php if ($tempoCalc !== null): ?>
+<p style="margin:18px 4px 0; text-align:right; color:#555; font-size:13px">
+    Tempo total de cálculo do relatório: <strong><?= $tempoCalc >= 60
+        ? floor($tempoCalc / 60) . ' min ' . ($tempoCalc % 60) . ' s'
+        : $tempoCalc . ' s' ?></strong>
+</p>
+<?php endif; ?>
 
