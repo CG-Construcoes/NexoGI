@@ -22,7 +22,7 @@
             $porSit[$l['sit']][$ym][] = $l;
         }
     }
-    foreach ($sits as $sit):
+    foreach ($sits as $si => $sit):
         $blocos = $porSit[$sit] ?? [];
         if (!$blocos) {
             continue; // situacao sem medicoes nao aparece
@@ -30,8 +30,9 @@
         $fcTemRec = true;
         $sitTotal = 0.0; ?>
     <tbody>
-        <tr style="font-weight:700; background:#1e3a5f; color:#fff">
-            <td colspan="5"><?= e($sit) ?></td></tr>
+        <tr class="fcs-sit fcs-sab"><td colspan="5">4.<?= $si + 1 ?>. <?= e($sit) ?></td></tr>
+    </tbody>
+    <tbody class="fcs-sitbody">
         <?php foreach ($fcRec['meses'] as $mi => $ym):
             $lins = $blocos[$ym] ?? [];
             if (!$lins) {
@@ -78,7 +79,9 @@
             <td class="col-valor"><?= number_format($sub, 2, ',', '.') ?></td>
         </tr>
         <?php endforeach; ?>
-        <tr style="font-weight:600; background:#d7e6f5; border-top:1px solid #b9c8d8">
+    </tbody>
+    <tbody>
+        <tr class="fcs-sitsub" style="font-weight:600; background:#d7e6f5; border-top:1px solid #b9c8d8">
             <td colspan="4">Subtotal <?= e($sit) ?></td>
             <td class="col-valor"><?= number_format($sitTotal, 2, ',', '.') ?></td>
         </tr>
@@ -97,3 +100,20 @@
 <p class="vazio">Nenhuma medição prevista no trimestre — cadastre em
     Engenharia &gt; Previsões &gt; Medições.</p>
 <?php endif; ?>
+
+<script>
+(function () {
+    // Bandas 4.1/4.2: clique recolhe/expande o bloco inteiro da situacao
+    // (meses + linhas + subtotais internos); o subtotal da situacao fica
+    // sempre visivel. O estado dos meses e preservado ao reabrir.
+    document.querySelectorAll('.fcs-pagar tr.fcs-sit').forEach(function (tr) {
+        tr.addEventListener('click', function () {
+            var aberto = tr.classList.toggle('fcs-sab');
+            var tb = tr.parentElement.nextElementSibling;
+            if (tb && tb.classList.contains('fcs-sitbody')) {
+                tb.hidden = !aberto;
+            }
+        });
+    });
+})();
+</script>

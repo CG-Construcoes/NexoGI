@@ -2785,3 +2785,9 @@ tr.fcs-att td { background: #e3f0e3; }
                         color: var(--text-muted, #5a6b80); }
 .fcs-pagar tr.fcs-mes td:first-child::before { content: '\25B8\00A0'; }
 .fcs-pagar tr.fcs-mes.fcs-mab td:first-child::before { content: '\25BE\00A0'; }
+/* Bandas de situacao do item 4 (4.1 / 4.2): fundo suave, clicaveis p/ agrupar */
+.fcs-pagar tr.fcs-sit td { font-weight: 700; background: #dcebf7; color: #1e3a5f;
+                          border-top: 2px solid #b9c8d8; cursor: pointer;
+                          user-select: none; }
+.fcs-pagar tr.fcs-sit td:first-child::before { content: '\25B8\00A0'; }
+.fcs-pagar tr.fcs-sit.fcs-sab td:first-child::before { content: '\25BE\00A0'; }
