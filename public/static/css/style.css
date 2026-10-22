@@ -2616,6 +2616,10 @@ body.sidebar-fixa .pedidos-rodape {
 @keyframes fcs-girar { to { transform: rotate(360deg); } }
 .fcs-pend td { background: #fbdede; }
 tr.fcs-av-row td { background: #fbf3e0; }
+/* Modal centralizado de progresso do calculo (Acompanhamento Financeiro) */
+.fcs-overlay { position: fixed; inset: 0; z-index: 9500; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center; }
+.fcs-overlay[hidden] { display: none; }
 .fcs-av-lab { display: inline-flex; align-items: center; gap: 6px;
     font-size: 12px; color: #445; margin: 2px 14px 2px 0; }
 .fcs-av-lab input { padding: 3px 6px; font-size: 12px; width: 110px;
