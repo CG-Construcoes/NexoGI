@@ -2793,3 +2793,14 @@ tr.fcs-att td { background: #e3f0e3; }
                           user-select: none; }
 .fcs-pagar tr.fcs-sit td:first-child::before { content: '\25B8\00A0'; }
 .fcs-pagar tr.fcs-sit.fcs-sab td:first-child::before { content: '\25BE\00A0'; }
+
+/* Follow-up das Solicitacoes — bandas de grupo e cores de status */
+.flw-tab { font-size: 12px; min-width: 100%; }
+.flw-tab td { white-space: nowrap; }
+.flw-tab td.flw-esp { white-space: normal; min-width: 220px; max-width: 380px; }
+.flw-tab tr.flw-grupo td { font-weight: 700; background: #dcebf7; color: #1e3a5f;
+                           border-top: 2px solid #b9c8d8; }
+.flw-tab tr.flw-atrasada td { background: #ffd9d9; color: #7a1f1f; }
+.flw-tab tr.flw-atrasada:hover td { background: #ffcccc; }
+.flw-tab td.flw-aut { background: #c9f0c9; color: #145214; font-weight: 600; }
+.flw-tab tr.flw-atrasada td.flw-aut { background: #f0c9c9; color: #145214; }

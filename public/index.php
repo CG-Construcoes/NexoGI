@@ -27,6 +27,7 @@ $ROTAS_TELA = [
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'fluxo-caixa/resumo' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
+    'followup-solicitacoes' => 'followup-solicitacoes',
     'medicoes' => 'medicoes',
     'contas-pagar' => 'contas-pagar',
     'agenda-pagamentos' => 'agenda-pagamentos',
@@ -393,6 +394,66 @@ switch ($rota) {
             'podeInserir' => usuario_pode('matriz-prioridades', 'inserir'),
             'podeAlterar' => usuario_pode('matriz-prioridades', 'alterar'),
             'podeExcluir' => usuario_pode('matriz-prioridades', 'excluir')]);
+        break;
+
+    case 'followup-solicitacoes':
+        exigir_login();
+        $gerado = isset($_GET['gerar']);
+        $f = [
+            'data_ini'   => (string) ($_GET['data_ini'] ?? date('Y-m-d', strtotime('-30 days'))),
+            'data_fim'   => (string) ($_GET['data_fim'] ?? date('Y-m-d')),
+            'empresa'    => trim((string) ($_GET['empresa'] ?? '')),
+            'filial'     => trim((string) ($_GET['filial'] ?? '')),
+            'centro'     => trim((string) ($_GET['centro'] ?? '')),
+            'nucleo'     => trim((string) ($_GET['nucleo'] ?? '')),
+            'solicitante' => trim((string) ($_GET['solicitante'] ?? '')),
+            'comprador'  => trim((string) ($_GET['comprador'] ?? '')),
+            'tipsol'     => trim((string) ($_GET['tipsol'] ?? '')),
+            'depsol'     => trim((string) ($_GET['depsol'] ?? '')),
+            'numero'     => trim((string) ($_GET['numero'] ?? '')),
+            'texto'      => trim((string) ($_GET['texto'] ?? '')),
+            'insumo'     => trim((string) ($_GET['insumo'] ?? '')),
+            'nao_concluidas' => isset($_GET['nao_concluidas']),
+            'autorizadas' => (string) ($_GET['autorizadas'] ?? ''),
+            'recusadas'   => (string) ($_GET['recusadas'] ?? ''),
+            'agrupar'     => (string) ($_GET['agrupar'] ?? 'centro'),
+            'sit' => [
+                'ab'  => isset($_GET['sit_ab']) || !$gerado,
+                'co'  => isset($_GET['sit_co']) || !$gerado,
+                'pe'  => isset($_GET['sit_pe']),
+                'ar'  => isset($_GET['sit_ar']),
+                'arp' => isset($_GET['sit_arp']),
+            ],
+        ];
+        $linhas = [];
+        $grupos = [];
+        $erros = [];
+        $combos = [];
+        if ($gerado) {
+            try {
+                $r = flw_dados($f);
+                $linhas = flw_enriquecer($r['linhas']);
+                if ($f['atraso_min'] = (int) ($_GET['atraso_min'] ?? 0)) {
+                    $linhas = array_values(array_filter($linhas,
+                        fn($l) => $l['Atrasada'] && $l['Atraso'] >= $f['atraso_min']));
+                }
+                $grupos = flw_agrupar($linhas, $f['agrupar']);
+                $erros = $r['erros'];
+            } catch (Throwable $t) {
+                $erros[] = $t->getMessage();
+            }
+        } else {
+            try {
+                $combos = flw_combos();
+            } catch (Throwable $t) {
+                $erros[] = 'Erro ao listar filtros: ' . $t->getMessage();
+            }
+        }
+        render('followup_solicitacoes', [
+            'titulo' => 'Follow-up das Solicitações',
+            'active' => 'followup-solicitacoes', 'f' => $f, 'gerado' => $gerado,
+            'linhas' => $linhas, 'grupos' => $grupos, 'erros' => $erros,
+            'combos' => $combos]);
         break;
 
     case 'medicoes':
