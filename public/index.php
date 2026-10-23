@@ -448,6 +448,8 @@ switch ($rota) {
                 usort($linhas, fn($a, $b) =>
                     ($b['Atraso'] ?? PHP_INT_MIN) <=> ($a['Atraso'] ?? PHP_INT_MIN));
                 $grupos = flw_agrupar($linhas, $f['agrupar']);
+                // bandas em ordem alfabetica do rotulo (estavel, nao depende do sort)
+                uasort($grupos, fn($a, $b) => strcmp($a['rotulo'], $b['rotulo']));
                 $erros = array_merge($erros, $r['erros']);
             } catch (Throwable $t) {
                 $erros[] = $t->getMessage();

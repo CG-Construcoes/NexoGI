@@ -231,8 +231,8 @@ $sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)
 </table>
 </div>
 <script>
-// Clique no titulo reordena o grid: linhas dentro de cada banda e as bandas
-// entre si (pelo valor extremo do grupo). Celula vazia sempre por ultimo.
+// Clique no titulo reordena o grid: somente as linhas dentro de cada banda
+// (as bandas/grupos ficam fixas). Celula vazia sempre por ultimo.
 (function () {
     var tab = document.querySelector('.flw-tab');
     if (!tab) { return; }
@@ -268,12 +268,8 @@ $sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)
                     cur.rows.push(tr);
                 }
             });
+            // bandas nao se movem: ordena so as linhas dentro de cada grupo
             segs.forEach(function (s) { s.rows.sort(cmp); });
-            segs.sort(function (a, b) {
-                if (!a.rows.length) { return 1; }
-                if (!b.rows.length) { return -1; }
-                return cmp(a.rows[0], b.rows[0]);
-            });
             segs.forEach(function (s) {
                 if (s.band) { tbody.appendChild(s.band); }
                 s.rows.forEach(function (r) { tbody.appendChild(r); });
