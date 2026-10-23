@@ -279,15 +279,15 @@ function flw_enriquecer(array $rows): array
         $dAut = $r['Instrucao_Data'] ? new DateTime(substr((string) $r['Instrucao_Data'], 0, 10)) : null;
         $saldo = (float) ($r['Saldo'] ?? 0);
         $r['Saldo'] = $saldo;
-        // Atraso = dias desde a solicitacao
-        $r['Atraso'] = $dSolic ? max(0, $hoje->diff($dSolic)->days * ($dSolic <= $hoje ? 1 : -1)) : null;
+        // Atraso = hoje - entrega (positivo = vencida; negativo = dias restantes)
+        $r['Atraso'] = $dEntrega ? (int) -$hoje->diff($dEntrega)->format('%r%a') : null;
         // Atraso Compra = dias desde a autorizacao sem pedido
         $r['AtrasoCompra'] = ($dAut && !$r['Pedido_Numero'] && $saldo > 0)
             ? max(0, (int) $hoje->diff($dAut)->format('%r%a')) : null;
         // vermelho: entrega da solicitacao vencida com saldo a receber
-        $r['Atrasada'] = $dEntrega !== null && $dEntrega < $hoje && $saldo > 0;
+        $r['Atrasada'] = $r['Atraso'] !== null && $r['Atraso'] > 0 && $saldo > 0;
         $r['Autorizada'] = trim((string) $r['Instrucao_Cod']) === 'A';
-        $r['Sit'] = ['AB' => 'A', 'CO' => 'C', 'PE' => 'P', 'AR' => 'AR'][$r['SolicItem_Situacao']] ?? $r['SolicItem_Situacao'];
+        $r['Sit'] = $r['SolicItem_Situacao'];
     }
     return $rows;
 }

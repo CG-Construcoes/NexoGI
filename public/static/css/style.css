@@ -2804,3 +2804,9 @@ tr.fcs-att td { background: #e3f0e3; }
 .flw-tab tr.flw-atrasada:hover td { background: #ffcccc; }
 .flw-tab td.flw-aut { background: #c9f0c9; color: #145214; font-weight: 600; }
 .flw-tab tr.flw-atrasada td.flw-aut { background: #f0c9c9; color: #145214; }
+.flw-tab td.flw-prazo { background: #c9f0c9; color: #145214; font-weight: 600; }
+.flw-tab tr.flw-atrasada td.flw-prazo { background: #ffd9d9; color: #7a1f1f; }
+.flw-tab td.flw-sit-AB { background: #d9e8d9; font-weight: 600; }
+.flw-tab td.flw-sit-CO { background: #fdf3c0; font-weight: 600; }
+.flw-tab td.flw-sit-PE { background: #d5e6f7; font-weight: 600; }
+.flw-tab td.flw-sit-AR { background: #e6d9f2; font-weight: 600; }

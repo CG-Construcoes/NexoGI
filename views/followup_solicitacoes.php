@@ -183,8 +183,9 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
 <table class="tabela flw-tab">
     <thead>
         <tr>
-            <th>Base</th><th>Solicitação</th><th>Atraso</th><th>Pedido</th>
-            <th>Entrega Sol.</th><th>St</th><th>Solicitante</th><th>Especificação</th>
+            <th>Base</th><th>Solicitação</th><th>Atraso</th><th>Nº Coleta</th>
+            <th>Pedido</th><th>Entrega Sol.</th><th>A</th><th>Sit</th>
+            <th>Solicitante</th><th>Especificação</th>
             <th>Und</th><th class="col-valor">Quantidade</th><th>Insumo/Sub</th>
             <th>Data Solic</th><th>Autorizante</th><th>Data Aut.</th><th>Con.</th>
             <th class="col-valor">Saldo</th><th>Atraso Compra</th><th>Comprador</th>
@@ -192,15 +193,17 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
     </thead>
     <tbody>
     <?php foreach ($grupos as $g): ?>
-        <tr class="flw-grupo"><td colspan="18">= <?= e($g['rotulo']) ?></td></tr>
+        <tr class="flw-grupo"><td colspan="20">= <?= e($g['rotulo']) ?></td></tr>
         <?php foreach ($g['linhas'] as $l): ?>
         <tr class="<?= $l['Atrasada'] ? 'flw-atrasada' : '' ?>">
             <td><span class="badge badge-<?= $l['Base'] === 'CONV' ? 'ativo' : 'pendente' ?>"><?= e($l['Base']) ?></span></td>
             <td><?= e($l['Solicitacao_ID']) ?></td>
-            <td class="col-valor"><?= $l['Atraso'] !== null ? (int) $l['Atraso'] : '' ?></td>
+            <td class="col-valor <?= $l['Atraso'] !== null && $l['Atraso'] <= 0 ? 'flw-prazo' : '' ?>"><?= $l['Atraso'] !== null ? (int) $l['Atraso'] : '' ?></td>
+            <td><?= e($l['Coleta_Numero'] ?? '') ?></td>
             <td><?= e($l['Pedido_CentroNumeroC'] ?? '') ?></td>
             <td><?= e($fmtD($l['SolicItem_DataEntrega'])) ?></td>
-            <td><?= e($l['Sit']) ?></td>
+            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>"><?= $l['Autorizada'] ? 'A' : '' ?></td>
+            <td class="flw-sit-<?= e($l['Sit']) ?>"><?= e($l['Sit']) ?></td>
             <td><?= e($l['Solicitante_Nome'] ?? '') ?></td>
             <td class="flw-esp" title="<?= e($l['SolicItem_Obs'] ?? '') ?>"><?= e(trim($l['SolicItem_EspecificacaoGeral'] ?? '')) ?></td>
             <td><?= e($l['Unid_Cod'] ?? '') ?></td>
