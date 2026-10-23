@@ -444,6 +444,9 @@ switch ($rota) {
                     $linhas = array_values(array_filter($linhas,
                         fn($l) => $l['Atrasada'] && $l['Atraso'] >= $f['atraso_min']));
                 }
+                // Ordem inicial: maior atraso primeiro (sem data de entrega por ultimo)
+                usort($linhas, fn($a, $b) =>
+                    ($b['Atraso'] ?? PHP_INT_MIN) <=> ($a['Atraso'] ?? PHP_INT_MIN));
                 $grupos = flw_agrupar($linhas, $f['agrupar']);
                 $erros = array_merge($erros, $r['erros']);
             } catch (Throwable $t) {

@@ -2832,6 +2832,9 @@ tr.fcs-att td { background: #e3f0e3; }
 
 /* Follow-up das Solicitacoes — bandas de grupo e cores de status */
 .flw-tab { font-size: 12px; min-width: 100%; }
+.flw-tab th { cursor: pointer; user-select: none; white-space: nowrap; }
+.flw-tab th.ord-asc::after { content: ' \25B2'; font-size: 9px; }
+.flw-tab th.ord-desc::after { content: ' \25BC'; font-size: 9px; }
 .flw-tab td { white-space: nowrap; }
 .flw-tab td.flw-esp { white-space: normal; min-width: 220px; max-width: 380px; }
 .flw-tab tr.flw-grupo td { font-weight: 700; background: #dcebf7; color: #1e3a5f;

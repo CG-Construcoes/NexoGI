@@ -12,6 +12,8 @@
 $fmtQ = fn(float $v): string => number_format($v, 4, ',', '.');
 $fmtD = fn(?string $d): string => $d ? date('d/m/Y', strtotime(substr($d, 0, 10))) : '';
 $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0, 16))) : '';
+$sortD = fn(?string $d): string => $d ? substr($d, 0, 10) : '';
+$sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)) : '';
 ?>
 <div class="pedidos-coluna">
 
@@ -187,7 +189,7 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
 <table class="tabela flw-tab">
     <thead>
         <tr>
-            <th>Base</th><th>Solicitação</th><th>Atraso</th><th>Nº Coleta</th>
+            <th>Base</th><th>Solicitação</th><th class="ord-desc" data-dir="desc">Atraso</th><th>Nº Coleta</th>
             <th>Pedido</th><th>Entrega Sol.</th><th>A</th><th>Sit</th>
             <th>Solicitante</th><th>Especificação</th>
             <th>Und</th><th class="col-valor">Quantidade</th><th>Insumo/Sub</th>
@@ -200,32 +202,86 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
         <tr class="flw-grupo"><td colspan="20">= <?= e($g['rotulo']) ?></td></tr>
         <?php foreach ($g['linhas'] as $l): ?>
         <tr class="<?= $l['Atrasada'] ? 'flw-atrasada' : '' ?>">
-            <td><span class="badge badge-<?= $l['Base'] === 'CONV' ? 'ativo' : 'pendente' ?>"><?= e($l['Base']) ?></span></td>
-            <td><?= e($l['Solicitacao_ID']) ?></td>
-            <td class="col-valor <?= $l['Atraso'] !== null && $l['Atraso'] <= 0 ? 'flw-prazo' : '' ?>"><?= $l['Atraso'] !== null ? (int) $l['Atraso'] : '' ?></td>
-            <td><?= e($l['Coleta_Numero'] ?? '') ?></td>
-            <td><?= e($l['Pedido_CentroNumeroC'] ?? '') ?></td>
-            <td><?= e($fmtD($l['SolicItem_DataEntrega'])) ?></td>
-            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>"><?= $l['Autorizada'] ? 'A' : '' ?></td>
-            <td class="flw-sit-<?= e($l['Sit']) ?>"><?= e($l['Sit']) ?></td>
-            <td><?= e($l['Solicitante_Nome'] ?? '') ?></td>
-            <td class="flw-esp" title="<?= e($l['SolicItem_Obs'] ?? '') ?>"><?= e(trim($l['SolicItem_EspecificacaoGeral'] ?? '')) ?></td>
-            <td><?= e($l['Unid_Cod'] ?? '') ?></td>
-            <td class="col-valor"><?= e($fmtQ((float) $l['SolicItem_Quantidade'])) ?></td>
-            <td><?= e($l['Insumo_CodC']) ?></td>
-            <td><?= e($fmtD($l['Solic_Data'])) ?></td>
-            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>"><?= e($l['Usuario_Instrucao'] ?? '') ?></td>
-            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>"><?= e($fmtDT($l['Instrucao_Data'])) ?></td>
-            <td><?= trim((string) $l['Solic_Concluido']) === 'S' ? '✔' : '' ?></td>
-            <td class="col-valor"><?= e($fmtQ((float) $l['Saldo'])) ?></td>
-            <td class="col-valor"><?= $l['AtrasoCompra'] !== null ? (int) $l['AtrasoCompra'] : '' ?></td>
-            <td><?= e($l['Solicitante_Nome_Geral'] ?? '') ?></td>
+            <td data-sort="<?= e($l['Base']) ?>"><span class="badge badge-<?= $l['Base'] === 'CONV' ? 'ativo' : 'pendente' ?>"><?= e($l['Base']) ?></span></td>
+            <td data-sort="<?= (int) $l['Solic_Numero'] * 1000 + (int) $l['SolicItem_Numero'] ?>"><?= e($l['Solicitacao_ID']) ?></td>
+            <td class="col-valor <?= $l['Atraso'] !== null && $l['Atraso'] <= 0 ? 'flw-prazo' : '' ?>"
+                data-sort="<?= $l['Atraso'] !== null ? (int) $l['Atraso'] : '' ?>"><?= $l['Atraso'] !== null ? (int) $l['Atraso'] : '' ?></td>
+            <td data-sort="<?= e($l['Coleta_Numero'] ?? '') ?>"><?= e($l['Coleta_Numero'] ?? '') ?></td>
+            <td data-sort="<?= e($l['Pedido_CentroNumeroC'] ?? '') ?>"><?= e($l['Pedido_CentroNumeroC'] ?? '') ?></td>
+            <td data-sort="<?= e($sortD($l['SolicItem_DataEntrega'])) ?>"><?= e($fmtD($l['SolicItem_DataEntrega'])) ?></td>
+            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>" data-sort="<?= $l['Autorizada'] ? 'A' : '' ?>"><?= $l['Autorizada'] ? 'A' : '' ?></td>
+            <td class="flw-sit-<?= e($l['Sit']) ?>" data-sort="<?= e($l['Sit']) ?>"><?= e($l['Sit']) ?></td>
+            <td data-sort="<?= e(mb_strtolower($l['Solicitante_Nome'] ?? '')) ?>"><?= e($l['Solicitante_Nome'] ?? '') ?></td>
+            <td class="flw-esp" data-sort="<?= e(mb_strtolower(trim($l['SolicItem_EspecificacaoGeral'] ?? ''))) ?>"
+                title="<?= e($l['SolicItem_Obs'] ?? '') ?>"><?= e(trim($l['SolicItem_EspecificacaoGeral'] ?? '')) ?></td>
+            <td data-sort="<?= e($l['Unid_Cod'] ?? '') ?>"><?= e($l['Unid_Cod'] ?? '') ?></td>
+            <td class="col-valor" data-sort="<?= (float) $l['SolicItem_Quantidade'] ?>"><?= e($fmtQ((float) $l['SolicItem_Quantidade'])) ?></td>
+            <td data-sort="<?= e($l['Insumo_CodC']) ?>"><?= e($l['Insumo_CodC']) ?></td>
+            <td data-sort="<?= e($sortD($l['Solic_Data'])) ?>"><?= e($fmtD($l['Solic_Data'])) ?></td>
+            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>" data-sort="<?= e(mb_strtolower($l['Usuario_Instrucao'] ?? '')) ?>"><?= e($l['Usuario_Instrucao'] ?? '') ?></td>
+            <td class="<?= $l['Autorizada'] ? 'flw-aut' : '' ?>" data-sort="<?= e($sortDT($l['Instrucao_Data'])) ?>"><?= e($fmtDT($l['Instrucao_Data'])) ?></td>
+            <td data-sort="<?= trim((string) $l['Solic_Concluido']) === 'S' ? '1' : '0' ?>"><?= trim((string) $l['Solic_Concluido']) === 'S' ? '✔' : '' ?></td>
+            <td class="col-valor" data-sort="<?= (float) $l['Saldo'] ?>"><?= e($fmtQ((float) $l['Saldo'])) ?></td>
+            <td class="col-valor" data-sort="<?= $l['AtrasoCompra'] !== null ? (int) $l['AtrasoCompra'] : '' ?>"><?= $l['AtrasoCompra'] !== null ? (int) $l['AtrasoCompra'] : '' ?></td>
+            <td data-sort="<?= e(mb_strtolower($l['Solicitante_Nome_Geral'] ?? '')) ?>"><?= e($l['Solicitante_Nome_Geral'] ?? '') ?></td>
         </tr>
         <?php endforeach; ?>
     <?php endforeach; ?>
     </tbody>
 </table>
 </div>
+<script>
+// Clique no titulo reordena o grid: linhas dentro de cada banda e as bandas
+// entre si (pelo valor extremo do grupo). Celula vazia sempre por ultimo.
+(function () {
+    var tab = document.querySelector('.flw-tab');
+    if (!tab) { return; }
+    var tbody = tab.tBodies[0];
+    tab.querySelectorAll('th').forEach(function (th, idx) {
+        th.addEventListener('click', function () {
+            var dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+            tab.querySelectorAll('th').forEach(function (t) {
+                t.dataset.dir = ''; t.classList.remove('ord-asc', 'ord-desc');
+            });
+            th.dataset.dir = dir;
+            th.classList.add(dir === 'asc' ? 'ord-asc' : 'ord-desc');
+            var key = function (tr) {
+                var c = tr.cells[idx];
+                return c ? (c.dataset.sort || '') : '';
+            };
+            var cmp = function (a, b) {
+                var va = key(a), vb = key(b);
+                if (va === '') { return vb === '' ? 0 : 1; }
+                if (vb === '') { return -1; }
+                var na = parseFloat(va), nb = parseFloat(vb);
+                var r = (!isNaN(na) && !isNaN(nb)) ? na - nb
+                        : va.localeCompare(vb, 'pt-BR');
+                return dir === 'asc' ? r : -r;
+            };
+            var segs = [], cur = null;
+            Array.from(tbody.rows).forEach(function (tr) {
+                if (tr.classList.contains('flw-grupo')) {
+                    cur = { band: tr, rows: [] };
+                    segs.push(cur);
+                } else {
+                    if (!cur) { cur = { band: null, rows: [] }; segs.push(cur); }
+                    cur.rows.push(tr);
+                }
+            });
+            segs.forEach(function (s) { s.rows.sort(cmp); });
+            segs.sort(function (a, b) {
+                if (!a.rows.length) { return 1; }
+                if (!b.rows.length) { return -1; }
+                return cmp(a.rows[0], b.rows[0]);
+            });
+            segs.forEach(function (s) {
+                if (s.band) { tbody.appendChild(s.band); }
+                s.rows.forEach(function (r) { tbody.appendChild(r); });
+            });
+        });
+    });
+})();
+</script>
 <?php endif; ?>
 <?php endif; ?>
 </div>
