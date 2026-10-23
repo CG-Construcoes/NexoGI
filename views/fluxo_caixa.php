@@ -175,7 +175,10 @@
                                class="fcs-av" data-grupo="<?= $gid ?>"
                                value="<?= $a['valor'] !== null
                                    ? e(number_format($a['valor'], 2, ',', '.')) : '' ?>"
-                               placeholder="0,00" size="12"></label>
+                               placeholder="0,00" size="12">
+                        <?php if ($podeAtualizar): ?>
+                        <button type="button" class="btn btn-sm fcs-av-save" disabled>Salvar</button>
+                        <?php endif; ?></label>
                     <?php endforeach; ?>
                 </td>
             </tr>
@@ -478,6 +481,42 @@
             });
             var linha = form.querySelector('tr[data-av="' + gid + '"]');
             if (linha) { linha.classList.toggle('fcs-pend', vazio); }
+            // alterou o valor: habilita o Salvar ao lado do campo
+            var sv = inp.parentElement.querySelector('.fcs-av-save');
+            if (sv) { sv.disabled = false; sv.textContent = 'Salvar'; }
+        });
+    });
+    // Botao "Salvar" do avulso: grava so aquele item e desabilita de novo
+    form.querySelectorAll('.fcs-av-save').forEach(function (sv) {
+        sv.addEventListener('click', function () {
+            var inp = sv.parentElement.querySelector('.fcs-av');
+            var m = inp.name.match(/\[(\d+)\]$/);
+            if (!m) { return; }
+            sv.disabled = true;
+            var corpo = new URLSearchParams();
+            corpo.set('csrf', csrfTok);
+            corpo.set('ajax', '1');
+            corpo.set('acao', 'salvar_avulso');
+            corpo.set('avulso_id', m[1]);
+            corpo.set('valor', inp.value);
+            fetch(form.action, { method: 'POST', body: corpo })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.json();
+                })
+                .then(function (j) {
+                    if (j.ok) {
+                        sv.textContent = 'Salvo'; // fica desabilitado ate nova digitacao
+                    } else {
+                        sv.disabled = false;
+                        alert('Valor avulso: ' + (j.erro || 'erro'));
+                    }
+                })
+                .catch(function (e) {
+                    sv.disabled = false;
+                    alert('Valor avulso: falha de rede'
+                        + (e && e.message ? ' (' + e.message + ')' : ''));
+                });
         });
     });
     form.addEventListener('submit', function (ev) {
