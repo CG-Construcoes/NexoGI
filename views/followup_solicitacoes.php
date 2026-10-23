@@ -276,6 +276,18 @@ $sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)
             });
         });
     });
+    // Clique na banda recolhe/expande as linhas do grupo
+    tbody.querySelectorAll('tr.flw-grupo').forEach(function (band) {
+        band.addEventListener('click', function () {
+            var fecha = !band.classList.contains('flw-fech');
+            band.classList.toggle('flw-fech', fecha);
+            var tr = band.nextElementSibling;
+            while (tr && !tr.classList.contains('flw-grupo')) {
+                tr.classList.toggle('flw-oculta', fecha);
+                tr = tr.nextElementSibling;
+            }
+        });
+    });
 })();
 </script>
 <?php endif; ?>

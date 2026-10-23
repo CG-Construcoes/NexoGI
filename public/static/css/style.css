@@ -2837,8 +2837,12 @@ tr.fcs-att td { background: #e3f0e3; }
 .flw-tab th.ord-desc::after { content: ' \25BC'; font-size: 9px; }
 .flw-tab td { white-space: nowrap; }
 .flw-tab td.flw-esp { white-space: normal; min-width: 220px; max-width: 380px; }
+.flw-tab tr.flw-grupo { cursor: pointer; }
 .flw-tab tr.flw-grupo td { font-weight: 700; background: #dcebf7; color: #1e3a5f;
                            border-top: 2px solid #b9c8d8; }
+.flw-tab tr.flw-grupo td:first-child::before { content: '\25BE\00A0'; }
+.flw-tab tr.flw-grupo.flw-fech td:first-child::before { content: '\25B8\00A0'; }
+.flw-tab tr.flw-oculta { display: none; }
 .flw-tab tr.flw-atrasada td { background: #ffd9d9; color: #7a1f1f; }
 .flw-tab tr.flw-atrasada:hover td { background: #ffcccc; }
 .flw-tab td.flw-aut { background: #c9f0c9; color: #145214; font-weight: 600; }
