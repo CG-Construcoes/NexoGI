@@ -46,6 +46,7 @@ const MODULES = [
         ['slug' => 'credor',  'nome' => 'Credor',  'pronto' => false],
         ['nome' => 'Solicitacoes', 'itens' => [
             ['slug' => 'matriz-prioridades', 'nome' => 'Matriz de Prioridades', 'pronto' => true],
+            ['slug' => 'followup-solicitacoes', 'nome' => 'Follow-up das Solicitacoes', 'pronto' => true],
         ]],
     ]],
     ['nome' => 'Indicadores',   'icone' => '📊', 'itens' => [
