@@ -59,18 +59,20 @@ function flw_query(array $f, string $banco): array
     $par[] = $f['data_ini'];
     $where[] = 'Solic.Solic_Data < DATEADD(day, 1, CAST(? AS date))';
     $par[] = $f['data_fim'];
-    if ($f['empresa'] !== '') {
-        $where[] = 'Solic.Empresa_Cod = ?';
-        $par[] = $f['empresa'];
-    }
+    // Empresa/Centro aceitam texto livre (datalist): codigo exato, rotulo
+    // "COD — nome" ou "contem" — resolvidos para lista de codigos (IN).
+    $aplicarIn = function (string $col, ?array $lista) use (&$where, &$par): void {
+        if ($lista === null) { return; }
+        if ($lista === []) { $where[] = '1=0'; return; }
+        $where[] = $col . ' IN (' . implode(',', array_fill(0, count($lista), '?')) . ')';
+        array_push($par, ...$lista);
+    };
+    $aplicarIn('Solic.Empresa_Cod', $f['empresa_in'] ?? null);
     if ($f['filial'] !== '') {
         $where[] = 'Solic.Filial_Cod = ?';
         $par[] = $f['filial'];
     }
-    if ($f['centro'] !== '') {
-        $where[] = 'Solic.Centro_Cod = ?';
-        $par[] = $f['centro'];
-    }
+    $aplicarIn('Solic.Centro_Cod', $f['centro_in'] ?? null);
     if ($f['nucleo'] !== '') {
         $where[] = 'Centro.Nucleo_Cod = ?';
         $par[] = $f['nucleo'];
@@ -315,6 +317,29 @@ function flw_agrupar(array $rows, string $modo): array
         $grupos[$k]['linhas'][] = $r;
     }
     return $grupos;
+}
+
+/** Resolve o texto digitado num filtro "contem" para lista de codigos.
+ *  Prioridade: codigo exato ou rotulo completo -> so ele; senao, todos os
+ *  codigos cujo rotulo contem o texto. null = campo vazio (sem filtro). */
+function flw_resolver(string $texto, array $combo, bool $centro = false): ?array
+{
+    $texto = trim($texto);
+    if ($texto === '') { return null; }
+    $alvo = mb_strtolower($texto);
+    $hits = [];
+    foreach ($combo as $k => $rotulo) {
+        $cod = $centro ? explode('|', (string) $k)[2] : (string) $k;
+        $alvoK = mb_strtolower($cod);
+        $alvoR = mb_strtolower((string) $rotulo);
+        if ($alvoK === $alvo || $alvoR === $alvo) {
+            return [$cod];
+        }
+        if (mb_strpos($alvoK . ' ' . $alvoR, $alvo) !== false) {
+            $hits[$cod] = true;
+        }
+    }
+    return array_keys($hits);
 }
 
 /** Combos do filtro: empresas, filiais, centros, nucleos, solicitantes,

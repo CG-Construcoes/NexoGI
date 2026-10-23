@@ -429,7 +429,14 @@ switch ($rota) {
         $grupos = [];
         $erros = [];
         $combos = [];
+        try {
+            $combos = flw_combos();
+        } catch (Throwable $t) {
+            $erros[] = 'Erro ao listar filtros: ' . $t->getMessage();
+        }
         if ($gerado) {
+            $f['empresa_in'] = flw_resolver($f['empresa'], $combos['empresas'] ?? []);
+            $f['centro_in'] = flw_resolver($f['centro'], $combos['centros'] ?? [], true);
             try {
                 $r = flw_dados($f);
                 $linhas = flw_enriquecer($r['linhas']);
@@ -438,15 +445,9 @@ switch ($rota) {
                         fn($l) => $l['Atrasada'] && $l['Atraso'] >= $f['atraso_min']));
                 }
                 $grupos = flw_agrupar($linhas, $f['agrupar']);
-                $erros = $r['erros'];
+                $erros = array_merge($erros, $r['erros']);
             } catch (Throwable $t) {
                 $erros[] = $t->getMessage();
-            }
-        } else {
-            try {
-                $combos = flw_combos();
-            } catch (Throwable $t) {
-                $erros[] = 'Erro ao listar filtros: ' . $t->getMessage();
             }
         }
         render('followup_solicitacoes', [

@@ -74,12 +74,13 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
             <legend>Empresa e localização</legend>
             <div class="flw-campos">
                 <div class="flw-campo"><span>Empresa</span>
-                    <select name="empresa">
-                        <option value="">Todas</option>
-                        <?php foreach ($combos['empresas'] ?? [] as $c => $n): ?>
-                            <option value="<?= e($c) ?>" <?= $f['empresa'] === $c ? 'selected' : '' ?>><?= e($n) ?></option>
+                    <input type="text" name="empresa" list="dlEmpresa" autocomplete="off"
+                           value="<?= e($f['empresa']) ?>" placeholder="Digite para filtrar">
+                    <datalist id="dlEmpresa">
+                        <?php foreach ($combos['empresas'] ?? [] as $n): ?>
+                            <option value="<?= e($n) ?>"></option>
                         <?php endforeach; ?>
-                    </select></div>
+                    </datalist></div>
                 <div class="flw-campo"><span>Filial</span>
                     <select name="filial"><option value="">Todas</option>
                         <?php foreach ($combos['filiais'] ?? [] as $k => $n): ?>
@@ -87,12 +88,13 @@ $fmtDT = fn(?string $d): string => $d ? date('d/m/Y H:i', strtotime(substr($d, 0
                         <?php endforeach; ?>
                     </select></div>
                 <div class="flw-campo"><span>Centro de Negócio</span>
-                    <select name="centro"><option value="">Todos</option>
-                        <?php foreach ($combos['centros'] ?? [] as $k => $n):
-                            $cc = explode('|', $k)[2]; ?>
-                            <option value="<?= e($cc) ?>" <?= $f['centro'] === $cc ? 'selected' : '' ?>><?= e($n) ?></option>
+                    <input type="text" name="centro" list="dlCentro" autocomplete="off"
+                           value="<?= e($f['centro']) ?>" placeholder="Digite para filtrar">
+                    <datalist id="dlCentro">
+                        <?php foreach (array_unique($combos['centros'] ?? []) as $n): ?>
+                            <option value="<?= e($n) ?>"></option>
                         <?php endforeach; ?>
-                    </select></div>
+                    </datalist></div>
                 <div class="flw-campo"><span>Núcleo</span>
                     <select name="nucleo"><option value="">Todos</option>
                         <?php foreach ($combos['nucleos'] ?? [] as $c => $n): ?>
