@@ -711,6 +711,25 @@ switch ($rota) {
                 echo json_encode(['ok' => true]);
                 exit;
             }
+            // Botao "Salvar" ao lado do campo: grava so aquele valor avulso.
+            if (!empty($_POST['ajax']) && ($_POST['acao'] ?? '') === 'salvar_avulso') {
+                header('Content-Type: application/json; charset=utf-8');
+                exigir_tela('fluxo-caixa', 'alterar');
+                $aid = (int) ($_POST['avulso_id'] ?? 0);
+                $vTxt = trim((string) ($_POST['valor'] ?? ''));
+                try {
+                    if ($vTxt === '') {
+                        execute('UPDATE msoft.GrupoCentro_Avulso SET Avulso_Valor = NULL
+                                 WHERE Avulso_Id = ?', [$aid]);
+                    } else {
+                        fcs_salvar_avulsos([$aid => fcs_valor($vTxt)]);
+                    }
+                    echo json_encode(['ok' => true]);
+                } catch (Throwable $t) {
+                    echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+                }
+                exit;
+            }
             // Bases: formulario da tela enviado sem nenhuma marcada.
             if (fcs_bases_post() === []) {
                 $msgBases = 'Marque ao menos uma base (DBMGA / DBCONV).';
