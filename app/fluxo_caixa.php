@@ -213,8 +213,20 @@ function fc_incluir_avulso(int $id, string $descricao): void
 
 function fc_excluir_avulso(int $id, int $avulsoId): void
 {
+    $av = query('SELECT Avulso_ValorNoSaldo FROM msoft.GrupoCentro_Avulso
+                 WHERE FCGrupo_Id = ? AND Avulso_Id = ?', [$id, $avulsoId]);
     execute('DELETE FROM msoft.GrupoCentro_Avulso WHERE FCGrupo_Id = ? AND Avulso_Id = ?',
             [$id, $avulsoId]);
+    // a parte que ja estava somada no saldo gravado sai junto
+    $noSaldo = (float) ($av[0]['Avulso_ValorNoSaldo'] ?? 0.0);
+    if ($noSaldo != 0.0) {
+        execute('UPDATE msoft.GruposSaldos
+                 SET SaldoGrupo = SaldoGrupo - ?, SaldoMes1 = SaldoMes1 - ?,
+                     SaldoMes2 = SaldoMes2 - ?, SaldoMes3 = SaldoMes3 - ?,
+                     UltimaAtualizacao = GETDATE()
+                 WHERE FCGrupo_Id = ?',
+            [$noSaldo, $noSaldo, $noSaldo, $noSaldo, $id]);
+    }
 }
 
 /**

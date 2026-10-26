@@ -442,6 +442,10 @@ function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avuls
                 execute('INSERT INTO msoft.GruposSaldos (FCGrupo_Id, SaldoGrupo, UltimaAtualizacao)
                          VALUES (?, ?, GETDATE())', [(int) $id, $saldo]);
             }
+            // o saldo gravado agora contem o valor atual de cada avulso
+            execute('UPDATE msoft.GrupoCentro_Avulso
+                     SET Avulso_ValorNoSaldo = Avulso_Valor
+                     WHERE FCGrupo_Id = ?', [(int) $id]);
             $ok++;
         } catch (Throwable $e) {
             $g = fc_get((int) $id);
