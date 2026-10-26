@@ -720,25 +720,31 @@ switch ($rota) {
                 $aid = (int) ($_POST['avulso_id'] ?? 0);
                 $vTxt = trim((string) ($_POST['valor'] ?? ''));
                 try {
-                    $ant = query('SELECT FCGrupo_Id, Avulso_Valor
+                    $ant = query('SELECT FCGrupo_Id, Avulso_ValorNoSaldo
                                   FROM msoft.GrupoCentro_Avulso WHERE Avulso_Id = ?', [$aid]);
                     if (!$ant) {
                         echo json_encode(['ok' => false, 'erro' => 'Valor avulso nao encontrado.']);
                         exit;
                     }
                     $gid = (int) $ant[0]['FCGrupo_Id'];
-                    $vAnt = $ant[0]['Avulso_Valor'] !== null
-                        ? (float) $ant[0]['Avulso_Valor'] : 0.0;
+                    $noSaldo = (float) ($ant[0]['Avulso_ValorNoSaldo'] ?? 0.0);
                     $vNov = $vTxt === '' ? null : fcs_valor($vTxt);
                     fcs_salvar_avulsos([$aid => $vNov]);
-                    $delta = ($vNov ?? 0.0) - $vAnt;
+                    // delta = valor novo - quanto DESTE avulso ja estava no
+                    // saldo gravado; aplica no saldo e nas 3 projecoes
+                    $delta = ($vNov ?? 0.0) - $noSaldo;
                     if ($delta != 0.0) {
-                        execute('UPDATE msoft.GruposSaldos
+                        $af = execute('UPDATE msoft.GruposSaldos
                                  SET SaldoGrupo = SaldoGrupo + ?, SaldoMes1 = SaldoMes1 + ?,
                                      SaldoMes2 = SaldoMes2 + ?, SaldoMes3 = SaldoMes3 + ?,
                                      UltimaAtualizacao = GETDATE()
                                  WHERE FCGrupo_Id = ?',
                             [$delta, $delta, $delta, $delta, $gid]);
+                        if ($af > 0) {
+                            execute('UPDATE msoft.GrupoCentro_Avulso
+                                     SET Avulso_ValorNoSaldo = ?
+                                     WHERE Avulso_Id = ?', [$vNov, $aid]);
+                        }
                     }
                     $s = query('SELECT SaldoGrupo, SaldoMes1, SaldoMes2, SaldoMes3,
                                        UltimaAtualizacao
