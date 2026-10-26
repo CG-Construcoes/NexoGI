@@ -711,20 +711,47 @@ switch ($rota) {
                 echo json_encode(['ok' => true]);
                 exit;
             }
-            // Botao "Salvar" ao lado do campo: grava so aquele valor avulso.
+            // Botao "Salvar" ao lado do campo: grava so aquele valor avulso
+            // e ja acerta o saldo gravado do grupo (o avulso entra na soma
+            // linearmente — delta propaga igual no saldo e nas 3 projecoes).
             if (!empty($_POST['ajax']) && ($_POST['acao'] ?? '') === 'salvar_avulso') {
                 header('Content-Type: application/json; charset=utf-8');
                 exigir_tela('fluxo-caixa', 'alterar');
                 $aid = (int) ($_POST['avulso_id'] ?? 0);
                 $vTxt = trim((string) ($_POST['valor'] ?? ''));
                 try {
-                    if ($vTxt === '') {
-                        execute('UPDATE msoft.GrupoCentro_Avulso SET Avulso_Valor = NULL
-                                 WHERE Avulso_Id = ?', [$aid]);
-                    } else {
-                        fcs_salvar_avulsos([$aid => fcs_valor($vTxt)]);
+                    $ant = query('SELECT FCGrupo_Id, Avulso_Valor
+                                  FROM msoft.GrupoCentro_Avulso WHERE Avulso_Id = ?', [$aid]);
+                    if (!$ant) {
+                        echo json_encode(['ok' => false, 'erro' => 'Valor avulso nao encontrado.']);
+                        exit;
                     }
-                    echo json_encode(['ok' => true]);
+                    $gid = (int) $ant[0]['FCGrupo_Id'];
+                    $vAnt = $ant[0]['Avulso_Valor'] !== null
+                        ? (float) $ant[0]['Avulso_Valor'] : 0.0;
+                    $vNov = $vTxt === '' ? null : fcs_valor($vTxt);
+                    fcs_salvar_avulsos([$aid => $vNov]);
+                    $delta = ($vNov ?? 0.0) - $vAnt;
+                    if ($delta != 0.0) {
+                        execute('UPDATE msoft.GruposSaldos
+                                 SET SaldoGrupo = SaldoGrupo + ?, SaldoMes1 = SaldoMes1 + ?,
+                                     SaldoMes2 = SaldoMes2 + ?, SaldoMes3 = SaldoMes3 + ?,
+                                     UltimaAtualizacao = GETDATE()
+                                 WHERE FCGrupo_Id = ?',
+                            [$delta, $delta, $delta, $delta, $gid]);
+                    }
+                    $s = query('SELECT SaldoGrupo, SaldoMes1, SaldoMes2, SaldoMes3,
+                                       UltimaAtualizacao
+                                FROM msoft.GruposSaldos WHERE FCGrupo_Id = ?', [$gid]);
+                    $s = $s[0] ?? null;
+                    $f = fn($c) => $s && $s[$c] !== null ? (float) $s[$c] : null;
+                    echo json_encode([
+                        'ok' => true, 'delta' => $delta,
+                        'saldo' => $f('SaldoGrupo'), 'mes1' => $f('SaldoMes1'),
+                        'mes2' => $f('SaldoMes2'), 'mes3' => $f('SaldoMes3'),
+                        'atual' => $s && $s['UltimaAtualizacao']
+                            ? data_br((string) $s['UltimaAtualizacao'], true) : null,
+                    ]);
                 } catch (Throwable $t) {
                     echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
                 }

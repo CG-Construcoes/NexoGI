@@ -507,6 +507,36 @@
                 .then(function (j) {
                     if (j.ok) {
                         sv.textContent = 'Salvo'; // fica desabilitado ate nova digitacao
+                        // reflete na hora: saldo do grupo, projecoes e total
+                        var linha = form.querySelector(
+                            'tr[data-gid="' + inp.dataset.grupo + '"]');
+                        if (linha && j.saldo !== null) {
+                            var fmt = function (v) {
+                                return Number(v).toLocaleString('pt-BR',
+                                    { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            };
+                            var vals = [j.saldo, j.mes1, j.mes2, j.mes3];
+                            linha.querySelectorAll('td.col-valor').forEach(function (td, i) {
+                                if (vals[i] !== undefined) {
+                                    td.textContent = vals[i] === null ? '—' : fmt(vals[i]);
+                                }
+                            });
+                            if (j.atual) {
+                                var tds = linha.querySelectorAll('td');
+                                tds[tds.length - 1].textContent = j.atual;
+                            }
+                            // total geral: mesmo delta (grupo oculto nao soma)
+                            var tf = form.querySelector('tfoot');
+                            if (tf && j.delta && !linha.classList.contains('fcs-oculto')) {
+                                tf.querySelectorAll('td.col-valor').forEach(function (td) {
+                                    var t = td.textContent.trim();
+                                    if (t === '—' || t === '') { return; }
+                                    var v = parseFloat(
+                                        t.replace(/\./g, '').replace(',', '.'));
+                                    if (!isNaN(v)) { td.textContent = fmt(v + j.delta); }
+                                });
+                            }
+                        }
                     } else {
                         sv.disabled = false;
                         alert('Valor avulso: ' + (j.erro || 'erro'));
