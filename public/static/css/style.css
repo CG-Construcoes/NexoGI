@@ -2626,6 +2626,7 @@ tr.fcs-av-row td { background: #fbf3e0; }
     font-size: 12px; color: #445; margin: 2px 14px 2px 0; }
 .fcs-av-lab input { padding: 3px 6px; font-size: 12px; width: 110px;
     text-align: right; }
+.fcs-av-save:disabled { opacity: .5; cursor: default; }
 .fc-av-hint { color: #778; font-size: 12px; }
 tr.fc-avulso td { background: #fbf3e0; }
 .fcs-ord { white-space: nowrap; text-align: center; }

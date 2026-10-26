@@ -483,7 +483,7 @@
             if (linha) { linha.classList.toggle('fcs-pend', vazio); }
             // alterou o valor: habilita o Salvar ao lado do campo
             var sv = inp.parentElement.querySelector('.fcs-av-save');
-            if (sv) { sv.disabled = false; sv.textContent = 'Salvar'; }
+            if (sv) { sv.disabled = inp.value.trim() === ''; sv.textContent = 'Salvar'; }
         });
     });
     // Botao "Salvar" do avulso: grava so aquele item e desabilita de novo
