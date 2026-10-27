@@ -94,3 +94,5 @@ require ROOT . '/app/faturamento.php';
 require ROOT . '/app/dre.php';
 require ROOT . '/app/dicas.php';
 require ROOT . '/app/followup_solicitacoes.php';
+require ROOT . '/app/funcoes.php';
+require ROOT . '/app/atividades.php';

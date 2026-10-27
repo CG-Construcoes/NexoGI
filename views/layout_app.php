@@ -117,6 +117,14 @@ try {
             <?= $conteudo ?>
         </main>
     </div>
+    <?php if (usuario_logado()):
+        $atvCor = atv_badge_cor();
+        $atvTit = ['cinza'    => 'Sem atividades pendentes',
+                   'amarelo'  => 'Voce tem atividades em aberto',
+                   'vermelho' => 'Atividade vencida ou urgente!'][$atvCor]; ?>
+    <a href="<?= url('atividades') ?>" class="atv-ico atv-ico-<?= e($atvCor) ?>"
+       title="<?= e($atvTit) ?> — Minhas Atividades"><?= icone_svg('alerta', 22) ?></a>
+    <?php endif; ?>
 </div>
 
 <script>

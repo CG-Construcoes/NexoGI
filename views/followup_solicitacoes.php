@@ -230,6 +230,7 @@ $sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)
     </tbody>
 </table>
 </div>
+<div class="flw-hscroll" id="flwHScroll"><div class="flw-hscroll-inner"></div></div>
 <script>
 // Clique no titulo reordena o grid: somente as linhas dentro de cada banda
 // (as bandas/grupos ficam fixas). Celula vazia sempre por ultimo.
@@ -288,6 +289,34 @@ $sortDT = fn(?string $d): string => $d ? str_replace(' ', 'T', substr($d, 0, 16)
             }
         });
     });
+    // Rodape fixo: barra horizontal sincronizada com a tabela. Fica visivel
+    // apenas enquanto a barra nativa (no fim da tabela) esta fora da tela.
+    var wrap = tab.closest('.tabela-responsiva');
+    var bar = document.getElementById('flwHScroll');
+    if (wrap && bar) {
+        var inner = bar.firstElementChild;
+        var sinc = false;
+        var atual = function () {
+            var r = wrap.getBoundingClientRect();
+            bar.style.left = r.left + 'px';
+            bar.style.width = r.width + 'px';
+            inner.style.width = wrap.scrollWidth + 'px';
+            var transborda = wrap.scrollWidth > wrap.clientWidth + 1;
+            var naTela = r.bottom > 0 && r.top < window.innerHeight;
+            var nativaVisivel = r.bottom <= window.innerHeight;
+            bar.style.display = (transborda && naTela && !nativaVisivel) ? 'block' : 'none';
+        };
+        wrap.addEventListener('scroll', function () {
+            if (!sinc) { sinc = true; bar.scrollLeft = wrap.scrollLeft; sinc = false; }
+        });
+        bar.addEventListener('scroll', function () {
+            if (!sinc) { sinc = true; wrap.scrollLeft = bar.scrollLeft; sinc = false; }
+        });
+        window.addEventListener('resize', atual);
+        window.addEventListener('scroll', atual, { passive: true });
+        wrap.style.marginBottom = '22px';
+        atual();
+    }
 })();
 </script>
 <?php endif; ?>

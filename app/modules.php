@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 /** Menu lateral: grupos e telas. 'pronto' => true quando a tela ja foi convertida para PHP. */
 const MODULES = [
+    ['nome' => 'Atividades',    'icone' => '✅', 'itens' => [
+        ['slug' => 'atividades', 'nome' => 'Atividades', 'pronto' => true],
+    ]],
     ['nome' => 'Comercial',     'icone' => '📈', 'itens' => []],
     ['nome' => 'Contabilidade', 'icone' => '🧮', 'itens' => []],
     ['nome' => 'Engenharia',    'icone' => '🏗️', 'itens' => [
@@ -61,6 +64,7 @@ const MODULES = [
         ['slug' => 'configuracoes', 'nome' => 'Painel de Configuracoes', 'pronto' => true],
         ['slug' => 'usuarios', 'nome' => 'Usuarios e Acessos', 'pronto' => true],
         ['slug' => 'grupos-usuarios', 'nome' => 'Grupos de Permissao', 'pronto' => true],
+        ['slug' => 'funcoes', 'nome' => 'Funções', 'pronto' => true],
         ['slug' => 'dicas', 'nome' => 'Dicas', 'pronto' => true],
     ]],
 ];

@@ -207,6 +207,14 @@ function icone_svg(string $nome, int $size = 20): string
             . '<line x1="19" y1="6" x2="29" y2="6"/>'
             . '</g></svg>',
         'alerta', '⚠' => '<svg ' . $attrUi . '><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+
+        // Atividades: prancheta com check no mesmo estilo gradiente
+        'atividades', '✅' => '<svg ' . $attrGrad . '>' . $defs
+            . '<g stroke="url(#' . $gid . ')" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+            . '<rect x="10" y="8" width="28" height="34" rx="2"/>'
+            . '<rect x="18" y="4" width="12" height="7" rx="1.5"/>'
+            . '<polyline points="17,27 22.5,32.5 32,22"/>'
+            . '</g></svg>',
         'pin' => '<svg ' . $attrUi . '><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
         'chevron' => '<svg ' . $attrUi . '><polyline points="6 9 12 15 18 9"/></svg>',
         'sair' => '<svg ' . $attrUi . '><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',

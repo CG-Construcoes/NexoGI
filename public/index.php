@@ -37,6 +37,8 @@ $ROTAS_TELA = [
     'dre-mes' => 'dre-mes',
     'dre-ano-arquivada' => 'dre-ano-arquivada',
     'dre-mes-arquivada' => 'dre-mes-arquivada',
+    'atividades' => 'atividades',
+    'atividade' => 'atividades',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -177,6 +179,42 @@ switch ($rota) {
             'membros' => $grupoSel ? ug_membros((int) $grupoSel['UsGrupo_Id']) : []]);
         break;
 
+    case 'funcoes':
+        exigir_admin();
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('funcoes');
+            }
+            $acao = (string) ($_POST['acao'] ?? 'inserir');
+            $id = (int) ($_POST['id'] ?? 0);
+            try {
+                if ($acao === 'excluir') {
+                    fun_excluir($id);
+                    definir_aviso(['tipo' => 'ok', 'html' => 'Funcao excluida.']);
+                } else {
+                    $d = fun_validar($_POST);
+                    if ($acao === 'editar') {
+                        fun_atualizar($id, $d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Funcao atualizada.']);
+                    } else {
+                        fun_inserir($d);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Funcao cadastrada.']);
+                    }
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar('funcoes');
+        }
+        render('funcoes', ['titulo' => 'Funcoes dos Usuarios',
+            'active' => 'funcoes', 'aviso' => consumir_aviso(),
+            'funcoes' => fun_listar(),
+            'edicao' => isset($_GET['editar']) ? fun_get((int) $_GET['editar']) : null]);
+        break;
+
     case 'dicas':
         exigir_admin();
         if ($metodo === 'POST') {
@@ -223,6 +261,26 @@ switch ($rota) {
                 JSON_UNESCAPED_UNICODE);
         } catch (Throwable $t) {
             echo json_encode(['dica' => null]);
+        }
+        exit;
+
+    case 'atividade/vinculos':
+        // Busca JSON de itens do ERP p/ vincular (?tipo=&q=)
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            if (($_GET['lista'] ?? '') === 'combo') {
+                echo json_encode(atv_vinc_combo(), JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            echo json_encode(atv_vinculos_busca(
+                (string) ($_GET['tipo'] ?? ''), (string) ($_GET['q'] ?? ''),
+                (string) ($_GET['esp'] ?? ''), (string) ($_GET['centro'] ?? ''),
+                (string) ($_GET['empresa'] ?? ''),
+                (string) ($_GET['de'] ?? ''), (string) ($_GET['ate'] ?? '')),
+                JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $t) {
+            echo json_encode([]);
         }
         exit;
 
@@ -462,6 +520,163 @@ switch ($rota) {
             'combos' => $combos]);
         break;
 
+    case 'atividades':
+        exigir_login();
+        $eu = atv_eu();
+        $gerado = isset($_GET['gerar']);
+        $f = [
+            'data_ini' => (string) ($_GET['data_ini'] ?? ''),
+            'data_fim' => (string) ($_GET['data_fim'] ?? ''),
+            'escopo'   => (string) ($_GET['escopo'] ?? 'minhas'),
+            'resp'     => (int) ($_GET['resp'] ?? 0),
+            'visib'    => (string) ($_GET['visib'] ?? ''),
+            'setor'    => trim((string) ($_GET['setor'] ?? '')),
+            'urgente'  => isset($_GET['urgente']),
+            'vencidas' => isset($_GET['vencidas']),
+            'texto'    => trim((string) ($_GET['texto'] ?? '')),
+            'status'   => array_values(array_filter(
+                array_map('strval', (array) ($_GET['status'] ?? [])),
+                fn($s) => in_array($s, ATV_STATUS, true))),
+        ];
+        // Abertura da tela: atividades em aberto comigo (qualquer periodo).
+        if (!$gerado) {
+            $f['status'] = array_values(array_diff(ATV_STATUS, ATV_STATUS_FINAIS));
+        }
+        $linhas = [];
+        $erros = [];
+        try {
+            $linhas = atv_listar($f, $eu);
+        } catch (Throwable $t) {
+            $erros[] = 'Erro ao listar atividades: ' . $t->getMessage();
+        }
+        render('atividades', ['titulo' => 'Controle de Atividades',
+            'active' => 'atividades', 'aviso' => consumir_aviso(),
+            'f' => $f, 'linhas' => $linhas, 'erros' => $erros,
+            'gestor' => atv_e_gestor($eu), 'eu' => $eu,
+            'usuarios' => atv_usuarios(), 'setores' => atv_setores()]);
+        break;
+
+    case 'atividade':
+        exigir_login();
+        $eu = atv_eu();
+        if (!$eu) {
+            redirecionar('login');
+        }
+        $gestor = atv_e_gestor($eu);
+        if ($metodo === 'POST') {
+            if (!csrf_valido()) {
+                definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);
+                redirecionar('atividades');
+            }
+            $acao = (string) ($_POST['acao'] ?? '');
+            $id = (int) ($_POST['id'] ?? 0);
+            $destino = $id ? "atividade?id=$id" : 'atividades';
+            try {
+                switch ($acao) {
+                    case 'criar':
+                        if (!$gestor) {
+                            throw new InvalidArgumentException('Somente gestores/coordenadores criam atividades.');
+                        }
+                        $novo = atv_criar($_POST, $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Atividade criada e atribuida.']);
+                        $destino = "atividade?id=$novo";
+                        break;
+                    case 'status':
+                        atv_mudar_status($id, (string) ($_POST['status'] ?? ''), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Status atualizado.']);
+                        break;
+                    case 'trabalhar':
+                        $r = atv_trabalhar($id, $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' =>
+                            $r === 'iniciado' ? 'Relogio de trabalho iniciado.' : 'Relogio de trabalho parado.']);
+                        break;
+                    case 'comentar':
+                        atv_comentar($id, (string) ($_POST['texto'] ?? ''), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Comentario registrado.']);
+                        break;
+                    case 'transferir':
+                        atv_transferir($id, (int) ($_POST['para'] ?? 0), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Atividade transferida.']);
+                        break;
+                    case 'participante_add':
+                        atv_participante_add($id, (int) ($_POST['usuario'] ?? 0), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Participante incluido.']);
+                        break;
+                    case 'participante_remover':
+                        atv_participante_remover($id, (int) ($_POST['usuario'] ?? 0), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Participante removido.']);
+                        break;
+                    case 'vinculo_add':
+                        // unitario (campo simples) ou lista vinc_*[] (grid multi-selecao)
+                        if (trim((string) ($_POST['tipo'] ?? '')) !== '') {
+                            atv_vinculo_add($id, (string) $_POST['tipo'],
+                                (string) ($_POST['base'] ?? ''), (string) ($_POST['chave'] ?? ''),
+                                (string) ($_POST['rotulo'] ?? ''), $eu);
+                        }
+                        $vt = (array) ($_POST['vinc_tipo'] ?? []);
+                        $vb = (array) ($_POST['vinc_base'] ?? []);
+                        $vc = (array) ($_POST['vinc_chave'] ?? []);
+                        $vr = (array) ($_POST['vinc_rotulo'] ?? []);
+                        foreach ($vt as $i => $vTipo) {
+                            atv_vinculo_add($id, (string) $vTipo, (string) ($vb[$i] ?? ''),
+                                (string) ($vc[$i] ?? ''), (string) ($vr[$i] ?? ''), $eu);
+                        }
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Item(ns) vinculado(s).']);
+                        break;
+                    case 'vinculo_remover':
+                        atv_vinculo_remover($id, (int) ($_POST['vinculo'] ?? 0), $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Vinculo removido.']);
+                        break;
+                    case 'editar':
+                    case 'excluir':
+                        atv_excluir($id, $eu);
+                        definir_aviso(['tipo' => 'ok', 'html' => 'Atividade excluida.']);
+                        $destino = 'atividades';
+                        break;
+                    default:
+                        definir_aviso(['tipo' => 'erro', 'html' => 'Acao invalida.']);
+                }
+            } catch (InvalidArgumentException $e) {
+                definir_aviso(['tipo' => 'erro', 'html' => e($e->getMessage())]);
+            } catch (Throwable $e) {
+                error_log('Msoft atividade: ' . $e->getMessage());
+                definir_aviso(['tipo' => 'erro', 'html' => 'Erro ao salvar: ' . e($e->getMessage())]);
+            }
+            redirecionar($destino);
+        }
+        $nova = isset($_GET['nova']);
+        $a = null;
+        if (!$nova) {
+            $id = (int) ($_GET['id'] ?? 0);
+            try {
+                $a = atv_carregar($id);
+            } catch (Throwable $t) {
+                http_response_code(404);
+                render('erro404', ['titulo' => 'Atividade nao encontrada'], 'base');
+                exit;
+            }
+            if (!atv_pode_ver($a, $eu)) {
+                http_response_code(403);
+                render('erro403', ['titulo' => 'Acesso negado'], 'base');
+                exit;
+            }
+        }
+        render('atividade', [
+            'titulo' => $nova ? 'Nova Atividade' : 'Atividade #' . (int) $a['Atividade_Id'],
+            'active' => 'atividades', 'aviso' => consumir_aviso(),
+            'nova' => $nova, 'a' => $a, 'eu' => $eu, 'gestor' => $gestor,
+            'gestorDa' => $a ? atv_e_gestor_da($a, $eu) : false,
+            'parts' => $a ? atv_participantes((int) $a['Atividade_Id']) : [],
+            'eventos' => $a ? atv_eventos((int) $a['Atividade_Id']) : [],
+            'aponts' => $a ? atv_apontamentos((int) $a['Atividade_Id']) : [],
+            'trab' => $a ? atv_trabalhado((int) $a['Atividade_Id']) : ['porUsuario' => [], 'total' => 0],
+            'apontMeu' => $a ? atv_apont_aberto((int) $a['Atividade_Id'], (int) $eu['Id']) : null,
+            'usuarios' => atv_usuarios(), 'setores' => atv_setores(),
+            'usuariosAtrib' => atv_usuarios_para_atribuir($eu),
+            'vinculos' => $a ? atv_vinculos((int) $a['Atividade_Id']) : [],
+        ]);
+        break;
+
     case 'medicoes':
         exigir_login();
         if ($metodo === 'POST') {
@@ -671,6 +886,28 @@ switch ($rota) {
 
     case 'fluxo-caixa':
         exigir_login();
+        // Detalhe da linha: totais por centro do grupo (Total Geral por centro).
+        if (!empty($_GET['ajax_centros'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            try {
+                exigir_tela('fluxo-caixa', 'consultar');
+                $gid = (int) ($_GET['grupo'] ?? 0);
+                $ini = trim((string) ($_GET['data_ini'] ?? ''));
+                $fim = trim((string) ($_GET['data_fim'] ?? ''));
+                if (!$gid || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ini)
+                    || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fim) || $ini > $fim) {
+                    echo json_encode(['ok' => false, 'erro' => 'Informe o periodo (De / a) acima.']);
+                    exit;
+                }
+                set_time_limit(300);
+                $rows = fcs_saldos_por_centro($gid, $ini, $fim);
+                echo json_encode(['ok' => true, 'rows' => $rows,
+                                  'total' => array_sum(array_column($rows, 'saldo'))]);
+            } catch (Throwable $t) {
+                echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+            }
+            exit;
+        }
         if ($metodo === 'POST') {
             if (!csrf_valido()) {
                 definir_aviso(['tipo' => 'erro', 'html' => 'Sessao expirada. Tente novamente.']);

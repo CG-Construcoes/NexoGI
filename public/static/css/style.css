@@ -2548,6 +2548,7 @@ body.sidebar-fixa .pedidos-rodape {
     .sidebar-trigger,
     .topbar,
     .pedidos-rodape,
+    .flw-hscroll,
     .versao-app {
         display: none !important;
     }
@@ -2854,3 +2855,195 @@ tr.fcs-att td { background: #e3f0e3; }
 .flw-tab td.flw-sit-CO { background: #fdf3c0; font-weight: 600; }
 .flw-tab td.flw-sit-PE { background: #d5e6f7; font-weight: 600; }
 .flw-tab td.flw-sit-AR { background: #e6d9f2; font-weight: 600; }
+
+/* Follow-up — rodape fixo com barra de rolagem horizontal da tabela */
+.flw-hscroll { position: fixed; bottom: 0; left: 0; z-index: 700; display: none;
+               height: 18px; overflow-x: auto; overflow-y: hidden;
+               background: var(--bg-surface); border-top: 1px solid var(--border-color);
+               box-shadow: 0 -2px 8px rgba(15, 41, 66, 0.10); }
+.flw-hscroll-inner { height: 1px; }
+
+/* ---------- Controle de Atividades ---------- */
+/* Icone fixo no canto inferior esquerdo (cinza/amarelo/vermelho) */
+.atv-ico { position: fixed; left: 14px; bottom: 14px; z-index: 1100;
+           width: 46px; height: 46px; border-radius: 50%;
+           display: flex; align-items: center; justify-content: center;
+           text-decoration: none; box-shadow: 0 3px 10px rgba(9, 25, 43, 0.30);
+           transition: transform var(--transition-fast), box-shadow var(--transition-fast); }
+.atv-ico:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(9, 25, 43, 0.38); }
+.atv-ico-cinza    { background: #cbd5e1; color: #64748b; }
+.atv-ico-amarelo  { background: #fbbf24; color: #78350f; }
+.atv-ico-vermelho { background: #dc2626; color: #fff; animation: atv-pulse 1.6s infinite; }
+@keyframes atv-pulse {
+    0%, 100% { box-shadow: 0 3px 10px rgba(220, 38, 38, 0.45); }
+    50%      { box-shadow: 0 3px 18px 6px rgba(220, 38, 38, 0.65); }
+}
+
+/* badges de status */
+.badge.atv-st-ainiciar   { background: #e2e8f0; color: #334155; }
+.badge.atv-st-andamento  { background: #dbeafe; color: #1d4ed8; }
+.badge.atv-st-aguardando { background: #fef3c7; color: #92400e; }
+.badge.atv-st-suspensa   { background: #ede9fe; color: #5b21b6; }
+.badge.atv-st-concluida  { background: #d1fae5; color: #065f46; }
+.badge.atv-st-cancelada  { background: #f3f4f6; color: #6b7280; text-decoration: line-through; }
+.badge.atv-st-vencida    { background: #dc2626; color: #fff; }
+.badge.atv-visib         { background: #f1f5f9; color: #475569; }
+
+/* marcador de urgencia */
+.atv-urg { display: inline-flex; align-items: center; justify-content: center;
+           width: 18px; height: 18px; border-radius: 50%; background: #dc2626;
+           color: #fff; font-weight: 800; font-size: 12px; line-height: 1; }
+
+/* grid da lista */
+.atv-tab tr.atv-venc td { background: #ffd9d9; }
+.atv-tab tr.atv-venc:hover td { background: #ffcccc; }
+.atv-tit strong { display: block; font-weight: 600; }
+.atv-ref { display: block; font-size: 11px; color: #64748b; }
+.atv-venc-txt { color: #b91c1c; font-weight: 700; font-size: 11px; }
+
+/* barra de filtros compacta da lista */
+.atv-fbar { background: #fff; border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); padding: 10px 14px;
+            margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+.atv-frow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.atv-frow + .atv-frow { margin-top: 8px; padding-top: 8px;
+                        border-top: 1px dashed var(--border-color); }
+.atv-frow label { display: flex; align-items: center; gap: 5px; font-size: 12.5px;
+                  color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.atv-fescopo { display: flex; gap: 10px; font-size: 12.5px; }
+.atv-fescopo label { font-weight: 600; color: var(--text-main); }
+.atv-fsep { width: 1px; height: 20px; background: var(--border-color); flex-shrink: 0; }
+.atv-frow select, .atv-frow input[type="date"], .atv-frow input[type="text"] {
+    padding: 5px 9px; font-size: 12.5px; border: 1px solid var(--border-strong);
+    border-radius: 6px; font-family: inherit; background: #fff; }
+.atv-frow input[type="text"].grow { flex: 1; min-width: 140px; }
+.atv-fstatus { display: flex; gap: 6px; flex-wrap: wrap; }
+.atv-fstatus label { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.atv-fbtns { margin-left: auto; display: flex; gap: 8px; }
+
+/* tela de detalhe */
+.atv-head { display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.atv-head-tit h2 { margin: 0; font-size: 19px; }
+.atv-head-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+.atv-head-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.atv-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.atv-card { background: #fff; border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+.atv-card h3 { margin: 0 0 12px; font-size: 14px; color: var(--primary-800);
+               text-transform: uppercase; letter-spacing: .04em; }
+.atv-card h4 { margin: 14px 0 6px; font-size: 12.5px; color: var(--text-secondary); }
+.atv-meta { display: grid; grid-template-columns: 130px 1fr; gap: 5px 10px; margin: 0;
+            font-size: 13px; }
+.atv-meta dt { color: var(--text-muted); font-weight: 600; }
+.atv-meta dd { margin: 0; }
+.atv-orient { margin-top: 14px; padding: 12px 14px; background: #f8fafc;
+              border-left: 3px solid var(--primary-600); border-radius: 6px;
+              font-size: 13px; white-space: pre-wrap; }
+.atv-edit { margin-top: 14px; border-top: 1px dashed var(--border-color); padding-top: 10px; }
+.atv-edit > summary { cursor: pointer; font-size: 13px; font-weight: 600;
+                      color: var(--primary-800); user-select: none; }
+.atv-edit form { margin-top: 12px; }
+.atv-form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 16px; }
+.atv-form-grid .campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.atv-form-grid .campo > label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.atv-form-grid input[type="text"], .atv-form-grid input[type="datetime-local"],
+.atv-form-grid select, .atv-form-grid textarea {
+    padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 7px;
+    font-size: 13px; font-family: inherit; background: #fff; color: var(--text-main); }
+.atv-form-grid input:focus, .atv-form-grid select:focus, .atv-form-grid textarea:focus {
+    outline: none; border-color: var(--primary-600); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14); }
+.atv-visib { display: flex; gap: 14px; font-size: 13px; }
+.atv-visib label, .atv-urg-chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.atv-parts-box { max-height: 140px; overflow-y: auto; border: 1px solid var(--border-color);
+    border-radius: 7px; padding: 8px 12px; background: #fcfdff;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 14px; font-size: 13px; }
+.atv-parts-box label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.atv-chip { display: inline-flex; align-items: center; gap: 5px; background: #eef2ff;
+    color: #3730a3; border-radius: 999px; padding: 3px 10px; font-size: 12px;
+    margin: 2px 4px 2px 0; }
+.atv-chip-x { border: none; background: none; color: #6366f1; font-size: 14px;
+    cursor: pointer; padding: 0 0 0 2px; line-height: 1; }
+.atv-chip-x:hover { color: #dc2626; }
+.atv-add-part { display: inline-flex; gap: 6px; margin-top: 6px; }
+.atv-add-part select { padding: 4px 8px; font-size: 12.5px; border: 1px solid var(--border-strong);
+    border-radius: 6px; font-family: inherit; }
+.atv-trab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.atv-trab td { padding: 3px 0; border-bottom: 1px dashed #eef2f7; }
+.atv-trab tfoot td { border-top: 1px solid var(--border-color); border-bottom: none;
+    padding-top: 6px; }
+.atv-acoes { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.atv-acao { display: flex; align-items: center; gap: 8px; }
+.atv-acao select { padding: 7px 10px; font-size: 13px; border: 1px solid var(--border-strong);
+    border-radius: 7px; font-family: inherit; }
+.atv-acao-hint { font-size: 11.5px; color: var(--text-muted); }
+.atv-coment { display: flex; gap: 8px; margin-bottom: 16px; }
+.atv-coment input { flex: 1; padding: 8px 12px; font-size: 13px;
+    border: 1px solid var(--border-strong); border-radius: 7px; font-family: inherit; }
+
+/* linha do tempo */
+.atv-tl { display: flex; flex-direction: column; gap: 2px; }
+.atv-tl-item { display: flex; gap: 10px; padding: 8px 10px; border-radius: 8px; }
+.atv-tl-item:hover { background: #f8fafc; }
+.atv-tl-ico { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; background: #eef2f7; color: #475569; }
+.atv-tl-comentario .atv-tl-ico { background: #dbeafe; color: #1d4ed8; }
+.atv-tl-status .atv-tl-ico      { background: #fef3c7; color: #92400e; }
+.atv-tl-transferencia .atv-tl-ico { background: #ede9fe; color: #5b21b6; }
+.atv-tl-apontamento .atv-tl-ico { background: #d1fae5; color: #065f46; }
+.atv-tl-criacao .atv-tl-ico     { background: #e0e7ff; color: #3730a3; }
+.atv-tl-edicao .atv-tl-ico      { background: #f1f5f9; color: #475569; }
+.atv-tl-participante .atv-tl-ico { background: #cffafe; color: #155e75; }
+.atv-tl-corpo { min-width: 0; }
+.atv-tl-topo { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.atv-tl-data { font-size: 11.5px; color: var(--text-muted); }
+.atv-tl-txt { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+@media (max-width: 900px) {
+    .atv-cards { grid-template-columns: 1fr; }
+    .atv-form-grid { grid-template-columns: 1fr; }
+    .atv-parts-box { grid-template-columns: 1fr 1fr; }
+    .atv-fbtns { margin-left: 0; }
+}
+@media print {
+    .atv-ico { display: none !important; }
+}
+
+/* atividades — vinculos ERP + combobox participantes */
+.atv-vinc-busca { display:flex; gap:8px; }
+.atv-vinc-busca select { width:auto; }
+.atv-vinc-busca input { flex:1; }
+.atv-vin-res { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.atv-vin-item { border:1px solid #cbd5e1; background:#f8fafc; border-radius:6px;
+    padding:4px 10px; cursor:pointer; font-size:.85rem; }
+.atv-vin-item:hover { background:#e0e7ff; border-color:#818cf8; }
+.atv-vin-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.atv-chip-vin { background:#eef2ff; border:1px solid #c7d2fe; }
+.atv-chip-vin em { color:#6366f1; font-style:normal; font-size:.75rem; }
+.atv-chip-x { border:0; background:none; cursor:pointer; color:#64748b; font-weight:700; }
+.atv-combo { border:1px solid #cbd5e1; border-radius:8px; }
+.atv-combo-sum { padding:8px 12px; cursor:pointer; display:flex;
+    justify-content:space-between; color:#475569; font-size:.9rem; list-style:none; }
+.atv-combo-sum::-webkit-details-marker { display:none; }
+.atv-combo[open] .atv-parts-box { border-top:1px solid #e2e8f0; }
+
+/* modal de vinculos ERP (grid multi-selecao) */
+.atv-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:1500;
+    display:flex; align-items:center; justify-content:center; }
+.atv-modal-box { background:#fff; border-radius:12px; width:min(640px,92vw);
+    box-shadow:0 20px 50px rgba(15,23,42,.35); overflow:hidden; }
+.atv-modal-head { display:flex; justify-content:space-between; align-items:center;
+    padding:14px 18px; border-bottom:1px solid #e2e8f0; }
+.atv-modal-grid { max-height:320px; overflow:auto; padding:0 18px; }
+.atv-modal-grid .tabela { width:100%; font-size:.88rem; }
+.atv-modal-foot { display:flex; justify-content:flex-end; gap:10px;
+    padding:14px 18px; border-top:1px solid #e2e8f0; }
+
+/* modal vinculos — versao ampliada com filtros internos */
+.atv-modal-box { width:min(1150px,96vw); }
+.atv-modal-filtros { display:flex; gap:8px; padding:12px 18px;
+    border-bottom:1px solid #e2e8f0; background:#f8fafc; }
+.atv-modal-filtros input { flex:1; padding:7px 10px; border:1px solid #cbd5e1;
+    border-radius:6px; font-size:.88rem; }
+.atv-modal-grid { max-height:62vh; }
