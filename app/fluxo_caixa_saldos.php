@@ -29,6 +29,13 @@ function fcs_valor($v): float
  */
 function fcs_listar(): array
 {
+    // grupo sem nenhum centro fica automaticamente oculto
+    execute("UPDATE msoft.FluxoCaixa_Grupo
+             SET Exibir = 'Não'
+             WHERE ISNULL(RTRIM(Exibir), 'Sim') <> 'Não'
+               AND (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
+                    WHERE c.FCGrupo_Id = msoft.FluxoCaixa_Grupo.FCGrupo_Id) = 0");
+
     return query("SELECT g.FCGrupo_Id, RTRIM(g.FCGrupo_Nome) FCGrupo_Nome,
                          RTRIM(g.FCGrupo_Descricao) FCGrupo_Descricao,
                          (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
@@ -153,6 +160,32 @@ function fcs_centros_por_grupo(): array
         sort($lista);
     }
     return $map;
+}
+
+/** Saldos gravados por centro do grupo (lidos do banco — instantaneo).
+ *  Params $ini/$fim ignorados: o detalhe mostra o ultimo calculo gravado. */
+function fcs_saldos_por_centro(int $grupoId, string $ini = '', string $fim = ''): array
+{
+    $labels = fc_centros();
+    $rows = [];
+    foreach (query(
+        'SELECT Centro_CodC, Base, Saldo FROM msoft.GruposSaldosCentro
+         WHERE FCGrupo_Id = ? ORDER BY Centro_CodC, Base', [$grupoId]) as $r) {
+        $rows[] = ['rotulo' => $labels[$r['Centro_CodC']] ?? $r['Centro_CodC'],
+                   'base' => $r['Base'], 'saldo' => (float) $r['Saldo']];
+    }
+    return $rows;
+}
+
+/** Grava os saldos por centro de um grupo (substitui o lote anterior). */
+function fcs_centros_salvar(int $grupoId, array $porCentro): void
+{
+    execute('DELETE FROM msoft.GruposSaldosCentro WHERE FCGrupo_Id = ?', [$grupoId]);
+    foreach ($porCentro as $r) {
+        execute('INSERT INTO msoft.GruposSaldosCentro
+                 (FCGrupo_Id, Centro_CodC, Base, Saldo) VALUES (?, ?, ?, ?)',
+            [$grupoId, $r['codc'], $r['base'], $r['saldo']]);
+    }
 }
 
 /** FCGrupo_Id => [['id'=>, 'nome'=>, 'valor'=>float|null], ...] por grupo. */
@@ -298,37 +331,40 @@ function fcs_alvos_grupo(array $codcs): array
 }
 
 /** Opcoes fixas do Relatorio Financeiro usadas pela tela Fluxo de Caixa. */
-function fcs_opcoes_relatorio(string $emp, string $ini, string $fim, array $centros): array
+function fcs_opcoes_relatorio(string $emp, string $ini, string $fim,
+                              array $centros, array $nucleos = []): array
 {
     return [
         'empresa'        => $emp,
         'data_ini'       => $ini,
         'data_fim'       => $fim,
         'centros'        => array_values(array_unique($centros)),
-        'nucleos'        => [],
+        'nucleos'        => array_values(array_unique($nucleos)),
         'sin_classe'     => true,
         'sin_assunto'    => true,
         'sin_grupo'      => true,
         'sec_receitas'   => true,
         'sec_despesas'   => true,
+        'sec_sociedade'  => true,
         'sec_outros'     => true,
         'apenas_periodo' => true,
         'resumo_agente'  => true,
+        'inc_inativos'   => true, // igual ao relatorio manual: inclui centros inativos
     ];
 }
 
 /**
- * SALDO de um retorno de relatorio_financeiro_dados(): soma das secoes
- * Receitas + Despesas da coluna "Periodo" — a mesma formula da linha
- * SALDO exibida pela tela Relatorio Financeiro.
+ * TOTAL GERAL de um retorno de relatorio_financeiro_dados(): soma das secoes
+ * Receitas + Despesas + Sociedade + Outros Grupos, coluna ACUMULADO
+ * (Acum.Anterior + Periodo = todo o historico ate data_fim).
  */
 function fcs_saldo_relatorio(array $dados): float
 {
     $saldo = 0.0;
     foreach ($dados['blocos'] as $secoes) {
         foreach ($secoes as $s) {
-            if ($s['id'] === 'receitas' || $s['id'] === 'despesas') {
-                $saldo += $s['per'];
+            if (in_array($s['id'], ['receitas', 'despesas', 'sociedade', 'outros'], true)) {
+                $saldo += (float) ($s['ant'] ?? 0) + (float) ($s['per'] ?? 0);
             }
         }
     }
@@ -356,12 +392,53 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
         }
     }
     $saldo = array_sum($avulsos);
-    foreach (fcs_alvos_grupo(fc_centros_do_grupo($grupoId)) as $base => $empresas) {
-        foreach ($empresas as $emp => $centros) {
-            $saldo += fcs_saldo_relatorio(relatorio_financeiro_dados(
-                $base, fcs_opcoes_relatorio($emp, $ini, $fim, $centros)));
+    // relatorio por centro: grava cada um p/ o detalhe instantaneo da linha
+    $existem = [];
+    $nucleoMap = []; // base => codc => Nucleo_Cod ("centro de negocio" do ERP)
+    foreach (fcs_bases_mapa() as $base => $banco) {
+        $existem[$base] = fcs_codcs_base($banco);
+        try {
+            foreach (query("SELECT CONVERT(varchar(20),
+                                   RTRIM(Empresa_Cod)+RTRIM(Filial_Cod)+RTRIM(Centro_Cod)) codc,
+                                   RTRIM(Nucleo_Cod) nuc
+                            FROM $banco.dbo.Centro_de_Custo", [], $banco) as $r) {
+                $nucleoMap[$base][strtoupper($r['codc'])] = $r['nuc'];
+            }
+        } catch (Throwable $t) { /* sem nucleo nessa base */ }
+    }
+    // centro com Base fixada so conta nela (ex.: inativo duplicado nas 2 bases)
+    $pins = [];
+    foreach (query('SELECT RTRIM(Centro_CodC) c, RTRIM(Base) b
+                    FROM msoft.FluxoCaixa_Centros
+                    WHERE FCGrupo_Id = ? AND Base IS NOT NULL', [$grupoId]) as $r) {
+        $pins[strtoupper($r['c'])] = strtoupper($r['b']);
+    }
+    $porCentro = [];
+    foreach (fc_centros_do_grupo($grupoId) as $codc) {
+        $codc = strtoupper(trim((string) $codc));
+        if (strlen($codc) !== 9) {
+            continue;
+        }
+        $emp = substr($codc, 0, 3);
+        $cc = substr($codc, 5, 4);
+        foreach (array_keys($existem) as $base) {
+            if (isset($pins[$codc]) && $pins[$codc] !== $base) {
+                continue; // centro fixado em outra base
+            }
+            if (!isset($existem[$base][$codc])) {
+                continue;
+            }
+            // filtra pelo NUCLEO do centro (mesmo filtro do relatorio ERP:
+            // "centro de negocio" = Nucleo_Cod, nao o codigo do centro)
+            $nuc = $nucleoMap[$base][$codc] ?? null;
+            $opc = fcs_opcoes_relatorio($emp, $ini, $fim,
+                [$cc], $nuc !== null && $nuc !== '' ? [$nuc] : []);
+            $s = fcs_saldo_relatorio(relatorio_financeiro_dados($base, $opc));
+            $porCentro[] = ['codc' => $codc, 'base' => $base, 'saldo' => $s];
+            $saldo += $s;
         }
     }
+    fcs_centros_salvar($grupoId, $porCentro);
     return $saldo;
 }
 

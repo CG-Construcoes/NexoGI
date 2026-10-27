@@ -42,20 +42,30 @@ function pendentes_count(): int
 
 function listar_usuarios(): array
 {
-    $usuarios = query("SELECT Id, Email, Nome, Status, Admin, CriadoEm,
-                              CASE WHEN SenhaHashPHP IS NULL THEN 0 ELSE 1 END AS TemSenhaPHP
-                       FROM msoft.Usuarios
-                       ORDER BY CASE WHEN Status = 'pendente' THEN 0 ELSE 1 END, Nome");
+    $usuarios = query("SELECT u.Id, u.Email, u.Nome, u.Status, u.Admin, u.CriadoEm, u.Setor, u.Funcao_Id,
+                              f.Funcao_Nome AS FuncaoNome,
+                              CASE WHEN u.SenhaHashPHP IS NULL THEN 0 ELSE 1 END AS TemSenhaPHP
+                       FROM msoft.Usuarios u
+                       LEFT JOIN msoft.Funcoes f ON f.Funcao_Id = u.Funcao_Id
+                       ORDER BY CASE WHEN u.Status = 'pendente' THEN 0 ELSE 1 END, u.Nome");
     return [
         'usuarios' => $usuarios,
         'gruposDisp' => ug_listar(),
         'gruposMapa' => ug_mapa_grupos(array_column($usuarios, 'Id')),
+        'setoresDisp' => atv_setores(),
+        'funcoesDisp' => fun_listar(),
     ];
 }
 
 function usuario_get(int $id): ?array
 {
-    $rows = query('SELECT Id, Email, Nome, Status, Admin FROM msoft.Usuarios WHERE Id = ?', [$id]);
+    $rows = query(
+        'SELECT u.Id, u.Email, u.Nome, u.Status, u.Admin, u.Setor, u.Funcao_Id, f.Funcao_Nome AS FuncaoNome
+         FROM msoft.Usuarios u
+         LEFT JOIN msoft.Funcoes f ON f.Funcao_Id = u.Funcao_Id
+         WHERE u.Id = ?',
+        [$id]
+    );
     return $rows[0] ?? null;
 }
 
@@ -133,6 +143,11 @@ function criar_usuario_sistema(array $post): array
     $email = strtolower(trim((string) ($post['email'] ?? '')));
     $senha = (string) ($post['senha'] ?? '');
     $admin = !empty($post['admin']) ? 1 : 0;
+    $setor = trim((string) ($post['setor'] ?? ''));
+    $funcaoId = (int) ($post['funcao_id'] ?? 0);
+    if ($funcaoId > 0 && !fun_get($funcaoId)) {
+        $funcaoId = 0;
+    }
     $grupos = (array) ($post['grupos'] ?? []);
     $perm = (array) ($post['perm'] ?? []);
 
@@ -153,10 +168,11 @@ function criar_usuario_sistema(array $post): array
 
     try {
         $ins = query(
-            "INSERT INTO msoft.Usuarios (Email, Nome, SenhaHash, SenhaHashPHP, Status, Admin, LiberadoEm)
+            "INSERT INTO msoft.Usuarios (Email, Nome, SenhaHash, SenhaHashPHP, Status, Admin, LiberadoEm, Setor, Funcao_Id)
              OUTPUT INSERTED.Id
-             VALUES (?, ?, ?, ?, 'ativo', ?, GETDATE())",
-            [$email, $nome, SENHA_PYTHON_INDISPONIVEL, password_hash($senha, PASSWORD_DEFAULT), $admin]
+             VALUES (?, ?, ?, ?, 'ativo', ?, GETDATE(), ?, ?)",
+            [$email, $nome, SENHA_PYTHON_INDISPONIVEL, password_hash($senha, PASSWORD_DEFAULT), $admin,
+             $setor !== '' ? $setor : null, $funcaoId > 0 ? $funcaoId : null]
         );
         $novoId = (int) ($ins[0]['Id'] ?? 0);
         if ($novoId > 0) {
@@ -210,7 +226,13 @@ function acao_usuario(int $id, string $acao): array
         if (!$novoAdmin && strcasecmp($u['Email'], $_SESSION['usuario'] ?? '') === 0 && !empty($u['Admin'])) {
             $novoAdmin = 1;
         }
-        execute('UPDATE msoft.Usuarios SET Admin = ? WHERE Id = ?', [$novoAdmin, $id]);
+        $setor = trim((string) ($_POST['setor'] ?? ''));
+        $funcaoId = (int) ($_POST['funcao_id'] ?? 0);
+        if ($funcaoId > 0 && !fun_get($funcaoId)) {
+            $funcaoId = 0;
+        }
+        execute('UPDATE msoft.Usuarios SET Admin = ?, Setor = ?, Funcao_Id = ? WHERE Id = ?',
+            [$novoAdmin, $setor !== '' ? $setor : null, $funcaoId > 0 ? $funcaoId : null, $id]);
         return ['tipo' => 'ok', 'html' => "Acessos e permissoes de <strong>$nome</strong> salvos ($nGrupos grupo(s), $nTelas tela(s) individuais)."];
     }
     if ($acao === 'definir-senha') {

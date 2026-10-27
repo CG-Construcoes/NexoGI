@@ -165,24 +165,29 @@
                 <td><?= $g['UltimaAtualizacao']
                     ? e(data_br((string) $g['UltimaAtualizacao'], true)) : '&mdash;' ?></td>
             </tr>
-            <?php if ($avulsos): ?>
             <tr class="fcs-av-row" data-grupo="<?= $gid ?>" hidden>
                 <td></td><td></td><td></td>
                 <td colspan="8">
-                    <?php foreach ($avulsos as $a): ?>
-                    <label class="fcs-av-lab"><?= e($a['nome']) ?>
-                        <input type="text" name="avulso[<?= $gid ?>][<?= (int) $a['id'] ?>]"
-                               class="fcs-av" data-grupo="<?= $gid ?>"
-                               value="<?= $a['valor'] !== null
-                                   ? e(number_format($a['valor'], 2, ',', '.')) : '' ?>"
-                               placeholder="0,00" size="12">
-                        <?php if ($podeAtualizar): ?>
-                        <button type="button" class="btn btn-sm fcs-av-save" disabled>Salvar</button>
-                        <?php endif; ?></label>
-                    <?php endforeach; ?>
+                    <div class="fcs-centros" data-gid="<?= $gid ?>">
+                        <span style="color:#94a3b8">clique na linha p/ ver totais por centro</span>
+                    </div>
+                    <?php if ($avulsos): ?>
+                    <div style="margin-top:8px">
+                        <?php foreach ($avulsos as $a): ?>
+                        <label class="fcs-av-lab"><?= e($a['nome']) ?>
+                            <input type="text" name="avulso[<?= $gid ?>][<?= (int) $a['id'] ?>]"
+                                   class="fcs-av" data-grupo="<?= $gid ?>"
+                                   value="<?= $a['valor'] !== null
+                                       ? e(number_format($a['valor'], 2, ',', '.')) : '' ?>"
+                                   placeholder="0,00" size="12">
+                            <?php if ($podeAtualizar): ?>
+                            <button type="button" class="btn btn-sm fcs-av-save" disabled>Salvar</button>
+                            <?php endif; ?></label>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                 </td>
             </tr>
-            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
         <?php $totCentros = 0;
@@ -472,6 +477,54 @@
         });
     });
     // A linha so deixa de ficar vermelha quando TODOS os avulsos tem valor
+    // clique na linha do grupo: abre/fecha o detalhe (centros + avulsos)
+    function fcsCarregarCentros(det) {
+        var box = det.querySelector('.fcs-centros');
+        if (!box || box.dataset.done === '1') { return; }
+        box.dataset.done = '1';
+        var gid = det.dataset.grupo,
+            ini = (form.querySelector('[name=data_ini]') || {}).value || '',
+            fim = (form.querySelector('[name=data_fim]') || {}).value || '';
+        box.innerHTML = '<span style="color:#64748b">calculando por centro…</span>';
+        fetch('fluxo-caixa?ajax_centros=1&grupo=' + gid + '&data_ini=' + ini + '&data_fim=' + fim)
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.ok) {
+                    box.innerHTML = '<span style="color:#b91c1c">' + (d.erro || 'erro') + '</span>';
+                    return;
+                }
+                var fmt = { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                    h = '<table class="tabela" style="max-width:640px;font-size:.85rem;margin-bottom:4px">' +
+                        '<thead><tr><th>Centro de custo</th><th style="width:70px">Base</th>' +
+                        '<th class="col-valor">Total Geral</th></tr></thead><tbody>';
+                d.rows.forEach(function (r) {
+                    h += '<tr><td>' + r.rotulo + '</td><td>' + r.base + '</td>' +
+                        '<td class="col-valor">' + r.saldo.toLocaleString('pt-BR', fmt) + '</td></tr>';
+                });
+                h += '</tbody><tfoot><tr><td></td><td></td><td class="col-valor"><strong>' +
+                    d.total.toLocaleString('pt-BR', fmt) + '</strong></td></tr></tfoot></table>';
+                box.innerHTML = h;
+            })
+            .catch(function () {
+                box.innerHTML = '<span style="color:#b91c1c">falha ao carregar centros</span>';
+            });
+    }
+    form.querySelectorAll('tr[data-gid]').forEach(function (tr) {
+        tr.addEventListener('click', function (ev) {
+            if (ev.target.closest('input,select,button,a,label,.fcs-grip')) { return; }
+            var det = form.querySelector('.fcs-av-row[data-grupo="' + tr.dataset.gid + '"]');
+            if (!det) { return; }
+            det.hidden = !det.hidden;
+            if (!det.hidden) { fcsCarregarCentros(det); }
+        });
+    });
+    // botao Avulso abre o mesmo detalhe (roda depois do toggle existente)
+    form.querySelectorAll('.fcs-av-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var det = form.querySelector('.fcs-av-row[data-grupo="' + b.dataset.grupo + '"]');
+            if (det && !det.hidden) { fcsCarregarCentros(det); }
+        });
+    });
     form.querySelectorAll('.fcs-av').forEach(function (inp) {
         inp.addEventListener('input', function () {
             var gid = inp.dataset.grupo;

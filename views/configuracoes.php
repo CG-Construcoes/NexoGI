@@ -41,6 +41,24 @@
                     <option value="1">Administrador (acesso total)</option>
                 </select>
             </div>
+            <div class="campo">
+                <label for="novo-setor">Setor</label>
+                <input type="text" id="novo-setor" name="setor" list="dlSetores" maxlength="60" placeholder="Ex.: Suprimentos" autocomplete="off">
+                <datalist id="dlSetores">
+                    <?php foreach ($setoresDisp ?? [] as $s): ?>
+                        <option value="<?= e($s) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
+            <div class="campo">
+                <label for="novo-funcao">Funcao</label>
+                <select id="novo-funcao" name="funcao_id" onchange="atvFuncaoSetor(this, 'novo-setor')">
+                    <option value="">—</option>
+                    <?php foreach ($funcoesDisp ?? [] as $fn): ?>
+                        <option value="<?= (int) $fn['Funcao_Id'] ?>" data-setor="<?= e($fn['Funcao_Setor'] ?? '') ?>"><?= e($fn['Funcao_Nome']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
 
         <details style="margin-top:16px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:#f8fafc; padding:12px 16px">
@@ -137,6 +155,26 @@
                     <option value="1" <?= !empty($usuarioSel['Admin']) ? 'selected' : '' ?>>Administrador — Acesso total a todas as telas e funcoes</option>
                 </select>
             </div>
+            <div class="campo">
+                <label for="ed-setor">Setor</label>
+                <input type="text" id="ed-setor" name="setor" list="dlSetores" maxlength="60"
+                       value="<?= e($usuarioSel['Setor'] ?? '') ?>" placeholder="Ex.: Suprimentos" autocomplete="off">
+                <datalist id="dlSetores">
+                    <?php foreach ($setoresDisp ?? [] as $s): ?>
+                        <option value="<?= e($s) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
+            <div class="campo">
+                <label for="ed-funcao">Funcao</label>
+                <select id="ed-funcao" name="funcao_id" onchange="atvFuncaoSetor(this, 'ed-setor')">
+                    <option value="">—</option>
+                    <?php foreach ($funcoesDisp ?? [] as $fn): ?>
+                        <option value="<?= (int) $fn['Funcao_Id'] ?>" data-setor="<?= e($fn['Funcao_Setor'] ?? '') ?>"
+                            <?= (int) ($usuarioSel['Funcao_Id'] ?? 0) === (int) $fn['Funcao_Id'] ? 'selected' : '' ?>><?= e($fn['Funcao_Nome']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
 
         <h3 style="font-size:14px; font-weight:700; color:var(--primary-800); margin:16px 0 8px">Grupos de acesso vinculados</h3>
@@ -208,6 +246,8 @@
         <tr>
             <th>Nome</th>
             <th>E-mail</th>
+            <th>Setor</th>
+            <th>Funcao</th>
             <th>Status</th>
             <th>Perfil</th>
             <th>Grupos</th>
@@ -226,6 +266,10 @@
             data-texto="<?= e(mb_strtolower($u['Nome'] . ' ' . $u['Email'])) ?>">
             <td><strong><?= e($u['Nome']) ?></strong></td>
             <td><?= e($u['Email']) ?></td>
+            <td><?= $u['Setor'] !== null && $u['Setor'] !== '' ? e($u['Setor']) : '<span style="color:#94a3b8">—</span>' ?></td>
+            <td><?= $u['FuncaoNome'] !== null && $u['FuncaoNome'] !== ''
+                ? '<span class="badge ' . (str_ends_with((string) $u['FuncaoNome'], 'Gerente') || $u['FuncaoNome'] === 'Diretor' ? 'badge-ativo' : 'badge-pendente') . '">' . e($u['FuncaoNome']) . '</span>'
+                : '<span style="color:#94a3b8">—</span>' ?></td>
             <td><span class="badge badge-<?= e($u['Status']) ?>"><?= e($u['Status']) ?></span></td>
             <td><?= $u['Admin'] ? '<span class="badge badge-ativo">Admin</span>' : 'Usuario' ?></td>
             <td><?= $gNomes ? e(implode(', ', $gNomes)) : '<span style="color:#94a3b8">—</span>' ?></td>
@@ -270,6 +314,13 @@
 </table>
 
 <script>
+// escolheu a funcao -> sugere o setor dela no campo Setor ao lado
+function atvFuncaoSetor(sel, alvo) {
+    var setor = sel.options[sel.selectedIndex].dataset.setor || '';
+    var campo = document.getElementById(alvo);
+    if (campo && setor !== '') { campo.value = setor; }
+}
+
 function permColuna(headChk) {
     var col = headChk.closest('th').cellIndex;
     headChk.closest('table').querySelectorAll('tbody tr').forEach(function (tr) {

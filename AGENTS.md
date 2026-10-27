@@ -902,3 +902,69 @@ quando `$sec['id'] === 'despesas'`.
 - Janela dos itens 4/5 = trimestre rolante fcs_pagar_meses() (mes atual
   +2) — NAO segue mais o periodo do item 3 (que virou seg-seg). Rotulos
   de mes por extenso + tag (Mes Vigente / Mes Posterior / Mes Subsequente).
+
+## Controle de Atividades (IMPLEMENTADO 2026-10-27)
+- Rotas `atividades` (lista) e `atividade` (detalhe/?nova=1); ROTAS_TELA
+  mapeia as duas p/ 'atividades'. Menu: grupo proprio no topo do MODULES
+  (icone 'atividades' = prancheta em icone_svg).
+- `app/atividades.php`: atv_eu/e_gestor (gestor = admin OU Funcao
+  Gestor/Coordenador), atv_badge_cor (icone no layout_app), atv_listar
+  (escopo minhas/todas/criadas + visibilidade), atv_criar/mudar_status/
+  trabalhar/comentar/transferir/participante_add/remover/editar/excluir
+  (soft delete), atv_email_atribuicao (criacao+transferencia, silencioso).
+- Tabelas msoft.Atividades/AtividadeParticipantes/AtividadeEventos/
+  AtividadeApontamentos + colunas Usuarios.Setor/Funcao —
+  `scripts/migrar_atividades.php` (RODAR no NexoGI ao subir).
+- Transicoes do colaborador em atv_transicoes_colaborador(); gestor pode
+  todas (inclusive reabrir). Sair de 'Em andamento' fecha apontamentos
+  abertos; 'A Iniciar'->trabalhar ja move p/ 'Em andamento'.
+- Visibilidade: Publica | Setor (Atividades.Setor = Usuarios.Setor, texto
+  livre com datalist) | Individual (participantes+gestores+criador).
+- Tempo trabalhado = soma AtividadeApontamentos (botao Iniciar/Parar);
+  tempo total = 1o 'Em andamento' -> conclusao; fila = criacao->inicio.
+- Icone fixo `.atv-ico` (esq. inferior, z 1100): cinza/amarelo/vermelho
+  (urgente=flag OU prazo<24h; vencida=prazo passado). So no page load.
+- Teste: `php scripts/teste_atividades.php <gestor> <colab>` cobre o fluxo
+  todo; `teste_render_atividades.php` renderiza as 2 views em CLI.
+- ATENCAO: usuario nao-admin precisa da tela 'Atividades' marcada no grupo
+  (Grupos de Usuarios) para ver o item de menu e acessar.
+
+## Controle de Atividades (EM DESIGN — aprovado em conversa 2026-10-26/27, implementacao nao iniciada)
+- Rotina de tarefas ligada a usuarios (login/e-mail). Gestor cria: titulo,
+  orientacoes, responsavel(is), prazo maximo, urgente. Colaborador executa.
+- **Setor e Funcao no cadastro de usuarios**: `msoft.Funcoes` (Nome/Setor/
+  Gestor; Setor NULL = global ex. Diretor) + `Usuarios.Setor` +
+  `Usuarios.Funcao_Id` FK. Setor efetivo = Funcao.Setor ?? Usuarios.Setor.
+  Gestor de setor X ve/gerencia toda atividade que envolve alguem de X
+  (atv_envolve_setor / atv_e_gestor_da); Diretor/admin = global.
+  Tela admin `/funcoes` (app/funcoes.php fun_*). Migracao:
+  `scripts/migrar_atividades_funcoes.php` (rodar no NexoGI).
+- **Status**: A Iniciar -> Em andamento <=> Aguardando retorno <=> Suspensa
+  -> Concluida / Cancelada. Concluir e Cancelar SOMENTE gestor/coordenador.
+  Colaborador muda status operacional, comenta, aponta tempo e transfere
+  a atividade a outro colaborador.
+- **Visibilidade**: Publica (todos), Setor (mesmo Setor do usuario),
+  Individual (participantes + gestores/coordenadores).
+- **Dois relogios**: (a) tempo trabalhado por colaborador = soma de
+  apontamentos abertos pelo botao Iniciar/Parar ou fechados ao mudar status
+  (Aguardando retorno/Suspensa pausa o relogio do colaborador); (b) tempo
+  total da atividade = continuo, da 1a vez 'Em andamento' ate a conclusao
+  (nao para). Tambem guardar CriadoEm (abertura) — fila = inicio - abertura.
+- **Icone de alerta** no canto inferior esquerdo do layout (todas as telas):
+  cinza = nada; amarelo = tem atividade em aberto comigo; vermelho = alguma
+  vencida ou urgente. Clique -> tela Atividades. Atualiza so no page load.
+- **Urgente**: checkbox do gestor na criacao/edicao + automatico quando o
+  prazo se aproxima do fim (< 24h).
+- **E-mail ao atribuir**: usuario marcou "Sim, sempre" (criacao e
+  transferencia) — estava pendente; confirmar na retomada.
+- **Tela**: uma so, estilo Follow-up (filtros topo + grid, clicar abre o
+  detalhe com linha do tempo/eventos/apontamentos/acoes). Botao "Nova
+  atividade" so para gestor/coordenador/admin. Rota em MODULES + ROTAS_TELA.
+- **Referencia ao ERP** (opcional): vinculo a solicitacao/pedido/centro.
+- **Tabelas** (msoft): Atividades, AtividadeParticipantes, AtividadeEventos
+  (linha do tempo: criacao, status de->para, transferencia de->para,
+  comentario, apontamento, inclusao/remocao de participante, alteracoes),
+  AtividadeApontamentos (Usuario_Id, Inicio, Fim NULL, Minutos, Obs).
+  Criar via scripts/migrar_atividades.php (padrao migrar_grupos_usuarios.php).
+- Permissao por grupo segue o modelo atual (Consultar = ver as suas;
+  Incluir/Alterar = escopo de gestor; Excluir = excluir).
