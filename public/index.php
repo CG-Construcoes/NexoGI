@@ -280,7 +280,7 @@ switch ($rota) {
                 (string) ($_GET['de'] ?? ''), (string) ($_GET['ate'] ?? '')),
                 JSON_UNESCAPED_UNICODE);
         } catch (Throwable $t) {
-            echo json_encode([]);
+            echo json_encode(['erro' => $t->getMessage()]);
         }
         exit;
 

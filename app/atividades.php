@@ -1128,6 +1128,10 @@ function atv_vinculos_busca(string $tipo, string $q, string $esp = '',
         'AR'     => 'a.AR_Data',
         default  => 's.Solic_Data',
     };
+    if (trim($dtDe) === '' && trim($dtAte) === '') {
+        $dtDe = date('Y-m-d', strtotime('-30 days'));
+        $dtAte = date('Y-m-d', strtotime('+60 days'));
+    }
     if (($ts = strtotime(trim($dtDe))) !== false) {
         $extra .= " AND CONVERT(date, $dtCol) >= ?";
         $parExtra[] = date('Y-m-d', $ts);
@@ -1155,34 +1159,50 @@ function atv_vinculos_busca(string $tipo, string $q, string $esp = '',
               $extra
             ORDER BY s.Solic_CentroNumero DESC, i.SolicItem_Item",
 
-        'Coleta' => "SELECT TOP 40
-                Chave = CONVERT(varchar(20), ci.Coleta_Numero) + '/' + RTRIM(i.SolicItem_Item),
+        'Coleta' => "SELECT
+                Chave = CONVERT(varchar(20), t.Coleta_Numero) + '/' + RTRIM(i.SolicItem_Item),
                 Centro = $ccSel,
                 Espec = CONVERT(varchar(160), $espec),
                 Qtd = i.SolicItem_Quantidade,
                 Dta = CONVERT(char(10), s.Solic_Data, 103),
                 Sit = RTRIM(i.SolicItem_Situacao)
-            FROM Coleta_de_Preco_Itens ci
-            JOIN Solicitacao_de_Compra_Itens i ON i.SolicItem_Numero = ci.SolicItem_Numero
+            FROM (SELECT DISTINCT TOP 40 ci.Coleta_Numero, ci.Solic_Numero, ci.SolicItem_Numero
+                  FROM Coleta_de_Preco_Itens ci
+                  WHERE CONVERT(varchar(20), ci.Coleta_Numero) LIKE ?
+                  ORDER BY ci.Coleta_Numero DESC) t
+            JOIN Solicitacao_de_Compra_Itens i
+                ON i.SolicItem_Numero = t.SolicItem_Numero
+                AND i.Solic_Numero = t.Solic_Numero
             JOIN Solicitacao_de_Compra s ON s.Solic_Numero = i.Solic_Numero
             $centro
-            WHERE CONVERT(varchar(20), ci.Coleta_Numero) LIKE ?
+            WHERE 1 = 1
             $extra
-            ORDER BY ci.Coleta_Numero DESC, i.SolicItem_Item",
+            ORDER BY t.Coleta_Numero DESC, i.SolicItem_Item",
 
-        'Pedido' => "SELECT TOP 40
+        'Pedido' => "SELECT
                 Chave = CONVERT(varchar(20), p.Pedido_CentroNumero) + '/' + RTRIM(pi.PedItem_Item),
                 Centro = $ccSel,
-                Espec = CONVERT(varchar(160), RTRIM(COALESCE(pi.PedItem_EspecificacaoCpto,''))
-                          + ' ' + RTRIM(COALESCE(pi.PedItem_Marca,''))),
+                Espec = CONVERT(varchar(160), CASE WHEN pi.PedItem_AnulaEspecCptoSolic = 'S'
+                          THEN RTRIM(COALESCE(pi.PedItem_EspecificacaoCpto,''))
+                               + ' ' + RTRIM(COALESCE(pi.PedItem_Marca,''))
+                          ELSE $espec END),
                 Qtd = pi.PedItem_Quantidade,
                 Dta = CONVERT(char(10), p.Pedido_Data, 103),
                 Sit = RTRIM(i.SolicItem_Situacao)
-            FROM Pedido_Item pi
+            FROM (SELECT TOP 40 pi.Pedido_Numero, pi.PedItem_Item, p2.Pedido_CentroNumero
+                  FROM Pedido_Item pi
+                  JOIN Pedido p2 ON p2.Pedido_Numero = pi.Pedido_Numero
+                  WHERE CONVERT(varchar(20), p2.Pedido_CentroNumero) LIKE ?
+                  ORDER BY p2.Pedido_CentroNumero DESC) t
+            JOIN Pedido_Item pi ON pi.Pedido_Numero = t.Pedido_Numero
+                AND pi.PedItem_Item = t.PedItem_Item
             JOIN Pedido p ON p.Pedido_Numero = pi.Pedido_Numero
+            JOIN Solicitacao_de_Compra_Itens i
+                ON i.SolicItem_Numero = pi.SolicItem_Numero
+                AND i.Solic_Numero = pi.Solic_Numero
             JOIN Solicitacao_de_Compra s ON s.Solic_Numero = pi.Solic_Numero
             $centro
-            WHERE CONVERT(varchar(20), p.Pedido_CentroNumero) LIKE ?
+            WHERE 1 = 1
             $extra
             ORDER BY p.Pedido_CentroNumero DESC, pi.PedItem_Item",
 
@@ -1207,8 +1227,9 @@ function atv_vinculos_busca(string $tipo, string $q, string $esp = '',
                 $chave = trim((string) $r['Chave']);
                 $centroV = trim((string) ($r['Centro'] ?? ''));
                 $centroV = $centroV === '-' ? '' : $centroV;
-                $vals = [$base, $centroV];
+                $vals = [$base];
                 if ($tipo !== 'AR') {
+                    $vals[] = $centroV;
                     $vals[] = $chave;
                     $vals[] = trim((string) ($r['Espec'] ?? ''));
                     $vals[] = $r['Qtd'] !== null ? rtrim(rtrim((string) $r['Qtd'], '0'), '.') : '';

@@ -445,7 +445,22 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
                 '&empresa=' + encodeURIComponent(document.getElementById('mfEmp').value.trim()) +
                 '&de=' + encodeURIComponent(document.getElementById('mfDe').value) +
                 '&ate=' + encodeURIComponent(document.getElementById('mfAte').value);
-            fetch(p).then(function (r) { return r.json(); }).then(abrir);
+            fetch(p).then(function (r) { return r.json(); }).then(function (resp) {
+                if (!resp || !resp.cols) {
+                    modal.style.display = 'flex';
+                    document.getElementById('atvModalTit').textContent = 'Vincular';
+                    document.getElementById('atvModalBody').innerHTML =
+                        '<tr><td style="color:#b91c1c">Falha na consulta ao ERP' +
+                        (resp && resp.erro ? ': ' + resp.erro : '. Tente novamente.') +
+                        '</td></tr>';
+                    return;
+                }
+                abrir(resp);
+            }).catch(function () {
+                modal.style.display = 'flex';
+                document.getElementById('atvModalBody').innerHTML =
+                    '<tr><td style="color:#b91c1c">Sem resposta do servidor.</td></tr>';
+            });
         }
         function buscar() {
             document.getElementById('mfNum').value = q.value.trim();
