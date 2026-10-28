@@ -3042,8 +3042,10 @@ tr.fcs-att td { background: #e3f0e3; }
 
 /* modal vinculos — versao ampliada com filtros internos */
 .atv-modal-box { width:min(1150px,96vw); }
-.atv-modal-filtros { display:flex; gap:8px; padding:12px 18px;
+.atv-modal-filtros { display:flex; gap:8px; padding:12px 18px; flex-wrap:wrap;
     border-bottom:1px solid #e2e8f0; background:#f8fafc; }
-.atv-modal-filtros input { flex:1; padding:7px 10px; border:1px solid #cbd5e1;
-    border-radius:6px; font-size:.88rem; }
+.atv-modal-filtros input { flex:1 1 120px; min-width:110px; padding:7px 10px;
+    border:1px solid #cbd5e1; border-radius:6px; font-size:.88rem; }
+.atv-modal-filtros input[type=date] { flex:0 1 150px; }
+.atv-modal-filtros .btn { flex:0 0 auto; }
 .atv-modal-grid { max-height:62vh; }

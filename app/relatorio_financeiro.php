@@ -65,9 +65,16 @@ function rf_secao(string $rdz): string
 function relatorio_financeiro_dados(string $base, array $o): array
 {
     $banco = banco_da_base($base);
-    $centrosSel = array_values(array_filter(array_map(
-        fn($c) => preg_match('/^([0-9A-Za-z]{4})\b/', (string) $c, $m) ? $m[1] : '',
-        (array) ($o['centros'] ?? []))));
+    // 'FF.CCCC' = filial+centro (fluxo-caixa); 'CCCC' ou 'CCCC - nome' = so centro
+    $centrosSel = [];
+    foreach ((array) ($o['centros'] ?? []) as $c) {
+        $c = (string) $c;
+        if (preg_match('/^(\d{2})\.(\d{4})\b/', $c, $m)) {
+            $centrosSel[] = [$m[1], $m[2]];
+        } elseif (preg_match('/^([0-9A-Za-z]{4})\b/', $c, $m)) {
+            $centrosSel[] = [null, $m[1]];
+        }
+    }
     $nucleosSel = array_values(array_filter(array_map(
         fn($c) => preg_match('/^([0-9A-Za-z]{2})\b/', (string) $c, $m) ? $m[1] : '',
         (array) ($o['nucleos'] ?? []))));
@@ -85,17 +92,19 @@ function relatorio_financeiro_dados(string $base, array $o): array
 
     $sql = "EXEC spMovFinLancamentosDetalhe
             @Empresa_Cod=?, @DataInicial=?, @DataFinal=?, @ClaIns='N', @APagRec='N',
-            @Utilizacao=?, @Centro_Cod=?, @Nucleo_Cod=?, @Relatorio='S', @Detalha_Centro=?";
+            @Utilizacao=?, @Filial_Cod=?, @Centro_Cod=?, @Nucleo_Cod=?,
+            @Relatorio='S', @Detalha_Centro=?";
     $pdo = conexao($banco);
     $st = $pdo->prepare($sql);
 
     // detalhe dos lancamentos: uma execucao por combinacao centro x nucleo (NULL = todos)
     $classes = [];
     $agentes = [];
-    foreach (($centrosSel ?: [null]) as $centroCod) {
+    foreach (($centrosSel ?: [null]) as $centroSel) {
+    [$filCod, $centroCod] = $centroSel ?? [null, null];
     foreach (($nucleosSel ?: [null]) as $nucleoCod) {
         // 'J' = detalhe dos lancamentos
-        $st->execute([$empresa, $iniTotal, $fim, 'J', $centroCod, $nucleoCod, $detCentro]);
+        $st->execute([$empresa, $iniTotal, $fim, 'J', $filCod, $centroCod, $nucleoCod, $detCentro]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -140,7 +149,7 @@ function relatorio_financeiro_dados(string $base, array $o): array
         $st->closeCursor();
 
         // '5' = resumo por agente financeiro
-        $st->execute([$empresa, $iniTotal, $fim, '5', $centroCod, $nucleoCod, $detCentro]);
+        $st->execute([$empresa, $iniTotal, $fim, '5', $filCod, $centroCod, $nucleoCod, $detCentro]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {

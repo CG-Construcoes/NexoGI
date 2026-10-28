@@ -420,6 +420,7 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
             continue;
         }
         $emp = substr($codc, 0, 3);
+        $fil = substr($codc, 3, 2);
         $cc = substr($codc, 5, 4);
         foreach (array_keys($existem) as $base) {
             if (isset($pins[$codc]) && $pins[$codc] !== $base) {
@@ -428,11 +429,8 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
             if (!isset($existem[$base][$codc])) {
                 continue;
             }
-            // filtra pelo NUCLEO do centro (mesmo filtro do relatorio ERP:
-            // "centro de negocio" = Nucleo_Cod, nao o codigo do centro)
-            $nuc = $nucleoMap[$base][$codc] ?? null;
-            $opc = fcs_opcoes_relatorio($emp, $ini, $fim,
-                [$cc], $nuc !== null && $nuc !== '' ? [$nuc] : []);
+            // 'FF.CCCC': a proc do ERP filtra por filial + centro separados
+            $opc = fcs_opcoes_relatorio($emp, $ini, $fim, ["$fil.$cc"]);
             $s = fcs_saldo_relatorio(relatorio_financeiro_dados($base, $opc));
             $porCentro[] = ['codc' => $codc, 'base' => $base, 'saldo' => $s];
             $saldo += $s;
