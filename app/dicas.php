@@ -20,19 +20,27 @@ const DICAS_AREAS = [
 
 function dc_listar(): array
 {
+    // CONVERT(varchar(10)) nas flags char(3): 'Não' cheio estoura o fetch
+    // do PDO_ODBC (01004) no servidor NexoGI
     return query('SELECT Dica_Id, RTRIM(CONVERT(varchar(200), Dica)) Dica,
-                         RTRIM(Comercial) Comercial, RTRIM(Contabilidade) Contabilidade,
-                         RTRIM(Engenharia) Engenharia, RTRIM(Estoque) Estoque,
-                         RTRIM(Financeiro) Financeiro, RTRIM(Suprimentos) Suprimentos
+                         RTRIM(CONVERT(varchar(10), Comercial)) Comercial,
+                         RTRIM(CONVERT(varchar(10), Contabilidade)) Contabilidade,
+                         RTRIM(CONVERT(varchar(10), Engenharia)) Engenharia,
+                         RTRIM(CONVERT(varchar(10), Estoque)) Estoque,
+                         RTRIM(CONVERT(varchar(10), Financeiro)) Financeiro,
+                         RTRIM(CONVERT(varchar(10), Suprimentos)) Suprimentos
                   FROM msoft.Dica ORDER BY Dica_Id');
 }
 
 function dc_get(int $id): ?array
 {
     $rows = query('SELECT Dica_Id, RTRIM(CONVERT(varchar(200), Dica)) Dica,
-                          RTRIM(Comercial) Comercial, RTRIM(Contabilidade) Contabilidade,
-                          RTRIM(Engenharia) Engenharia, RTRIM(Estoque) Estoque,
-                          RTRIM(Financeiro) Financeiro, RTRIM(Suprimentos) Suprimentos
+                          RTRIM(CONVERT(varchar(10), Comercial)) Comercial,
+                          RTRIM(CONVERT(varchar(10), Contabilidade)) Contabilidade,
+                          RTRIM(CONVERT(varchar(10), Engenharia)) Engenharia,
+                          RTRIM(CONVERT(varchar(10), Estoque)) Estoque,
+                          RTRIM(CONVERT(varchar(10), Financeiro)) Financeiro,
+                          RTRIM(CONVERT(varchar(10), Suprimentos)) Suprimentos
                    FROM msoft.Dica WHERE Dica_Id = ?', [$id]);
     return $rows[0] ?? null;
 }
