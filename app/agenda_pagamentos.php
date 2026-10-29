@@ -9,7 +9,11 @@ declare(strict_types=1);
 
 function ap_sql(string $v): string
 {
-    return "'" . str_replace("'", "''", $v) . "'";
+    // nao-ASCII vira expressao CHAR()/NCHAR(): o PDO_ODBC do servidor
+    // entrega bytes UTF-8 como Latin1 (mojibake) — ver db_sql_literal()
+    return preg_match('/[^\x00-\x7F]/', $v)
+        ? db_sql_literal($v)
+        : "'" . str_replace("'", "''", $v) . "'";
 }
 
 function ap_dados(string $base, array $f): array

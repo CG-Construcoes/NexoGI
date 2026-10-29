@@ -13,6 +13,11 @@ declare(strict_types=1);
  * digitado na hora do calculo e entra na soma do SaldoGrupo.
  */
 
+/* 'Não' como expressao SQL ASCII: literal 'Não' no texto do statement
+ * chega mojibake/estoura CHAR(3) no PDO_ODBC do servidor (ver db.php).
+ * Parametros '?' com 'Não' nao precisam — sao convertidos pelo db_odbc_params. */
+define('FCS_EXIBIR_NAO', db_sql_literal('Não'));
+
 /** Normaliza valor digitado ("1.234,56" ou "1234.56", aceita negativo). */
 function fcs_valor($v): float
 {
@@ -31,20 +36,23 @@ function fcs_listar(): array
 {
     // grupo sem nenhum centro fica automaticamente oculto
     execute("UPDATE msoft.FluxoCaixa_Grupo
-             SET Exibir = 'Não'
-             WHERE ISNULL(RTRIM(Exibir), 'Sim') <> 'Não'
+             SET Exibir = " . FCS_EXIBIR_NAO . "
+             WHERE ISNULL(RTRIM(Exibir), 'Sim') <> " . FCS_EXIBIR_NAO . "
                AND (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
                     WHERE c.FCGrupo_Id = msoft.FluxoCaixa_Grupo.FCGrupo_Id) = 0");
 
-    return query("SELECT g.FCGrupo_Id, RTRIM(g.FCGrupo_Nome) FCGrupo_Nome,
-                         RTRIM(g.FCGrupo_Descricao) FCGrupo_Descricao,
+    // CONVERT(varchar(10)) no Exibir: char(3) cheio com acento estoura o
+    // fetch do PDO_ODBC (01004); nome/descricao idem em varchar cheio
+    return query("SELECT g.FCGrupo_Id, RTRIM(CONVERT(varchar(200), g.FCGrupo_Nome)) FCGrupo_Nome,
+                         RTRIM(CONVERT(varchar(400), g.FCGrupo_Descricao)) FCGrupo_Descricao,
                          (SELECT COUNT(*) FROM msoft.FluxoCaixa_Centros c
                           WHERE c.FCGrupo_Id = g.FCGrupo_Id) QtdeCentros,
                          (SELECT COUNT(*) FROM msoft.GrupoCentro_Avulso a
                           WHERE a.FCGrupo_Id = g.FCGrupo_Id) QtdeAvulsos,
                          s.SaldoGrupo, s.SaldoMes1, s.SaldoMes2, s.SaldoMes3,
                          s.UltimaAtualizacao,
-                         ISNULL(RTRIM(g.Exibir), 'Sim') Exibir
+                         RTRIM(CONVERT(varchar(10),
+                             ISNULL(g.Exibir, 'Sim'))) Exibir
                   FROM msoft.FluxoCaixa_Grupo g
                   LEFT JOIN msoft.GruposSaldos s ON s.FCGrupo_Id = g.FCGrupo_Id
                   LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o ON o.FCGrupo_Id = g.FCGrupo_Id
@@ -73,7 +81,7 @@ function fcs_ids_visiveis(array $ids): array
     $ok = array_map(fn($r) => (int) $r['FCGrupo_Id'],
         query("SELECT FCGrupo_Id FROM msoft.FluxoCaixa_Grupo
                WHERE FCGrupo_Id IN ($ph)
-                 AND ISNULL(RTRIM(Exibir), 'Sim') <> N'Não'", $ids));
+                 AND ISNULL(RTRIM(Exibir), 'Sim') <> " . FCS_EXIBIR_NAO, $ids));
     return array_values(array_intersect($ids, $ok));
 }
 
@@ -739,7 +747,7 @@ function fcs_receber_dados(): array
                     JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
                     LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
                         ON o.FCGrupo_Id = g.FCGrupo_Id
-                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'") as $r) {
+                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> " . FCS_EXIBIR_NAO) as $r) {
         $codc = strtoupper($r['codc']);
         if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][0]) {
             $grupoDo[$codc] = [(int) $r['ord'], trim((string) $r['nome'])];
@@ -918,7 +926,7 @@ function fcs_receber_por_grupo(): array
                     JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = c.FCGrupo_Id
                     LEFT JOIN msoft.FluxoCaixa_GrupoOrdem o
                         ON o.FCGrupo_Id = c.FCGrupo_Id
-                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'") as $r) {
+                    WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> " . FCS_EXIBIR_NAO) as $r) {
         $codc = strtoupper($r['codc']);
         if (!isset($grupoDo[$codc]) || (int) $r['ord'] < $grupoDo[$codc][1]) {
             $grupoDo[$codc] = [(int) $r['FCGrupo_Id'], (int) $r['ord']];
@@ -995,13 +1003,14 @@ function fcs_aportes_calcular_salvar(): void
     // so grupos visiveis; linhas de grupo oculto sao preservadas
     execute("DELETE FROM msoft.FluxoCaixa_Aportes
              WHERE FCGrupo_Id IN (SELECT FCGrupo_Id FROM msoft.FluxoCaixa_Grupo
-                                  WHERE ISNULL(RTRIM(Exibir), 'Sim') <> N'Não')");
+                                  WHERE ISNULL(RTRIM(Exibir), 'Sim') <> "
+                                  . FCS_EXIBIR_NAO . ")");
     execute("INSERT INTO msoft.FluxoCaixa_Aportes
              (FCGrupo_Id, TotalAportes, UltimaAtualizacao)
              SELECT a.FCGrupo_Id, SUM(a.Aporte_Valor), GETDATE()
              FROM msoft.GrupoCentro_Aporte a
              JOIN msoft.FluxoCaixa_Grupo g ON g.FCGrupo_Id = a.FCGrupo_Id
-             WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> N'Não'
+             WHERE ISNULL(RTRIM(g.Exibir), 'Sim') <> " . FCS_EXIBIR_NAO . "
              GROUP BY a.FCGrupo_Id");
 }
 

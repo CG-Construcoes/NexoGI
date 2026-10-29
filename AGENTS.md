@@ -330,6 +330,17 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
     funciona, misto falha. Solucao: montar `AND col = ?` condicionalmente em PHP
     (helper `pc_filtro()`), nunca passar param NULL pra filtro.
   - Batch `DECLARE/EXEC ... OUTPUT` nao devolve resultado. Usar SELECTs puros.
+  - SQLSTATE 22001/8152 na ESCRITA e mojibake silencioso: o driver entrega
+    os bytes UTF-8 do statement/parametro ao servidor como Latin1 — 'Não'
+    chega 'NÃ£o' (4 chars: estoura char(3); em colunas maiores grava
+    errado). Bytes CP1252 crus tambem nao servem (invalidos em UTF-8,
+    quebram o statement). Solucao (2026-10-29, commit 73af433): textos
+    acentuados viram expressao `CHAR()/NCHAR()` montada no proprio SQL
+    Server — `db_sql_literal()` em app/db.php; query()/execute() ja trocam
+    PARAMS nao-ASCII automaticamente (db_odbc_params); para literais no
+    TEXTO do SQL, usar db_sql_literal() (ex.: FCS_EXIBIR_NAO) ou ap_sql().
+    Antes disso, qualquer gravacao com acento feita no servidor corrompia
+    o dado ('Previsão' -> 'PrevisÃ£o').
   - `DB_FORCE_ODBC=1` (env) forca o caminho ODBC no dev para testar essas
     situacoes sem mexer no servidor.
   - Telas ja corrigidas: Posicao de Contas (10af8a9), Relatorio Economico e
