@@ -979,3 +979,8 @@ quando `$sec['id'] === 'despesas'`.
   Criar via scripts/migrar_atividades.php (padrao migrar_grupos_usuarios.php).
 - Permissao por grupo segue o modelo atual (Consultar = ver as suas;
   Incluir/Alterar = escopo de gestor; Excluir = excluir).
+
+## Pendentes (28/10)
+- Vinculos ERP: incluir tipo "Agenda" (5o tipo no modal de busca)
+- Novo projeto: comparacao de precos de insumos — tabela insumo_alias x
+  SEINFRA x SINAPI x ultimas compras CG
