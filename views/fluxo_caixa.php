@@ -360,8 +360,13 @@
             })
             .catch(function () {});
     }
+    function bloquearSaida(e) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
     function mostrarProg() {
         prog.hidden = false;
+        window.addEventListener('beforeunload', bloquearSaida);
         if (!dicaTimer) {
             buscarDica();
             dicaTimer = setInterval(buscarDica, 10000);
@@ -369,6 +374,7 @@
     }
     function esconderProg() {
         prog.hidden = true;
+        window.removeEventListener('beforeunload', bloquearSaida);
         clearInterval(dicaTimer);
         dicaTimer = null;
     }

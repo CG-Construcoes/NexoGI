@@ -421,7 +421,9 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
                     WHERE FCGrupo_Id = ? AND Base IS NOT NULL', [$grupoId]) as $r) {
         $pins[strtoupper($r['c'])] = strtoupper($r['b']);
     }
-    $porCentro = [];
+    // agrupa centros por (base, empresa): 1 execucao de spMovFinLancamentosDetalhe
+    // por (base, empresa) em vez de 2 execucoes por centro.
+    $porBaseEmp = []; // base => emp => [codc => [fil, cc]]
     foreach (fc_centros_do_grupo($grupoId) as $codc) {
         $codc = strtoupper(trim((string) $codc));
         if (strlen($codc) !== 9) {
@@ -437,11 +439,56 @@ function fcs_saldo_grupo(int $grupoId, string $ini, string $fim, array $avulsos 
             if (!isset($existem[$base][$codc])) {
                 continue;
             }
-            // 'FF.CCCC': a proc do ERP filtra por filial + centro separados
-            $opc = fcs_opcoes_relatorio($emp, $ini, $fim, ["$fil.$cc"]);
-            $s = fcs_saldo_relatorio(relatorio_financeiro_dados($base, $opc));
-            $porCentro[] = ['codc' => $codc, 'base' => $base, 'saldo' => $s];
-            $saldo += $s;
+            $porBaseEmp[$base][$emp][$codc] = [$fil, $cc];
+        }
+    }
+    $porCentro = [];
+    foreach ($porBaseEmp as $base => $empresas) {
+        $pdo = conexao(banco_da_base($base));
+        $st = $pdo->prepare(
+            "EXEC spMovFinLancamentosDetalhe
+             @Empresa_Cod=?, @DataInicial=?, @DataFinal=?, @ClaIns='N', @APagRec='N',
+             @Utilizacao='J', @Filial_Cod=?, @Centro_Cod=?, @Nucleo_Cod=NULL,
+             @Relatorio='S', @Detalha_Centro=?"
+        );
+        foreach ($empresas as $emp => $centrosMap) {
+            db_abortar_se_desconectado();
+            $saldosCentro = array_fill_keys(array_keys($centrosMap), 0.0);
+            if (count($centrosMap) === 1) {
+                $codcUnico = array_key_first($centrosMap);
+                [$filU, $ccU] = $centrosMap[$codcUnico];
+                $st->execute([$emp, $ini, $fim, $filU, $ccU, 'N']);
+                while (true) {
+                    if ($st->columnCount() > 0) {
+                        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                            if (trim((string) $r['Classe_Cod']) === '') continue;
+                            $saldosCentro[$codcUnico] += (float) $r['MovFinItem_ValorOrig'];
+                        }
+                    }
+                    if (!$st->nextRowset()) break;
+                }
+                $st->closeCursor();
+            } else {
+                $st->execute([$emp, $ini, $fim, null, null, 'S']);
+                while (true) {
+                    if ($st->columnCount() > 0) {
+                        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                            if (trim((string) $r['Classe_Cod']) === '') continue;
+                            $chave = strtoupper($emp . trim((string) ($r['Filial_Cod'] ?? ''))
+                                                     . trim((string) $r['Centro_Cod']));
+                            if (isset($saldosCentro[$chave])) {
+                                $saldosCentro[$chave] += (float) $r['MovFinItem_ValorOrig'];
+                            }
+                        }
+                    }
+                    if (!$st->nextRowset()) break;
+                }
+                $st->closeCursor();
+            }
+            foreach ($saldosCentro as $codc => $s) {
+                $porCentro[] = ['codc' => $codc, 'base' => $base, 'saldo' => $s];
+                $saldo += $s;
+            }
         }
     }
     fcs_centros_salvar($grupoId, $porCentro);
