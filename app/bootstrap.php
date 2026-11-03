@@ -68,6 +68,7 @@ if (!function_exists('mb_strtolower')) {
     }
 }
 
+require ROOT . '/vendor/autoload.php'; // Composer (Laminas, src/)
 require ROOT . '/app/db.php';
 require ROOT . '/app/modules.php';
 require ROOT . '/app/helpers.php';

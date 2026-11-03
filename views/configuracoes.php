@@ -149,6 +149,11 @@
 
         <div class="filtros" style="margin-bottom:16px; background:#f8fafc">
             <div class="campo grow">
+                <label for="ed-nome">Nome do usuario</label>
+                <input type="text" id="ed-nome" name="nome" required maxlength="120"
+                       value="<?= e($usuarioSel['Nome']) ?>" autocomplete="off">
+            </div>
+            <div class="campo grow">
                 <label for="ed-admin">Nivel de permissao geral</label>
                 <select id="ed-admin" name="admin">
                     <option value="0" <?= empty($usuarioSel['Admin']) ? 'selected' : '' ?>>Usuario — Acesso controlado pelas permissoes e grupos marcados abaixo</option>

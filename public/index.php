@@ -44,6 +44,11 @@ if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
 }
 
+// Rotas novas em Laminas (src/routes.php): handler atendeu = switch legado nao roda
+if (\Msoft\Router::dispatch($rota, $metodo)) {
+    exit;
+}
+
 switch ($rota) {
     case '':
         redirecionar(usuario_logado() ? 'menu' : 'login');
@@ -264,6 +269,44 @@ switch ($rota) {
         }
         exit;
 
+    case 'atividade/status':
+        // Troca de status via Kanban (drag-and-drop): POST JSON {id,status,csrf}
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $in = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            if (!csrf_valido() && ($in['csrf'] ?? '') !== csrf_token()) {
+                throw new InvalidArgumentException('CSRF invalido.');
+            }
+            $eu = atv_eu();
+            $idA = (int) ($in['id'] ?? 0);
+            atv_mudar_status($idA, (string) ($in['status'] ?? ''), $eu);
+            $com = trim((string) ($in['comentario'] ?? ''));
+            if ($com !== '') {
+                atv_comentar($idA, $com, $eu);
+            }
+            echo json_encode(['ok' => true]);
+        } catch (Throwable $t) {
+            echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+        }
+        exit;
+
+    case 'atividade/cor':
+        // Cor do cartao no kanban: POST JSON {id,cor,csrf}
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $in = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+            if (!csrf_valido() && ($in['csrf'] ?? '') !== csrf_token()) {
+                throw new InvalidArgumentException('CSRF invalido.');
+            }
+            atv_definir_cor((int) ($in['id'] ?? 0), (string) ($in['cor'] ?? ''), atv_eu());
+            echo json_encode(['ok' => true]);
+        } catch (Throwable $t) {
+            echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+        }
+        exit;
+
     case 'atividade/vinculos':
         // Busca JSON de itens do ERP p/ vincular (?tipo=&q=)
         exigir_login();
@@ -277,7 +320,9 @@ switch ($rota) {
                 (string) ($_GET['tipo'] ?? ''), (string) ($_GET['q'] ?? ''),
                 (string) ($_GET['esp'] ?? ''), (string) ($_GET['centro'] ?? ''),
                 (string) ($_GET['empresa'] ?? ''),
-                (string) ($_GET['de'] ?? ''), (string) ($_GET['ate'] ?? '')),
+                (string) ($_GET['de'] ?? ''), (string) ($_GET['ate'] ?? ''),
+                ['ed' => (bool) ($_GET['ed'] ?? 1), 'ep' => (bool) ($_GET['ep'] ?? 1),
+                 'cv' => (bool) ($_GET['cv'] ?? 1)]),
                 JSON_UNESCAPED_UNICODE);
         } catch (Throwable $t) {
             echo json_encode(['erro' => $t->getMessage()]);
@@ -527,7 +572,7 @@ switch ($rota) {
         $f = [
             'data_ini' => (string) ($_GET['data_ini'] ?? ''),
             'data_fim' => (string) ($_GET['data_fim'] ?? ''),
-            'escopo'   => (string) ($_GET['escopo'] ?? 'minhas'),
+            'escopo'   => (string) ($_GET['escopo'] ?? 'todas'),
             'resp'     => (int) ($_GET['resp'] ?? 0),
             'visib'    => (string) ($_GET['visib'] ?? ''),
             'setor'    => trim((string) ($_GET['setor'] ?? '')),

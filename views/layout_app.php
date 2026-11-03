@@ -16,8 +16,19 @@ try {
     if (window.innerWidth > 768 && localStorage.getItem('nouvellesobra_sidebar_pinned') === '1') {
         document.body.classList.add('sidebar-fixa');
     }
+    if (localStorage.getItem('msoft_tema') === 'escuro') {
+        document.body.classList.add('dark');
+    }
 } catch (e) {}
 </script>
+<?php if (env('APP_AMBIENTE') === 'treino'): ?>
+<style>body { padding-top: 27px !important; } .sidebar { padding-top: 27px !important; }</style>
+<div style="position:fixed; top:0; left:0; right:0; z-index:3000; background:#f59e0b; color:#1f2937;
+    text-align:center; font-weight:700; font-size:.85rem; padding:5px 10px;
+    letter-spacing:.5px; box-shadow:0 1px 4px rgba(0,0,0,.15)">
+    ⚠ AMBIENTE TREINO — dados de teste (bases dbTREINO)
+</div>
+<?php endif; ?>
 <div class="app-shell">
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
     <div class="sidebar-trigger" id="sidebarTrigger"></div>
@@ -108,6 +119,17 @@ try {
             </div>
             <?= $topbar_extra ?? '' ?>
             <div class="topbar-user">
+                <button type="button" id="btnTema" class="btn btn-sm btn-secundario"
+                        title="Alternar modo claro/escuro" style="padding:5px 9px">🌙</button>
+                <span style="position:relative">
+                    <input type="text" id="buscaTelas" placeholder="Buscar tela…" autocomplete="off"
+                           style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;
+                                  font-size:.85rem;width:170px">
+                    <div id="buscaTelasDrop" style="display:none;position:absolute;top:32px;right:0;
+                         background:#fff;border:1px solid #cbd5e1;border-radius:8px;
+                         box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:300px;max-height:340px;
+                         overflow:auto;z-index:2000;font-size:.85rem"></div>
+                </span>
                 <a href="<?= url('menu') ?>" class="btn btn-sm btn-secundario topbar-btn-home" title="Pagina inicial"><?= icone_svg('inicio', 15) ?> <span class="topbar-texto-btn">Inicio</span></a>
                 <span class="topbar-usuario-nome" title="<?= e($_SESSION['usuario'] ?? '') ?>"><?= e($_SESSION['nome'] ?? '') ?></span>
                 <a href="<?= url('logout') ?>" class="btn btn-sm topbar-btn-sair"><?= icone_svg('sair', 15) ?> <span>Sair</span></a>
@@ -242,6 +264,58 @@ try {
         }, { passive: true });
         row.addEventListener('touchend', function () { clearTimeout(touchTimer); });
         row.addEventListener('touchmove', function () { clearTimeout(touchTimer); });
+    });
+})();
+</script>
+<?php
+// Telas pesquisaveis: "Grupo > Subgrupo > Tela", so as permitidas ao usuario
+$buscaTelas = [];
+$walkTelas = function (array $itens, array $caminho) use (&$walkTelas, &$buscaTelas) {
+    foreach ($itens as $it) {
+        if (isset($it['itens'])) {
+            $walkTelas($it['itens'], array_merge($caminho, [$it['nome']]));
+        } elseif (!empty($it['pronto']) && isset($it['slug']) && usuario_pode($it['slug'])) {
+            $buscaTelas[] = ['p' => implode(' > ', $caminho), 'n' => $it['nome'],
+                             'u' => url($it['slug'])];
+        }
+    }
+};
+foreach (MODULES as $g) {
+    $walkTelas($g['itens'] ?? [], [$g['nome']]);
+}
+?>
+<script>
+(function () {
+    var bt = document.getElementById('btnTema');
+    function pintar() { bt.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; }
+    pintar();
+    bt.addEventListener('click', function () {
+        document.body.classList.toggle('dark');
+        try {
+            localStorage.setItem('msoft_tema',
+                document.body.classList.contains('dark') ? 'escuro' : 'claro');
+        } catch (e) {}
+        pintar();
+    });
+    var inp = document.getElementById('buscaTelas'),
+        drop = document.getElementById('buscaTelasDrop'),
+        itens = <?= json_encode($buscaTelas, JSON_UNESCAPED_UNICODE) ?>;
+    inp.addEventListener('input', function () {
+        var t = inp.value.trim().toLowerCase();
+        if (t.length < 2) { drop.style.display = 'none'; return; }
+        var h = '';
+        itens.forEach(function (i) {
+            var rot = (i.p ? i.p + ' > ' : '') + i.n;
+            if (rot.toLowerCase().indexOf(t) < 0) { return; }
+            h += '<a href="' + i.u + '" style="display:block;padding:7px 12px;' +
+                 'text-decoration:none;color:#1e293b;border-bottom:1px solid #f1f5f9">' +
+                 '<span style="color:#64748b">' + i.p + ' &rsaquo;</span> ' + i.n + '</a>';
+        });
+        drop.innerHTML = h || '<div style="padding:10px;color:#94a3b8">nenhuma tela</div>';
+        drop.style.display = 'block';
+    });
+    document.addEventListener('click', function (ev) {
+        if (!inp.contains(ev.target) && !drop.contains(ev.target)) { drop.style.display = 'none'; }
     });
 })();
 </script>

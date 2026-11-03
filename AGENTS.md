@@ -1018,7 +1018,22 @@ quando `$sec['id'] === 'despesas'`.
 - Permissao por grupo segue o modelo atual (Consultar = ver as suas;
   Incluir/Alterar = escopo de gestor; Excluir = excluir).
 
+## Pendentes estrategicos
+- Escrita direta nas bases ERP (dbMGA/dbConv) — decisao para o futuro,
+  NAO fazer agora. Quando chegar: rever integridade (FKs/triggers do
+  modelo Python), grants de escrita no .env, transacoes cross-base e
+  auditoria no CGGestao.
+
 ## Pendentes (28/10)
 - Vinculos ERP: incluir tipo "Agenda" (5o tipo no modal de busca)
 - Novo projeto: comparacao de precos de insumos — tabela insumo_alias x
   SEINFRA x SINAPI x ultimas compras CG
+
+## Laminas/Composer (2026-10-29) — decisao do usuario
+- Telas NOVAS em Laminas (componentes: diactoros, stratigility, router,
+  servicemanager — composer.json, autoload PSR-4 Msoft\ -> src/).
+- src/Router.php despacha rotas de src/routes.php ANTES do switch legado
+  (public/index.php). Suporta rota/{param}. Handler usa helpers existentes
+  (query/execute/exigir_tela/render/url/csrf).
+- Telas antigas migradas sob demanda; switch legado intocado ate la.
+- vendor/ ignorado no git — composer install no deploy (Composer 2.9.5).
