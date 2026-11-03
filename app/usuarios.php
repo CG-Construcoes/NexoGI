@@ -231,8 +231,12 @@ function acao_usuario(int $id, string $acao): array
         if ($funcaoId > 0 && !fun_get($funcaoId)) {
             $funcaoId = 0;
         }
-        execute('UPDATE msoft.Usuarios SET Admin = ?, Setor = ?, Funcao_Id = ? WHERE Id = ?',
-            [$novoAdmin, $setor !== '' ? $setor : null, $funcaoId > 0 ? $funcaoId : null, $id]);
+        $novoNome = trim((string) ($_POST['nome'] ?? ''));
+        if ($novoNome === '' || mb_strlen($novoNome) > 120) {
+            return ['tipo' => 'erro', 'html' => 'Nome do usuario deve ter de 1 a 120 caracteres.'];
+        }
+        execute('UPDATE msoft.Usuarios SET Nome = ?, Admin = ?, Setor = ?, Funcao_Id = ? WHERE Id = ?',
+            [$novoNome, $novoAdmin, $setor !== '' ? $setor : null, $funcaoId > 0 ? $funcaoId : null, $id]);
         return ['tipo' => 'ok', 'html' => "Acessos e permissoes de <strong>$nome</strong> salvos ($nGrupos grupo(s), $nTelas tela(s) individuais)."];
     }
     if ($acao === 'definir-senha') {

@@ -16,6 +16,7 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
         }
     }
     ?>
+    <?php $setorEu = trim((string) ((atv_eu() ?? [])['Setor'] ?? '')); ?>
     <div class="atv-form-grid">
         <div class="campo grow" style="grid-column:1/-1">
             <label>Titulo *</label>
@@ -26,11 +27,25 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
             <label>Orientacoes</label>
             <textarea name="orientacoes" rows="4" placeholder="Detalhes, links, instrucoes de execucao"><?= e($a['Orientacoes'] ?? '') ?></textarea>
         </div>
+        <?php if ($acao === 'criar'): ?>
+        <div class="campo" style="grid-column:1/-1">
+            <label>Vinculo Sistema <small style="color:#94a3b8">(busque e selecione; pode vincular varios)</small></label>
+            <div class="atv-vinc" data-novo="1">
+                <div class="atv-vinc-busca">
+                    <select class="atv-vin-tipo"><?php foreach (ATV_VINC_TIPOS as $k => $rot): ?><option value="<?= $k ?>"><?= e($rot) ?></option><?php endforeach; ?></select>
+                    <input class="atv-vin-q" type="text" placeholder="Numero + Enter (ex.: 2387)" autocomplete="off">
+                </div>
+                <div class="atv-vin-res"></div>
+                <div class="atv-vin-chips"></div>
+            </div>
+        </div>
+        <?php endif; ?>
         <div class="campo">
             <label>Setor do responsavel</label>
             <select id="atvFiltroSetor">
                 <option value="">Todos os setores</option>
-                <?php foreach ($setores as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
+                <?php foreach ($setores as $s): ?><option value="<?= e($s) ?>"
+                    <?= $acao === 'criar' && $s === $setorEu ? 'selected' : '' ?>><?= e($s) ?></option><?php endforeach; ?>
             </select>
         </div>
         <div class="campo">
@@ -44,7 +59,7 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
             </select>
         </div>
         <div class="campo">
-            <label>Prazo maximo</label>
+            <label>Prazo de Conclusao</label>
             <input type="datetime-local" name="prazo" value="<?= e($prazoVal($a['Prazo'] ?? null)) ?>">
         </div>
         <div class="campo">
@@ -70,17 +85,6 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
                 <?= !empty($a['Urgente']) ? 'checked' : '' ?>> <span class="atv-urg">!</span> Atividade urgente</label>
         </div>
         <?php if ($acao === 'criar'): ?>
-        <div class="campo" style="grid-column:1/-1">
-            <label>Vinculos ao ERP <small style="color:#94a3b8">(busque e selecione; pode vincular varios)</small></label>
-            <div class="atv-vinc" data-novo="1">
-                <div class="atv-vinc-busca">
-                    <select class="atv-vin-tipo"><?php foreach (ATV_VINC_TIPOS as $k => $rot): ?><option value="<?= $k ?>"><?= e($rot) ?></option><?php endforeach; ?></select>
-                    <input class="atv-vin-q" type="text" placeholder="Numero + Enter (ex.: 2387)" autocomplete="off">
-                </div>
-                <div class="atv-vin-res"></div>
-                <div class="atv-vin-chips"></div>
-            </div>
-        </div>
         <div class="campo" style="grid-column:1/-1">
             <label>Participantes adicionais (podem apontar tempo, comentar e ser transferidos)</label>
             <details class="atv-combo">
@@ -119,6 +123,18 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
         <?= csrf_campo() ?>
         <input type="hidden" name="acao" value="criar">
         <?php $renderForm('criar', null, $usuariosAtrib, $setores); ?>
+        <div id="atvGravando" style="display:none;position:fixed;inset:0;z-index:4000;
+             background:rgba(255,255,255,.72);align-items:center;justify-content:center">
+            <div style="background:#fff;border:1px solid var(--border-color);border-radius:12px;
+                 padding:26px 34px;text-align:center;box-shadow:var(--shadow-lg)">
+                <div style="display:inline-block;width:26px;height:26px;border:3px solid #cbd5e1;
+                     border-top-color:#0f766e;border-radius:50%;animation:atvgirar .8s linear infinite;
+                     margin-bottom:10px"></div>
+                <div style="font-weight:600;color:#334155">Gravando a atividade…</div>
+                <div style="font-size:.8rem;color:#94a3b8;margin-top:4px">
+                    Incluindo participantes e vínculos — aguarde.</div>
+            </div>
+        </div>
         <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:10px">
             <a href="<?= url('atividades') ?>" class="btn btn-secundario">Cancelar</a>
             <button type="submit" class="btn">Criar e atribuir</button>
@@ -409,6 +425,11 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
         '<input id="mfCen" type="text" list="mfCenList" placeholder="Centro" autocomplete="off"><datalist id="mfCenList"></datalist>' +
         '<input id="mfDe" type="date" title="Data inicial">' +
         '<input id="mfAte" type="date" title="Data final">' +
+        '<span id="mfPrev" style="display:none;align-items:center;gap:8px;font-size:.8rem;' +
+        'color:#475569;white-space:nowrap"><b>Previsões:</b> ' +
+        '<label><input type="checkbox" id="mfEd" checked> ED</label>' +
+        '<label><input type="checkbox" id="mfEp" checked> EP</label>' +
+        '<label><input type="checkbox" id="mfCv" checked> CV</label></span>' +
         '<button type="button" class="btn" id="mfOk">Filtrar</button></div>' +
         '<div class="atv-modal-grid"><table class="tabela"><thead></thead><tbody id="atvModalBody"></tbody></table></div>' +
         '<div class="atv-modal-foot">' +
@@ -438,13 +459,29 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
         q.insertAdjacentElement('afterend', btn);
 
         function filtrar() {
+            document.getElementById('mfPrev').style.display =
+                tipo.value === 'Agenda' ? 'inline-flex' : 'none';
             var p = 'atividade/vinculos?tipo=' + encodeURIComponent(tipo.value) +
                 '&q=' + encodeURIComponent(document.getElementById('mfNum').value.trim()) +
                 '&esp=' + encodeURIComponent(document.getElementById('mfEsp').value.trim()) +
                 '&centro=' + encodeURIComponent(document.getElementById('mfCen').value.trim()) +
                 '&empresa=' + encodeURIComponent(document.getElementById('mfEmp').value.trim()) +
                 '&de=' + encodeURIComponent(document.getElementById('mfDe').value) +
-                '&ate=' + encodeURIComponent(document.getElementById('mfAte').value);
+                '&ate=' + encodeURIComponent(document.getElementById('mfAte').value) +
+                '&ed=' + (document.getElementById('mfEd').checked ? 1 : 0) +
+                '&ep=' + (document.getElementById('mfEp').checked ? 1 : 0) +
+                '&cv=' + (document.getElementById('mfCv').checked ? 1 : 0);
+            modal.style.display = 'flex';
+            document.getElementById('atvModalTit').textContent =
+                'Vincular — ' + tipo.options[tipo.selectedIndex].text;
+            document.getElementById('atvModalBody').innerHTML =
+                '<tr><td style="padding:24px;text-align:center;color:#475569">' +
+                '<div class="atv-spin" style="display:inline-block;width:26px;height:26px;' +
+                'border:3px solid #cbd5e1;border-top-color:#0f766e;border-radius:50%;' +
+                'animation:atvgirar .8s linear infinite;margin-bottom:10px"></div>' +
+                '<div>Carregando informações…</div>' +
+                '<div style="font-size:.8rem;color:#94a3b8;margin-top:4px">' +
+                'Períodos longos podem demorar um pouco mais.</div></td></tr>';
             fetch(p).then(function (r) { return r.json(); }).then(function (resp) {
                 if (!resp || !resp.cols) {
                     modal.style.display = 'flex';
@@ -566,6 +603,21 @@ $renderForm = static function (string $acao, ?array $a, array $usuarios, array $
             if (respSel.selectedIndex > 0 && respSel.options[respSel.selectedIndex].hidden) {
                 respSel.selectedIndex = 0;
             }
+        });
+        // criacao: setor ja vem pre-selecionado -> filtra o responsavel na abertura
+        if (fSetor.value !== '' && !respSel.disabled) {
+            fSetor.dispatchEvent(new Event('change'));
+        }
+    }
+    // criacao: overlay "gravando" ao submeter (impede duplo clique)
+    var formCriar = document.querySelector('form input[name=acao][value=criar]');
+    if (formCriar) {
+        formCriar.closest('form').addEventListener('submit', function (ev) {
+            var btn = this.querySelector('button[type=submit]');
+            if (btn && btn.disabled) { ev.preventDefault(); return; }
+            if (btn) { btn.disabled = true; btn.textContent = 'Gravando…'; }
+            var ov = document.getElementById('atvGravando');
+            if (ov) { ov.style.display = 'flex'; }
         });
     }
     // combobox de participantes: contador no resumo

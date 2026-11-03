@@ -959,7 +959,7 @@ function atv_email_atribuicao(int $id, int $paraUid, array $eu, string $motivo):
 /* ===================== VINCULOS AO ERP ===================== */
 
 const ATV_VINC_TIPOS = ['Solicitacao' => 'Solicitação', 'Coleta' => 'Coleta',
-                        'Pedido' => 'Pedido', 'AR' => 'AR'];
+                        'Pedido' => 'Pedido', 'AR' => 'AR', 'Agenda' => 'Agenda'];
 
 function atv_vinculos(int $id): array
 {
@@ -1002,6 +1002,22 @@ function atv_vinculo_add(int $id, string $tipo, string $base, string $chave,
         'Vinculou ' . ATV_VINC_TIPOS[$tipo] . ' ' . $chave . " ($base)");
 }
 
+/** Cor do cartao no Kanban ('' = padrao). Paleta de tons suaves. */
+const ATV_CORES = ['', '#fef9c3', '#dcfce7', '#dbeafe', '#fee2e2', '#ede9fe', '#ffedd5'];
+
+function atv_definir_cor(int $id, string $cor, array $eu): void
+{
+    $a = atv_carregar($id);
+    atv_exige_participante_ou_gestor($a, $eu);
+    $cor = strtolower(trim($cor));
+    if (!in_array($cor, ATV_CORES, true)) {
+        throw new InvalidArgumentException('Cor invalida.');
+    }
+    execute('UPDATE msoft.Atividades SET Cor = ? WHERE Atividade_Id = ?',
+        [$cor !== '' ? $cor : null, $id]);
+    atv_evento($id, 'edicao', (int) $eu['Id'], 'Alterou a cor do cartao');
+}
+
 function atv_vinculo_remover(int $id, int $vincId, array $eu): void
 {
     $a = atv_carregar($id);
@@ -1022,6 +1038,7 @@ const ATV_VINC_COLS = [
     'Coleta'      => ['Base', 'Centro', 'Numero', 'Especificacao', 'Qtd', 'Data', 'Sit'],
     'Pedido'      => ['Base', 'Centro', 'Numero', 'Especificacao', 'Qtd', 'Data', 'Sit'],
     'AR'          => ['Base', 'Numero', 'Data'],
+    'Agenda'      => ['Base', 'Centro', 'Numero', 'Credor', 'Valor', 'Venc.', 'Agenda', 'Sit'],
 ];
 
 const ATV_VINC_ESPEC_SQL =
@@ -1076,10 +1093,14 @@ function atv_vinc_cod_ou_texto(string $v): array
  *  (Instrucao_Cod='A'). Retorna ['cols'=>[...], 'rows'=>[...]]. */
 function atv_vinculos_busca(string $tipo, string $q, string $esp = '',
                             string $centroF = '', string $empresa = '',
-                            string $dtDe = '', string $dtAte = ''): array
+                            string $dtDe = '', string $dtAte = '',
+                            array $prev = []): array
 {
     if (!isset(ATV_VINC_TIPOS[$tipo])) {
         return ['cols' => [], 'rows' => []];
+    }
+    if ($tipo === 'Agenda') {
+        return atv_vinculos_busca_agenda($q, $esp, $centroF, $empresa, $dtDe, $dtAte, $prev);
     }
     $like = '%' . trim($q) . '%';
     $espec = ATV_VINC_ESPEC_SQL;
@@ -1255,4 +1276,71 @@ function atv_vinculos_busca(string $tipo, string $q, string $esp = '',
         <=> [$y['base'], $y['centro'], str_pad($y['chave'], 20, ' ', STR_PAD_LEFT)]
     );
     return ['cols' => ATV_VINC_COLS[$tipo], 'rows' => $out];
+}
+
+/** Busca itens da Agenda de Pagamentos (sp_ParcelasAgendaPagto) para vincular.
+ *  Filtros do modal: empresa, numero (doc), especificacao = credor (contem),
+ *  centro e datas = vencimento. Chave = TitaPag_Numero/parcela. */
+function atv_vinculos_busca_agenda(string $q, string $esp, string $centroF,
+                                   string $empresa, string $dtDe, string $dtAte,
+                                   array $prev = []): array
+{
+    if (trim($dtDe) === '' && trim($dtAte) === '') {
+        $dtDe = date('Y-m-d');
+        $dtAte = date('Y-m-d', strtotime('+10 days')); // padrao: hoje ate +10 dias
+    }
+    [$emp] = atv_vinc_cod_ou_texto($empresa);
+    [$cen] = atv_vinc_cod_ou_texto($centroF);
+    $f = [
+        'cre' => '', 'nucleo' => '',
+        'ini' => trim($dtDe) !== '' ? $dtDe : '1900-01-01',
+        'fim' => trim($dtAte) !== '' ? $dtAte : '2050-12-31',
+        'ref' => date('Y-m-d'),
+        'atrasadas' => false, 'pendentes' => true,
+        'ed' => $prev['ed'] ?? true, 'ep' => $prev['ep'] ?? true,
+        'cv' => $prev['cv'] ?? true,
+        'nao_aut' => false,
+        'docnum' => trim($q), 'ficha' => '', 'vmin' => null, 'vmax' => null,
+        'empresas' => $emp !== '' ? [$emp] : [],
+        'centros'  => $cen !== '' ? [$cen] : [],
+        'especie'  => '',
+    ];
+    $espL = mb_strtolower(trim($esp));
+    $dbr = fn($d) => ($t = strtotime((string) $d)) ? date('d/m/Y', $t) : '';
+    $ord = fn($x, $y) =>
+        [$x['venc'], $x['base'], $x['centro'], str_pad($x['chave'], 20, ' ', STR_PAD_LEFT)]
+        <=> [$y['venc'], $y['base'], $y['centro'], str_pad($y['chave'], 20, ' ', STR_PAD_LEFT)];
+    $out = [];
+    foreach (['CONV', 'MGA'] as $base) {
+        $rows = [];
+        try {
+            foreach (ap_dados($base, $f) as $r) {
+                $credor = trim((string) $r['Cre_RazSoc']);
+                if ($espL !== '' && !str_contains(mb_strtolower($credor), $espL)) {
+                    continue;
+                }
+                $parc = str_pad(trim((string) $r['TitaPag_ParNumero']), 3, '0', STR_PAD_LEFT);
+                $sp = trim((string) ($r['TitaPag_SParNumero'] ?? ''));
+                if ($sp !== '' && $sp !== '0') {
+                    $parc .= '.' . $sp;
+                }
+                $chave = trim((string) $r['TitaPag_Numero']) . '/' . $parc;
+                $centroV = trim((string) ($r['Centro_CodC'] ?? ''));
+                $rows[] = ['tipo' => 'Agenda', 'base' => $base, 'chave' => $chave,
+                           'centro' => $centroV, 'rotulo' => $chave,
+                           'venc' => strtotime((string) $r['TitaPag_DataVencimento']) ?: 0,
+                           'vals' => [$base, $centroV, $chave, $credor,
+                               number_format((float) $r['TitaPag_ValorLiquido'], 2, ',', '.'),
+                               $dbr($r['TitaPag_DataVencimento']),
+                               $dbr($r['TitaPag_DataAgendaFin']),
+                               trim((string) ($r['TitaPag_Situacao'] ?? ''))]];
+            }
+        } catch (Throwable $e) {
+            error_log("Msoft vinculos agenda $base: " . $e->getMessage());
+        }
+        usort($rows, $ord);
+        $out = array_merge($out, array_slice($rows, 0, 40)); // 40 por base
+    }
+    usort($out, $ord);
+    return ['cols' => ATV_VINC_COLS['Agenda'], 'rows' => $out];
 }
