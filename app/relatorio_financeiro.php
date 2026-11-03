@@ -97,19 +97,48 @@ function relatorio_financeiro_dados(string $base, array $o): array
     $pdo = conexao($banco);
     $st = $pdo->prepare($sql);
 
-    // detalhe dos lancamentos: uma execucao por combinacao centro x nucleo (NULL = todos)
+    // detalhe dos lancamentos ('J'): quando ha no maximo 1 centro e 1 nucleo,
+    // filtra direto na procedure (1 exec). Com multiplos centros/nucleos, faz
+    // 1 unica execucao com @Detalha_Centro='S' e filtra em PHP (evita N x M
+    // chamadas da proc).
+    $multiFiltro = count($centrosSel) > 1 || count($nucleosSel) > 1;
+    $detProc = ($detCentro === 'S' || $multiFiltro) ? 'S' : 'N';
+    [$filPar, $centroPar] = !$multiFiltro && $centrosSel ? $centrosSel[0] : [null, null];
+    $nucleoPar = !$multiFiltro && $nucleosSel ? $nucleosSel[0] : null;
+    $setNucleos = $multiFiltro && $nucleosSel ? array_flip($nucleosSel) : null;
+    $aceitaCentro = null;
+    if ($multiFiltro && $centrosSel) {
+        $setFilCen = [];
+        $setCen = [];
+        foreach ($centrosSel as [$fc, $cc]) {
+            if ($fc !== null) {
+                $setFilCen[$fc . '.' . $cc] = true;
+            } else {
+                $setCen[$cc] = true;
+            }
+        }
+        $aceitaCentro = function (string $fil, string $cc) use ($setFilCen, $setCen): bool {
+            return isset($setCen[$cc]) || isset($setFilCen[$fil . '.' . $cc]);
+        };
+    }
+
     $classes = [];
     $agentes = [];
-    foreach (($centrosSel ?: [null]) as $centroSel) {
-    [$filCod, $centroCod] = $centroSel ?? [null, null];
-    foreach (($nucleosSel ?: [null]) as $nucleoCod) {
-        // 'J' = detalhe dos lancamentos
-        $st->execute([$empresa, $iniTotal, $fim, 'J', $filCod, $centroCod, $nucleoCod, $detCentro]);
-        while (true) {
-            if ($st->columnCount() > 0) {
-                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+    db_abortar_se_desconectado();
+    $st->execute([$empresa, $iniTotal, $fim, 'J', $filPar, $centroPar, $nucleoPar, $detProc]);
+    while (true) {
+        if ($st->columnCount() > 0) {
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                 $cla = trim((string) $r['Classe_Cod']);
                 if ($cla === '') continue;
+                if ($aceitaCentro !== null
+                    && !$aceitaCentro(trim((string) ($r['Filial_Cod'] ?? '')),
+                                      trim((string) $r['Centro_Cod']))) {
+                    continue;
+                }
+                if ($setNucleos !== null && !isset($setNucleos[trim((string) $r['Nucleo_Cod'])])) {
+                    continue;
+                }
                 $ass = trim((string) $r['Assunto_Cod']);
                 $go  = trim((string) $r['GO_Cod']);
                 $valor = (float) $r['MovFinItem_ValorOrig'];
@@ -142,32 +171,38 @@ function relatorio_financeiro_dados(string $base, array $o): array
                     'hist' => trim((string) $r['MovFin_Historico']),
                     'valor' => $valor, 'ant' => $ant];
                 $classes[$cn][$cla]['assuntos'][$ass][$ant ? 'ant' : 'per'] += $valor;
-                }
             }
-            if (!$st->nextRowset()) break;
         }
-        $st->closeCursor();
-
-        // '5' = resumo por agente financeiro
-        $st->execute([$empresa, $iniTotal, $fim, '5', $filCod, $centroCod, $nucleoCod, $detCentro]);
-        while (true) {
-            if ($st->columnCount() > 0) {
-                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                $tipo  = trim((string) $r['AgenteFinanceiroTipo_Cod']);
-                $ag    = trim((string) $r['AgenteFinanceiro_Cod']);
-                $conta = trim((string) $r['AgeFin_ContaNumero']);
-                if ($tipo === '' && $ag === '') continue;
-                $chave = $tipo . '|' . $ag . '|' . $conta;
-                if (!isset($agentes[$chave])) {
-                    $agentes[$chave] = ['tipo' => $tipo, 'agente' => $ag, 'conta' => $conta, 'valor' => 0.0];
-                }
-                $agentes[$chave]['valor'] += (float) $r['ValorOrig'];
-                }
-            }
-            if (!$st->nextRowset()) break;
-        }
-        $st->closeCursor();
+        if (!$st->nextRowset()) break;
     }
+    $st->closeCursor();
+
+    // '5' = resumo por agente financeiro (so executa quando solicitado)
+    if (!empty($o['resumo_agente'])) {
+        foreach (($centrosSel ?: [null]) as $centroSel) {
+            [$filCod, $centroCod] = $centroSel ?? [null, null];
+            foreach (($nucleosSel ?: [null]) as $nucleoCod) {
+                db_abortar_se_desconectado();
+                $st->execute([$empresa, $iniTotal, $fim, '5', $filCod, $centroCod, $nucleoCod, $detCentro]);
+                while (true) {
+                    if ($st->columnCount() > 0) {
+                        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                            $tipo  = trim((string) $r['AgenteFinanceiroTipo_Cod']);
+                            $ag    = trim((string) $r['AgenteFinanceiro_Cod']);
+                            $conta = trim((string) $r['AgeFin_ContaNumero']);
+                            if ($tipo === '' && $ag === '') continue;
+                            $chave = $tipo . '|' . $ag . '|' . $conta;
+                            if (!isset($agentes[$chave])) {
+                                $agentes[$chave] = ['tipo' => $tipo, 'agente' => $ag, 'conta' => $conta, 'valor' => 0.0];
+                            }
+                            $agentes[$chave]['valor'] += (float) $r['ValorOrig'];
+                        }
+                    }
+                    if (!$st->nextRowset()) break;
+                }
+                $st->closeCursor();
+            }
+        }
     }
 
     // monta a saida: um relatorio por centro (ou um so)

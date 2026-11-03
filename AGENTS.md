@@ -118,6 +118,44 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
 - Teste de autenticacao SMTP sem enviar e-mail: `php scripts/teste_smtp_auth.php`
 - Teste de ponta a ponta: `/tmp/teste_acesso.sh` (26 verificacoes, modo log)
 
+## Diagnostico de carga no SQL Server (2026-11-03)
+- Conexoes: PDO NAO-persistente em `conexao()` — 1 por banco por request,
+  fechada ao fim (verificado: 0 sessoes sleeping do login da app). Statements
+  sempre consumidos (fetchAll ou fetch+nextRowset+closeCursor). Sem vazamento.
+- Identificacao no SQL Server: host_name='ubuntu-srv-cg', program_name='php8.5'.
+- SEM query timeout (so LoginTimeout=10): proc disparada roda ate o fim mesmo se
+  o PHP/request morrer — F5 empilha execucoes paralelas orfas. Mitigacao
+  pendente: PDO::ATTR_TIMEOUT (no PDO_ODBC = SQL_ATTR_QUERY_TIMEOUT).
+- Carga: relatorios/fluxo-caixa chamam spMovFinLancamentosDetalhe /
+  spMovEconomicoDetalhe EM LOOP (por centro x nucleo x base; ~2 exec/centro —
+  grupo de 20 centros em 2 bases = ~80 execs; periodo sugerido desde 2014).
+  posicao_contas: ~7-9 queries por conta (N+1). DRE arquivada e a leve (1 SELECT).
+- tempdb (mesmo servidor do ERP Python): 8 data files x 72MB + log 72MB,
+  cresc. fixo 64MB, max ilimitado; recriada a cada restart (ultimo 2026-10-30).
+  ARQUIVO NUNCA ENCOLHE (comportamento normal — so o uso interno e reutilizado).
+  ~600 entradas #temp em tempdb.sys.tables sao em grande parte cache de
+  metadados/table-vars e sessoes do ERP Python (#Insumos_Consulta, #AR_Quantidade,
+  #DocItem = procs legadas, nao do NexoGI). Bases: dbMGA=260GB, dbConv=13GB,
+  CGGestao=1,5GB — tempdb atual (648MB) e pequena perto delas.
+- Sem VIEW SERVER STATE para o usuario da app — para medir consumo de tempdb
+  por sessao, o DBA precisa rodar sys.dm_db_session_space_usage no servidor.
+- Medicoes reais em producao (2026-11-03): spMovEconomicoDetalhe '(*)' 1 ano =
+  8,6s/32k linhas; CGC 1 mes = 4,4s/1688; sp_ParcelasAgendaPagto 3 meses =
+  1,6s/1475; query NOT EXISTS do fcs_pagar = 0,4s — nenhuma moveu a tempdb
+  (ficou em 648MB). Ou seja: em base com indices/estatisticas OK as execs sao
+  leves; o estouro de tempdb visto em testes provavelmente veio de base de
+  teste (dbMGATeste, ja apagada) com planos ruins — ou da proc financeira
+  abaixo. O ARQUIVO nunca encolhe: o pico fica "congelado" ate o restart.
+- ATENCAO — permissao faltando: o usuario do app tem EXECUTE em
+  spMovEconomicoDetalhe e sp_ParcelasAgendaPagto, mas NAO em
+  spMovFinLancamentosDetalhe (dbMGA e dbConv). Por isso Relatorio Financeiro,
+  "Atualizar" do fluxo-caixa (item 3) e o lado financeiro do DRE estouram
+  erro em producao (500 visto no access.log em 29/10). Precisa de GRANT.
+- Composicao da dbMGA (260GB): Documentos_Digitalizados_Item=146GB,
+  Auditoria_LogEventos=54GB (164M linhas), titulos_a_pagar_audit=29GB —
+  as tabelas de trabalho sao pequenas (Titulos_a_Pagar 2,4GB,
+  Movimento_Financeiro 1,6GB).
+
 ## Status da conversao
 - [x] Login, logout, menu principal, layout com menu lateral
 - [x] Cadastro (solicitar acesso) — SUBSTITUIDO pelo fluxo de e-mail acima (rota redireciona)
