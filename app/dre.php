@@ -300,6 +300,7 @@ function dre_dados(array $o): array
         $pdo = conexao($banco);
 
         // ---- lado economico (Posicao_Economica) ----
+        db_abortar_se_desconectado();
         $st = $pdo->prepare("EXEC spMovEconomicoDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
                              @Relatorio='S', @Detalha_Centro='S', @Medicao='N'");
         $st->execute([$o['data_ini'], $o['data_fim']]);
@@ -339,6 +340,7 @@ function dre_dados(array $o): array
         $st->closeCursor();
 
         // ---- lado financeiro (PosicaoFinanceira): so '58 Administracao de Obra' ----
+        db_abortar_se_desconectado();
         $st = $pdo->prepare("EXEC spMovFinLancamentosDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
                              @ClaIns='N', @APagRec='N', @Utilizacao='L', @Relatorio='S', @Detalha_Centro='S'");
         $st->execute([$o['data_ini'], $o['data_fim']]);

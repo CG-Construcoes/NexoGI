@@ -76,24 +76,35 @@ function relatorio_economico_dados(string $base, array $o): array
     $detCentro = !empty($o['det_centro']) ? 'S' : 'N';
 
     // parametros posicionais: 6=@Centro_Cod, 7=@Nucleo_Cod, 19=@Detalha_Centro, 21=@Medicao
+    // Quando ha no maximo 1 centro e 1 nucleo, filtra direto na procedure (1 exec).
+    // Com multiplos centros/nucleos, faz 1 unica execucao com @Detalha_Centro='S'
+    // e filtra em PHP (evita o produto cartesiano N x M de chamadas da proc).
+    $multiFiltro = count($centrosSel) > 1 || count($nucleosSel) > 1;
+    $detProc   = ($detCentro === 'S' || $multiFiltro) ? 'S' : 'N';
+    $centroPar = !$multiFiltro && $centrosSel ? $centrosSel[0] : null;
+    $nucleoPar = !$multiFiltro && $nucleosSel ? $nucleosSel[0] : null;
+    $setCentros = $multiFiltro && $centrosSel ? array_flip($centrosSel) : null;
+    $setNucleos = $multiFiltro && $nucleosSel ? array_flip($nucleosSel) : null;
+
     $sql = "EXEC spMovEconomicoDetalhe ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, NULL,
                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'S', ?, NULL, ?";
     $pdo = conexao($banco);
     $st = $pdo->prepare($sql);
 
     $classes = []; // Centro? => Classe => [titulo, tipo, assuntos[Ass => [titulo, ant, per, gos]]]
-    // a procedure aceita um centro e um nucleo por execucao:
-    // produto cartesiano dos selecionados (NULL = todos)
-    $consultas = $centrosSel ?: [null];
-    $nucleos   = $nucleosSel ?: [null];
-    foreach ($consultas as $centroCod) {
-    foreach ($nucleos as $nucleoCod) {
-        $st->execute([$empresa, $iniTotal, $fim, $centroCod, $nucleoCod, $detCentro, $medicao]);
-        while (true) {
-            if ($st->columnCount() > 0) {
-                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+    db_abortar_se_desconectado();
+    $st->execute([$empresa, $iniTotal, $fim, $centroPar, $nucleoPar, $detProc, $medicao]);
+    while (true) {
+        if ($st->columnCount() > 0) {
+            while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                 $cla = trim((string) $r['Classe_Cod']);
                 if ($cla === '') continue;
+                if ($setCentros !== null && !isset($setCentros[trim((string) $r['Centro_Cod'])])) {
+                    continue;
+                }
+                if ($setNucleos !== null && !isset($setNucleos[trim((string) $r['Nucleo_Cod'])])) {
+                    continue;
+                }
                 $ass = trim((string) $r['Assunto_Cod']);
                 $go  = trim((string) $r['GO_Cod']);
                 $valor = (float) $r['EntItemApl_Valor'];
@@ -118,13 +129,11 @@ function relatorio_economico_dados(string $base, array $o): array
                 }
                 $classes[$cn][$cla]['assuntos'][$ass]['gos'][$go][$ant ? 'ant' : 'per'] += $valor;
                 $classes[$cn][$cla]['assuntos'][$ass][$ant ? 'ant' : 'per'] += $valor;
-                }
             }
-            if (!$st->nextRowset()) break;
         }
-        $st->closeCursor();
+        if (!$st->nextRowset()) break;
     }
-    }
+    $st->closeCursor();
 
     // monta a estrutura de saida: um relatorio por centro (ou um so)
     $secoesSel = array_keys(array_filter([
