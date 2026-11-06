@@ -36,7 +36,7 @@ const MODULES = [
              'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
             ['slug' => 'dre-mes-arquivada', 'nome' => 'DRE Mês Arquivada', 'pronto' => true,
              'title' => 'DRE Arquivada é a DRE calculada até o dia anterior.'],
-            ['slug' => 'fluxo-caixa', 'nome' => 'Acompanhamento Financeiro', 'pronto' => true],
+            ['slug' => 'acompanhamentofinanceiro', 'nome' => 'Acompanhamento Financeiro', 'pronto' => true],
         ]],
         ['nome' => 'Relatorios', 'itens' => [
             ['slug' => 'relatorio-economico', 'nome' => 'Relatorio Economico', 'pronto' => true],
@@ -44,12 +44,25 @@ const MODULES = [
         ]],
     ]],
     ['nome' => 'Suprimentos',   'icone' => '🚚', 'itens' => [
-        ['slug' => 'pedidos', 'nome' => 'Pedidos', 'pronto' => true],
-        ['slug' => 'insumos', 'nome' => 'Insumos', 'pronto' => false],
-        ['slug' => 'credor',  'nome' => 'Credor',  'pronto' => false],
+        ['nome' => 'Cadastros', 'itens' => [
+            ['slug' => 'insumos', 'nome' => 'Insumos', 'pronto' => false],
+            ['slug' => 'credor',  'nome' => 'Credor',  'pronto' => false],
+        ]],
         ['nome' => 'Solicitacoes', 'itens' => [
+            ['slug' => 'solicitacao', 'nome' => 'Registro de Solicitacao', 'pronto' => true],
             ['slug' => 'matriz-prioridades', 'nome' => 'Matriz de Prioridades', 'pronto' => true],
             ['slug' => 'followup-solicitacoes', 'nome' => 'Follow-up das Solicitacoes', 'pronto' => true],
+        ]],
+        ['nome' => 'Coletas', 'itens' => [
+            ['slug' => 'coleta', 'nome' => 'Coleta de Precos', 'pronto' => true],
+        ]],
+        ['nome' => 'Pedidos', 'itens' => [
+            ['slug' => 'followup-pedidos', 'nome' => 'Follow-up dos Pedidos', 'pronto' => true],
+            ['slug' => 'ultimas-compras', 'nome' => 'Ultimas Compras', 'pronto' => true],
+        ]],
+        ['nome' => 'Avisos de Recebimentos', 'itens' => [
+        ]],
+        ['nome' => 'Relatorios', 'itens' => [
         ]],
     ]],
     ['nome' => 'Indicadores',   'icone' => '📊', 'itens' => [

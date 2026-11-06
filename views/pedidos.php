@@ -12,68 +12,71 @@ ob_start(); ?>
 <?php $topbar_extra = ob_get_clean(); ?>
 <div class="pedidos-container">
 <div class="pedidos-coluna">
-<form class="filtros" method="get">
+<form class="flw-filtro2" method="get">
     <input type="hidden" id="filtro_data_corte" name="data_corte" value="<?= e($filtros['data_corte']) ?>">
-    <div class="campo">
-        <label for="data_ini">Data inicial</label>
-        <input type="date" id="data_ini" name="data_ini" value="<?= e($filtros['data_ini']) ?>">
-    </div>
-    <div class="campo">
-        <label for="data_fim">Data final</label>
-        <input type="date" id="data_fim" name="data_fim" value="<?= e($filtros['data_fim']) ?>">
-    </div>
-    <div class="campo">
-        <label for="pedido">Nº Pedido</label>
-        <input type="text" id="pedido" name="pedido" value="<?= e($filtros['pedido']) ?>" placeholder="Ex: 2678">
-    </div>
-    <div class="campo grow">
-        <label for="fornecedor">Fornecedor</label>
-        <input type="text" id="fornecedor" name="fornecedor" value="<?= e($filtros['fornecedor']) ?>"
-               list="listaFornecedores" placeholder="Digite para buscar" autocomplete="off">
-        <datalist id="listaFornecedores">
-            <?php foreach ($fornecedores as $f): ?>
-            <option value="<?= e($f) ?>"></option>
-            <?php endforeach; ?>
-        </datalist>
-    </div>
-    <div class="campo grow">
-        <label for="centro">Centro</label>
-        <input type="text" id="centro" name="centro" value="<?= e($filtros['centro']) ?>"
-               list="listaCentros" placeholder="Digite para buscar" autocomplete="off">
-        <datalist id="listaCentros">
-            <?php foreach ($centros as $cn): ?>
-            <option value="<?= e($cn) ?>"></option>
-            <?php endforeach; ?>
-        </datalist>
-    </div>
-    <div class="campo grow">
-        <label for="nucleo">Nucleo</label>
-        <input type="text" id="nucleo" name="nucleo" value="<?= e($filtros['nucleo'] ?? '') ?>"
-               list="listaNucleos" placeholder="Digite para buscar" autocomplete="off">
-        <datalist id="listaNucleos">
-            <?php foreach ($nucleos as $nc): ?>
-            <option value="<?= e($nc) ?>"></option>
-            <?php endforeach; ?>
-        </datalist>
-    </div>
-    <div class="campo grow">
-        <label for="insumo">Descricao de Insumo</label>
-        <input type="text" id="insumo" name="insumo" value="<?= e($filtros['insumo'] ?? '') ?>"
-               placeholder="Ex: argamassa" autocomplete="off">
-    </div>
-    <div class="campo">
-        <label for="situacao">Situacao</label>
-        <select id="situacao" name="situacao">
-            <option value="">Todos</option>
-            <option value="aut" <?= ($filtros['situacao'] ?? '') === 'aut' ? 'selected' : '' ?>>Somente autorizados</option>
-            <option value="naut" <?= ($filtros['situacao'] ?? '') === 'naut' ? 'selected' : '' ?>>Somente nao autorizados</option>
-        </select>
-    </div>
-    <div class="campo acoes">
-        <button type="submit" class="btn">Filtrar</button>
-        <a href="<?= url('pedidos') ?>" class="btn btn-secundario">Limpar</a>
+    <div class="flw-rows">
+        <div class="flw-c"><span>De</span>
+            <input type="date" id="data_ini" name="data_ini" value="<?= e($filtros['data_ini']) ?>"></div>
+        <div class="flw-c"><span>Até</span>
+            <input type="date" id="data_fim" name="data_fim" value="<?= e($filtros['data_fim']) ?>"></div>
+        <div class="flw-c w-num"><span>Nº Pedido</span>
+            <input type="text" id="pedido" name="pedido" value="<?= e($filtros['pedido']) ?>" placeholder="2678"></div>
+        <div class="flw-c w-emp"><span>Fornecedor</span>
+            <input type="text" id="fornecedor" name="fornecedor" value="<?= e($filtros['fornecedor']) ?>"
+                   list="listaFornecedores" placeholder="Filtrar" autocomplete="off">
+            <datalist id="listaFornecedores">
+                <?php foreach ($fornecedores as $f): ?>
+                <option value="<?= e($f) ?>"></option>
+                <?php endforeach; ?>
+            </datalist></div>
+        <div class="flw-c w-emp"><span>Centro</span>
+            <input type="text" id="centro" name="centro" value="<?= e($filtros['centro']) ?>"
+                   list="listaCentros" placeholder="Filtrar" autocomplete="off">
+            <datalist id="listaCentros">
+                <?php foreach ($centros as $cn): ?>
+                <option value="<?= e($cn) ?>"></option>
+                <?php endforeach; ?>
+            </datalist></div>
+        <div class="flw-c w-emp"><span>Núcleo</span>
+            <input type="text" id="nucleo" name="nucleo" value="<?= e($filtros['nucleo'] ?? '') ?>"
+                   list="listaNucleos" placeholder="Filtrar" autocomplete="off">
+            <datalist id="listaNucleos">
+                <?php foreach ($nucleos as $nc): ?>
+                <option value="<?= e($nc) ?>"></option>
+                <?php endforeach; ?>
+            </datalist></div>
+        <div class="flw-c w-emp"><span>Descrição Insumo</span>
+            <input type="text" id="insumo" name="insumo" value="<?= e($filtros['insumo'] ?? '') ?>"
+                   placeholder="argamassa" autocomplete="off"></div>
+        <div class="flw-c"><span>Situação</span>
+            <select id="situacao" name="situacao">
+                <option value="">Todos</option>
+                <option value="aut" <?= ($filtros['situacao'] ?? '') === 'aut' ? 'selected' : '' ?>>Somente autorizados</option>
+                <option value="naut" <?= ($filtros['situacao'] ?? '') === 'naut' ? 'selected' : '' ?>>Somente nao autorizados</option>
+            </select></div>
+        <div class="flw-c"><span>&nbsp;</span>
+            <button type="submit" class="btn">Filtrar</button></div>
+        <div class="flw-c"><span>&nbsp;</span>
+            <a href="<?= url('followup-pedidos') ?>" class="btn btn-secundario">Limpar</a></div>
     </div>
 </form>
+
+<style>
+.flw-filtro2 { background: var(--bg-panel, #fff); border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+.flw-rows { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; }
+.flw-c { display: flex; flex-direction: column; }
+.flw-c > span { font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .3px; color: var(--text-muted); margin-bottom: 1px; }
+.flw-c input, .flw-c select { font-size: 11.5px; padding: 3px 6px; height: 26px;
+    border: 1px solid var(--border-strong); border-radius: 5px; background: var(--bg-input, #fff); color: var(--text-main); }
+.flw-c input[type=date] { width: 124px; }
+.flw-c select { max-width: 170px; }
+.flw-c.w-emp input { width: 160px; }
+.flw-c.w-num input { width: 70px; }
+body.dark .flw-filtro2 { background: #171e2e; }
+body.dark .flw-c input, body.dark .flw-c select { background: #1b2333; }
+</style>
 
 <?php if ($erro): ?>
 <div class="alert-erro" style="margin-top:16px"><?= e($erro) ?></div>

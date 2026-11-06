@@ -197,38 +197,6 @@
             <?php endif; ?>
         </div>
 
-        <h3 style="font-size:14px; font-weight:700; color:var(--primary-800); margin:18px 0 6px">O que <?= e($usuarioSel['Nome']) ?> pode clicar e fazer por tela</h3>
-        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:10px">Marque <strong>Acessar / Clicar</strong> para liberar a tela no menu do usuario e marque as funcoes permitidas (Inserir, Alterar, Excluir).</p>
-
-        <table class="tabela tabela-permissoes">
-            <thead>
-                <tr>
-                    <th>Tela / Modulo</th>
-                    <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Acessar / Clicar</th>
-                    <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Inserir</th>
-                    <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Alterar</th>
-                    <th class="td-check"><input type="checkbox" title="Marcar todos" onclick="permColuna(this)"><br>Excluir</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($telasDisp as $t):
-                    $p = $permUsuario[$t['slug']] ?? []; ?>
-                <tr>
-                    <td><strong><?= e($t['nome']) ?></strong></td>
-                    <?php foreach (PERM_ACOES as $a): ?>
-                    <td class="td-check">
-                        <input type="checkbox"
-                               name="perm[<?= e($t['slug']) ?>][<?= $a ?>]"
-                               value="1"
-                               <?= !empty($p[$a]) ? 'checked' : '' ?>
-                               onchange="sincronizarAcessoLinha(this)">
-                    </td>
-                    <?php endforeach; ?>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
         <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
             <button type="submit" class="btn">Salvar permissoes de <?= e($usuarioSel['Nome']) ?></button>
             <a href="<?= url('configuracoes') ?>" class="btn btn-secundario">Cancelar</a>
@@ -362,6 +330,73 @@ function sincronizarAcessoLinha(chk) {
         tr.addEventListener('click', function () {
             location.href = '<?= e(url('configuracoes')) ?>?usuario=' + tr.dataset.id + '#painelPermissoes';
         });
+    });
+})();
+</script>
+
+<!-- ===================== TOUR GUIADO (?) ===================== -->
+<?php
+$passos = [
+    ['sel' => '.cfg-atalhos', 'txt' => '<b>Atalhos</b>: alterne entre <i>Usuarios e Permissoes</i> (esta tela) e <i>Grupos de Permissao</i> (onde as telas/acoes de cada grupo sao definidas).'],
+    ['sel' => '.cfg-card', 'txt' => '<b>Novo usuario</b>: cadastre nome, e-mail, senha provisoria, nivel, setor e funcao. Abaixo voce ja marca os <b>grupos</b> e as telas que ele podera acessar.'],
+    ['sel' => '#usFiltro', 'txt' => '<b>Buscar usuario</b>: filtre a lista digitando parte do nome ou do e-mail.'],
+    ['sel' => '#usGrid', 'txt' => '<b>Usuarios cadastrados</b>: <b>clique na linha</b> para abrir o painel de gerenciamento do usuario. Nas acoes da linha voce libera, bloqueia, reativa ou gera senha provisoria.'],
+];
+if ($usuarioSel):
+    $passos[] = ['sel' => '#nova_senha', 'txt' => '<b>Senha</b>: defina ou troque a senha do usuario diretamente aqui.'];
+    $passos[] = ['sel' => '#ed-nome', 'txt' => '<b>Dados</b>: ajuste nome, nivel (Usuario/Administrador), setor e funcao. <b>Administrador</b> tem acesso total, dispensando grupos.'];
+    $passos[] = ['sel' => '#painelPermissoes form[action$="permissoes"]', 'txt' => '<b>Grupos de acesso</b>: as permissoes do usuario vem <b>somente dos grupos</b> marcados aqui. A matriz Tela x Acoes e definida por grupo em <i>Grupos de Permissao</i>. Salve ao final.'];
+endif;
+?>
+<button type="button" class="atv-tour-btn" id="cfgTourBtn" title="Como usar esta tela">?</button>
+<script>
+(function () {
+    var PASSOS = <?= json_encode($passos, JSON_UNESCAPED_UNICODE) ?>;
+    var btn = document.getElementById("cfgTourBtn"),
+        passo = -1, spot = null, bub = null;
+    function limpar() {
+        if (spot) { spot.remove(); spot = null; }
+        if (bub) { bub.remove(); bub = null; }
+        passo = -1;
+    }
+    function mostrar(i) {
+        limpar();
+        if (!PASSOS[i]) { return; }
+        passo = i;
+        var p = PASSOS[i], el = null;
+        (p.sel.split(",")).forEach(function (s) { if (!el) { el = document.querySelector(s.trim()); } });
+        var r = el ? el.getBoundingClientRect() : {left: innerWidth/2-1, top: innerHeight/2-1, width: 2, height: 2, right: innerWidth/2+1, bottom: innerHeight/2+1};
+        spot = document.createElement("div");
+        spot.className = "atv-tour-spot";
+        spot.style.left = (r.left - 6) + "px"; spot.style.top = (r.top - 6) + "px";
+        spot.style.width = (r.width + 12) + "px"; spot.style.height = (r.height + 12) + "px";
+        document.body.appendChild(spot);
+        bub = document.createElement("div");
+        bub.className = "atv-tour-bub";
+        bub.innerHTML = "<div class=\"t-txt\">" + p.txt + "</div>" +
+            "<div class=\"t-nav\"><button type=\"button\" id=\"tAnt\">&larr; Anterior</button>" +
+            "<span class=\"t-passos\">" + (i + 1) + "/" + PASSOS.length + "</span>" +
+            (i < PASSOS.length - 1
+                ? "<button type=\"button\" class=\"t-prox\" id=\"tProx\">Proximo &rarr;</button>"
+                : "<button type=\"button\" class=\"t-prox\" id=\"tFim\">Concluir</button>") + "</div>";
+        document.body.appendChild(bub);
+        var br = bub.getBoundingClientRect(),
+            bx = Math.min(Math.max(12, r.left), innerWidth - br.width - 12),
+            by = (r.bottom + 16 + br.height < innerHeight) ? r.bottom + 16 : r.top - br.height - 16;
+        bub.style.left = bx + "px"; bub.style.top = Math.max(12, by) + "px";
+        var ant = bub.querySelector("#tAnt"), prox = bub.querySelector("#tProx"),
+            fim = bub.querySelector("#tFim");
+        if (i === 0) { ant.disabled = true; ant.style.opacity = ".4"; }
+        if (ant) { ant.onclick = function () { if (passo > 0) { mostrar(passo - 1); } }; }
+        if (prox) { prox.onclick = function () { mostrar(passo + 1); }; }
+        if (fim) { fim.onclick = limpar; }
+    }
+    btn.addEventListener("click", function () { mostrar(0); });
+    document.addEventListener("keydown", function (ev) {
+        if (passo < 0) { return; }
+        if (ev.key === "Escape") { limpar(); }
+        if (ev.key === "ArrowRight" && passo < PASSOS.length - 1) { mostrar(passo + 1); }
+        if (ev.key === "ArrowLeft" && passo > 0) { mostrar(passo - 1); }
     });
 })();
 </script>
