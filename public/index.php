@@ -11,9 +11,10 @@ $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 // Permissao por tela: rotas mapeadas exigem acesso via grupos do usuario
 // (msoft.UsuarioGrupoMembro -> UsuarioGrupoTelas; admin sempre passa).
 $ROTAS_TELA = [
-    'pedidos' => 'pedidos',
-    'pedidos/imprimir' => 'pedidos',
-    'pedidos/detalhe' => 'pedidos',
+    'followup-pedidos' => 'followup-pedidos',
+    'pedidos' => 'followup-pedidos',
+    'pedidos/imprimir' => 'followup-pedidos',
+    'pedidos/detalhe' => 'followup-pedidos',
     'indicadores-suprimentos' => 'indicadores-suprimentos',
     'indicador-pedidos-prazo' => 'indicadores-suprimentos',
     'indicador-pedidos-prazo/pedidos' => 'indicadores-suprimentos',
@@ -23,6 +24,7 @@ $ROTAS_TELA = [
     'fluxo-caixa-grupos' => 'fluxo-caixa-grupos',
     'fluxo-caixa-grupos/relatorio' => 'fluxo-caixa-grupos',
     'fluxo-caixa-aportes' => 'fluxo-caixa-aportes',
+    'acompanhamentofinanceiro' => 'fluxo-caixa',
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'fluxo-caixa/resumo' => 'fluxo-caixa',
@@ -39,6 +41,12 @@ $ROTAS_TELA = [
     'dre-mes-arquivada' => 'dre-mes-arquivada',
     'atividades' => 'atividades',
     'atividade' => 'atividades',
+    'ultimas-compras' => 'ultimas-compras',
+    'ultimas-compras/busca' => 'ultimas-compras',
+    'ultimas-compras/itens' => 'ultimas-compras',
+    'ultimas-compras/compras' => 'ultimas-compras',
+    'solicitacao' => 'solicitacao',
+    'coleta' => 'coleta',
 ];
 if (isset($ROTAS_TELA[$rota])) {
     exigir_tela($ROTAS_TELA[$rota]);
@@ -330,6 +338,10 @@ switch ($rota) {
         exit;
 
     case 'pedidos':
+        redirecionar('followup-pedidos' . ($_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : ''));
+        break;
+
+    case 'followup-pedidos':
         exigir_login();
         $filtros = [
             'data_ini' => (string) ($_GET['data_ini'] ?? ''),
@@ -347,8 +359,44 @@ switch ($rota) {
         if (!$_GET) {
             $filtros['data_ini'] = date('Y-m-d', strtotime('-30 days'));
         }
-        render('pedidos', ['titulo' => 'Pedidos', 'active' => 'pedidos', 'filtros' => $filtros]
+        render('pedidos', ['titulo' => 'Follow-up dos Pedidos', 'active' => 'followup-pedidos', 'filtros' => $filtros]
             + dados_tela_pedidos($filtros));
+        break;
+
+    case 'solicitacao':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA'));
+        if (!array_key_exists($base, uc_bases())) { $base = 'MGA'; }
+        $n = (int) ($_GET['n'] ?? 0);
+        $centro = trim((string) ($_GET['centro'] ?? ''));
+        $numero = trim((string) ($_GET['numero'] ?? ''));
+        if ($numero !== '' && $centro !== '') {
+            $n = sol_localizar($base, $centro, $numero) ?? -1;
+        }
+        $cab = ($n > 0) ? sol_cabecalho($base, $n) : null;
+        $itens = $cab ? sol_itens($base, $n) : [];
+        render('solicitacao', ['titulo' => 'Solicitacao ' . ($n > 0 ? $n : ''), 'active' => 'solicitacao',
+            'base' => $base, 'n' => $n, 'cab' => $cab, 'itens' => $itens,
+            'centro' => $centro, 'numero' => $numero, 'centros' => sol_centros($base)]);
+        break;
+
+    case 'coleta':
+        exigir_login();
+        $base = strtoupper((string) ($_GET['base'] ?? 'MGA'));
+        if (!array_key_exists($base, uc_bases())) { $base = 'MGA'; }
+        $n = (int) ($_GET['n'] ?? 0);
+        $cab = $n ? col_cabecalho($base, $n) : null;
+        $itens = $forns = $precos = [];
+        if ($cab) {
+            $itens = col_itens($base, $n);
+            $forns = col_fornecedores($base, $n);
+            foreach ($forns as $fn) {
+                $precos[(int) $fn['ColForn_Numero']] = col_precos($base, $n, (int) $fn['ColForn_Numero']);
+            }
+        }
+        render('coleta', ['titulo' => 'Coleta ' . ($n ?: ''), 'active' => 'coleta',
+            'base' => $base, 'n' => $n, 'cab' => $cab, 'itens' => $itens,
+            'forns' => $forns, 'precos' => $precos]);
         break;
 
     case 'pedidos/detalhe':
@@ -363,6 +411,57 @@ switch ($rota) {
         exigir_login();
         extract(dados_impressao_pedidos(pedidos_da_url()));
         require ROOT . '/views/pedido_impressao.php';
+        break;
+
+    case 'ultimas-compras':
+        exigir_login();
+        $base = (string) ($_GET['base'] ?? 'TODOS');
+        if ($base !== 'TODOS' && !array_key_exists($base, uc_bases())) { $base = 'TODOS'; }
+        render('ultimas_compras', [
+            'titulo' => 'Ultimas Compras', 'active' => 'ultimas-compras',
+            'base' => $base,
+        ]);
+        break;
+
+    case 'ultimas-compras/busca':
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        $base = (string) ($_GET['base'] ?? 'TODOS');
+        $termo = trim((string) ($_GET['q'] ?? ''));
+        try {
+            echo json_encode(['ok' => true, 'itens' => uc_insumos_grupo($base, $termo, 30)],
+                JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            echo json_encode(['ok' => false, 'erro' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+        break;
+
+    case 'ultimas-compras/itens':
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        $base = (string) ($_GET['base'] ?? '');
+        $insumo = (int) ($_GET['insumo'] ?? 0);
+        try {
+            echo json_encode(['ok' => true, 'itens' => uc_itens_comprados($base, $insumo)],
+                JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            echo json_encode(['ok' => false, 'erro' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+        break;
+
+    case 'ultimas-compras/compras':
+        exigir_login();
+        header('Content-Type: application/json; charset=utf-8');
+        $base = (string) ($_GET['base'] ?? '');
+        $insumo = (int) ($_GET['insumo'] ?? 0);
+        $sub = isset($_GET['sub']) && (int) $_GET['sub'] >= 0 ? (int) $_GET['sub'] : null;
+        $meses = (int) ($_GET['meses'] ?? 12);
+        try {
+            $linhas = uc_ultimas($base, $insumo, $sub, $meses);
+            echo json_encode(['ok' => true, 'linhas' => $linhas], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            echo json_encode(['ok' => false, 'erro' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
         break;
 
     case 'indicadores-suprimentos':
@@ -929,6 +1028,7 @@ switch ($rota) {
             'podeExcluir' => usuario_pode('fluxo-caixa-aportes', 'excluir')]);
         break;
 
+    case 'acompanhamentofinanceiro':
     case 'fluxo-caixa':
         exigir_login();
         // Detalhe da linha: totais por centro do grupo (Total Geral por centro).

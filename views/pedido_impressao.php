@@ -20,8 +20,11 @@
     .linha { display: flex; justify-content: space-between; }
 
     /* ---------- Cabecalho (112mm) ---------- */
-    .cab { height: 108mm; overflow: hidden; }
+    .cab { height: 108mm; overflow: hidden; position: relative; }
     .cab-topo { width: 172mm; }
+    .cab-logo { position: absolute; right: 0; top: 0; width: 21mm; height: 21mm;
+                display: flex; align-items: center; justify-content: center; }
+    .cab-logo img { max-width: 19mm; max-height: 19mm; }
     .cab-topo .r1, .cab-topo .r2 { height: 6mm; display: flex; align-items: center; padding: 0 1.5mm; border-bottom: 0.3mm solid #000; }
     .r1 .nome { flex: 1; font-weight: bold; font-size: 8.5pt; }
     .r1 .ped { width: 50mm; font-size: 8.5pt; }
@@ -37,7 +40,7 @@
     .ent .obra { display: flex; gap: 25mm; }
     .fornecimento { display: flex; gap: 1.2mm; margin-top: 1.2mm; height: 21mm; }
     .fornecimento .esq { flex: 1; display: flex; flex-direction: column; gap: 1.2mm; }
-    .fornecimento .obs { height: 6mm; padding: 1mm 1.5mm; }
+    .fornecimento .obs { height: 6mm; padding: 1mm 1.5mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .fornecimento .cond { flex: 1; display: flex; }
     .cond .rot { width: 20mm; text-align: center; padding-top: 1mm; }
     .cond .txt { flex: 1; border-left: 0.3mm solid #000; padding: 1mm 1.5mm; }
@@ -74,7 +77,7 @@
     .rod-a .desc { width: 36mm; justify-content: center; }
     .rod-a .tp { flex: 1; justify-content: flex-end; gap: 6mm; }
     .rod-b { height: 37mm; display: flex; gap: 1mm; margin-top: 1mm; }
-    .rod-b .texto { flex: 1; padding: 1mm 1.5mm; }
+    .rod-b .texto { flex: 1; padding: 1mm 1.5mm; overflow: hidden; word-break: break-all; white-space: pre-line; }
     .rod-b .col { width: 50.5mm; display: flex; flex-direction: column; gap: 1mm; }
     .rod-b .tg { height: 7mm; display: flex; align-items: center; justify-content: flex-end; gap: 6mm; padding: 0 1.5mm; }
     .rod-b .aut { flex: 1; padding: 1.5mm; display: flex; flex-direction: column; justify-content: space-between; }
@@ -87,7 +90,7 @@
     .rod-e { height: 6mm; display: flex; align-items: center; justify-content: center; margin-top: 1mm; }
     .rod-f { flex: 1; margin-top: 1mm; padding: 5mm 1.5mm 3mm; display: flex; flex-direction: column; justify-content: space-between; }
     .rod-f .aviso { font-weight: bold; font-size: 7pt; }
-    .assinaturas { display: flex; justify-content: space-around; text-align: center; font-weight: bold; font-size: 7pt; }
+    .assinaturas { display: flex; justify-content: space-around; text-align: center; font-weight: bold; font-size: 7pt; margin-top: 8mm; }
     .assinaturas div { width: 45mm; border-top: 0.3mm solid #000; padding-top: 2mm; }
 
     .aviso-erro { background: #fee2e2; color: #b91c1c; padding: 4mm; margin: 4mm auto; width: 210mm; font-size: 10pt; }
@@ -119,6 +122,7 @@
                 <span class="cc"><?= e($p['centro']) ?></span>
                 <span class="cei">CEI: <?= e($p['cei']) ?></span>
             </div>
+            <?php if ($p['logo']): ?><div class="cab-logo box"><img src="<?= e($p['logo']) ?>" alt=""></div><?php endif; ?>
             <div class="forn">
                 <div class="linha"><span>Fornecedor: <?= e($p['fornecedor']['nome']) ?></span><span>CNPJ: <?= e($p['fornecedor']['cnpj']) ?></span></div>
                 <div class="linha"><span>Endereço: &nbsp;<?= e($p['fornecedor']['linha']) ?></span><span>Contato: <?= e($p['fornecedor']['contato']) ?></span></div>
@@ -200,7 +204,14 @@
                 <div class="tg box"><span>Total Geral:</span><span><?= br($p['total_ped'], 2) ?></span></div>
                 <div class="aut box">
                     <span>Autorização do Pedido</span>
-                    <div class="assin"><?= e($p['autorizacao']) ?></div>
+                    <?php if ($p['autorizacao'] !== ''): ?>
+                        <div class="assin"><?= e($p['autorizacao']) ?></div>
+                    <?php else: ?>
+                        <div style="text-align:center">
+                            <div style="font-weight:bold;font-size:8pt;margin:2mm 0 3mm">PEDIDO NÃO AUTORIZADO</div>
+                            <div style="border-top:0.3mm solid #000;padding-top:1.5mm;font-size:7.5pt">Pedido NÃO Autorizado !!!</div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -216,7 +227,7 @@
         </div>
         <div class="rod-e box">Condições Acessórias</div>
         <div class="rod-f box">
-            <div class="aviso">TRABALHAMOS COM SISTEMA INTEGRADO, FAVOR MANDAR NOTA CONFORME O PEDIDO E CONSTAR O NÚMERO DO PEDIDO, ENDEREÇO DE ENTREGA E O CNO NA NOTA FISCAL.</div>
+            <div class="aviso" style="white-space:pre-line"><?= e($p['condicoes'] !== '' ? $p['condicoes'] : 'TRABALHAMOS COM SISTEMA INTEGRADO, FAVOR MANDAR NOTA CONFORME O PEDIDO E CONSTAR O NÚMERO DO PEDIDO, ENDEREÇO DE ENTREGA E O CNO NA NOTA FISCAL.') ?></div>
             <div class="assinaturas">
                 <div>GESTOR DE CONTRATO</div>
                 <div>GESTOR DE ENGENHARIA</div>

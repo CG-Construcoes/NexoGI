@@ -7,11 +7,9 @@ function conexao(?string $banco = null): PDO
     static $cache = [];
     $banco ??= env('DB_NAME', 'CGGestao');
     if (!isset($cache[$banco])) {
-        $timeout = (int) env('DB_QUERY_TIMEOUT', '180');
         $opcoes = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_TIMEOUT => $timeout,
         ];
         // DB_FORCE_ODBC=1 forca o caminho ODBC (diagnostico do servidor, que
         // nao tem pdo_sqlsrv)
@@ -22,9 +20,6 @@ function conexao(?string $banco = null): PDO
                 $banco
             );
             $opcoes[PDO::SQLSRV_ATTR_ENCODING] = PDO::SQLSRV_ENCODING_UTF8;
-            if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
-                $opcoes[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = $timeout;
-            }
             $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), $opcoes);
         } else {
             $driver = env('DB_DRIVER', 'ODBC Driver 18 for SQL Server');
@@ -136,15 +131,4 @@ function execute(string $sql, array $params = [], ?string $banco = null): int
     $st = $pdo->prepare($sql);
     $st->execute($params);
     return $st->rowCount();
-}
-
-/**
- * Interrompe rotinas longas se o navegador ja desconectou (F5 / fechar aba),
- * evitando disparar novas execucoes de procedures pesadas em cascata.
- */
-function db_abortar_se_desconectado(): void
-{
-    if (PHP_SAPI !== 'cli' && connection_aborted()) {
-        exit;
-    }
 }

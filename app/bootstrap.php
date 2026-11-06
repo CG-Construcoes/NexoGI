@@ -97,3 +97,6 @@ require ROOT . '/app/dicas.php';
 require ROOT . '/app/followup_solicitacoes.php';
 require ROOT . '/app/funcoes.php';
 require ROOT . '/app/atividades.php';
+require ROOT . '/app/ultimas_compras.php';
+require ROOT . '/app/solicitacao.php';
+require ROOT . '/app/coleta.php';

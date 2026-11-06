@@ -144,7 +144,7 @@ foreach (ATV_STATUS as $st):
             $venc = atv_vencida($l); ?>
             <div class="atv-kb-card <?= $venc ? 'atv-venc' : '' ?>"
                  draggable="true" data-id="<?= (int) $l['Atividade_Id'] ?>"
-                 <?= ($c = trim((string) ($l['Cor'] ?? ''))) !== '' ? 'style="background:' . e($c) . '"' : '' ?>>
+                 <?= ($c = trim((string) ($l['Cor'] ?? ''))) !== '' ? 'style="--cc:' . e($c) . '"' : '' ?>>
                 <div class="atv-kb-tit">
                     <?php if ($urg): ?><span class="atv-urg" title="Urgente">!</span><?php endif; ?>
                     <strong><?= e($l['Titulo']) ?></strong>
@@ -251,7 +251,7 @@ foreach (ATV_STATUS as $st):
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({id: card.dataset.id, cor: c[0], csrf: csrf})
                 }).then(function (r) { return r.json(); }).then(function (resp) {
-                    if (resp && resp.ok) { card.style.background = c[0]; }
+                    if (resp && resp.ok) { c[0] ? card.style.setProperty('--cc', c[0]) : card.style.removeProperty('--cc'); }
                     else { alert(resp && resp.erro ? resp.erro : 'Falha ao gravar a cor.'); }
                 });
             };
