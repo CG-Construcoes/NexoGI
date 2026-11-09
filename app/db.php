@@ -32,9 +32,10 @@ function conexao(?string $banco = null): PDO
                 env('DB_SERVER'),
                 $banco
             );
-            // O driver entrega UTF-8: coluna char(n) com acento pode estourar
-            // o buffer no fetch (22001/01004). ASSUME_UTF8 dimensiona x4.
-            $opcoes[PDO::ODBC_ATTR_ASSUME_UTF8] = true;
+            // NAO usar PDO::ODBC_ATTR_ASSUME_UTF8 aqui: no Driver 18 o PDO
+            // passa a buscar colunas WCHAR como UTF-16LE cru (ASCII vira
+            // 'a\0t\0i\0v\0o'), quebrando password_verify e toda comparacao
+            // de string no app — logins e checagens de permissao morrem.
             $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), $opcoes);
         }
     }
