@@ -51,11 +51,18 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   `sudo systemctl reload apache2`.
 - `php -S :8000` (scripts/servidor.sh) virou apenas fallback/dev — nao sobe
   sozinho no boot; o Apache (systemd) e o servico principal.
-- **Auto-deploy**: crontab do usuario `suporte` roda `git pull --ff-only`
-  a cada 5 min (log em `storage/git-pull.log`). ATENCAO: qualquer arquivo
-  com alteracao local NAO commitada trava o pull ("Your local changes
-  would be overwritten") se o upstream tambem mexer nele — hotfix na
-  maquina deve ser commitado em `Misrain/meu-ambiente` o quanto antes.
+- **Auto-deploy**: crontab do usuario `suporte` roda
+  `/home/suporte/bin/nexogi-deploy.sh` a cada 5 min (copia versionada em
+  `scripts/nexogi-deploy.sh`; log em `storage/git-pull.log`). O script faz
+  `git pull --ff-only` com 3 tentativas e timeout curto em conexao travada,
+  e reinstala `vendor/` quando `composer.lock` e mais novo que o install.
+  ATENCAO: qualquer arquivo com alteracao local NAO commitada trava o pull
+  ("Your local changes would be overwritten") se o upstream tambem mexer
+  nele — hotfix na maquina deve ser commitado em `Misrain/meu-ambiente`
+  o quanto antes. Quando isso acontece o script grava
+  `storage/deploy-bloqueado.flag`, manda e-mail ao ADMIN_EMAIL (1x/dia)
+  e `layout_app.php` mostra banner vermelho para admins
+  (`deploy_bloqueado()` em helpers.php).
 
 ## Estrutura
 - `public/index.php` — controlador unico (switch de rotas); `public/static/css/style.css` (copia do Python)

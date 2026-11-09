@@ -221,3 +221,18 @@ function icone_svg(string $nome, int $size = 20): string
         default => '<svg ' . $attrUi . '><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
     };
 }
+
+/**
+ * Conteudo de storage/deploy-bloqueado.flag quando o git pull automatico
+ * (cron, ~/bin/nexogi-deploy.sh) esta travado por alteracao local nao
+ * commitada; null quando o deploy esta ok. Usado no banner do layout_app.
+ */
+function deploy_bloqueado(): ?string
+{
+    $flag = ROOT . '/storage/deploy-bloqueado.flag';
+    if (!is_file($flag)) {
+        return null;
+    }
+    $conteudo = trim((string) file_get_contents($flag));
+    return $conteudo === '' ? 'git pull bloqueado (sem detalhes no flag)' : $conteudo;
+}

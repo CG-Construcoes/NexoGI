@@ -136,6 +136,16 @@ try {
             </div>
         </header>
         <main class="content">
+            <?php if (is_admin() && ($depBloq = deploy_bloqueado()) !== null): ?>
+            <div class="alert-erro" style="margin-bottom:14px">
+                <b>Deploy travado:</b> o <code>git pull</code> automatico do servidor esta
+                bloqueado por alteracoes locais nao commitadas — o site pode estar desatualizado.
+                <details style="margin-top:6px">
+                    <summary style="cursor:pointer">Detalhes</summary>
+                    <pre style="white-space:pre-wrap;font-size:.78rem;margin:6px 0 0"><?= e($depBloq) ?></pre>
+                </details>
+            </div>
+            <?php endif; ?>
             <?= $conteudo ?>
         </main>
     </div>
