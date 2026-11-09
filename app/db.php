@@ -32,6 +32,9 @@ function conexao(?string $banco = null): PDO
                 env('DB_SERVER'),
                 $banco
             );
+            // O driver entrega UTF-8: coluna char(n) com acento pode estourar
+            // o buffer no fetch (22001/01004). ASSUME_UTF8 dimensiona x4.
+            $opcoes[PDO::ODBC_ATTR_ASSUME_UTF8] = true;
             $cache[$banco] = new PDO($dsn, env('DB_USER'), env('DB_PASSWORD'), $opcoes);
         }
     }
@@ -62,26 +65,40 @@ function db_sql_literal(string $s): string
 }
 
 /**
- * PDO_ODBC nao transcodifica parametros: string com nao-ASCII chegaria
- * mojibake/estouraria a coluna. Troca o '?' correspondente pela expressao
- * db_sql_literal() inline ('?' dentro de literal SQL e ignorado).
- * Devolve [sql, params restantes].
+ * Literal de parametro para SQL inline: NULL, numero, bool ou string
+ * escapada (' -> ''). Nao-ASCII usa db_sql_literal() (CHAR/NCHAR no
+ * servidor) por causa do problema de codepage do PDO_ODBC.
+ */
+function db_sql_param_literal(mixed $v): string
+{
+    if ($v === null) {
+        return 'NULL';
+    }
+    if (is_bool($v)) {
+        return $v ? '1' : '0';
+    }
+    if (is_int($v) || is_float($v)) {
+        return (string) $v;
+    }
+    $v = (string) $v;
+    if (preg_match('/[^\x00-\x7F]/', $v)) {
+        return db_sql_literal($v);
+    }
+    return "'" . str_replace("'", "''", $v) . "'";
+}
+
+/**
+ * PDO_ODBC nao transcodifica parametros e falha com binding em EXEC
+ * (22001/22026/01004). Troca TODO '?' por literal inline
+ * ('?' dentro de literal SQL e ignorado). Devolve [sql, []].
  */
 function db_odbc_params(string $sql, array $params): array
 {
-    $temAcento = false;
-    foreach ($params as $v) {
-        if (is_string($v) && preg_match('/[^\x00-\x7F]/', $v)) {
-            $temAcento = true;
-            break;
-        }
-    }
-    if (!$temAcento) {
+    if (!$params) {
         return [$sql, $params];
     }
     $buf = '';
     $lit = false;
-    $rest = [];
     $i = 0;
     $n = strlen($sql);
     for ($k = 0; $k < $n; $k++) {
@@ -100,16 +117,26 @@ function db_odbc_params(string $sql, array $params): array
         if ($c === "'") {
             $lit = true;
         } elseif ($c === '?' && $i < count($params)) {
-            $v = $params[$i++];
-            if (is_string($v) && preg_match('/[^\x00-\x7F]/', $v)) {
-                $buf .= db_sql_literal($v);
-                continue;
-            }
-            $rest[] = $v;
+            $buf .= db_sql_param_literal($params[$i++]);
+            continue;
         }
         $buf .= $c;
     }
-    return [$buf, array_merge($rest, array_slice($params, $i))];
+    return [$buf, []];
+}
+
+/**
+ * prepare+execute respeitando o driver: no PDO_ODBC inlinam-se os
+ * parametros (ver db_odbc_params); no sqlsrv segue bind nativo.
+ */
+function db_stmt(PDO $pdo, string $sql, array $params): PDOStatement
+{
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'odbc') {
+        [$sql, $params] = db_odbc_params($sql, $params);
+    }
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    return $st;
 }
 
 /** Executa SELECT e retorna lista de arrays associativos. */

@@ -95,7 +95,6 @@ function relatorio_financeiro_dados(string $base, array $o): array
             @Utilizacao=?, @Filial_Cod=?, @Centro_Cod=?, @Nucleo_Cod=?,
             @Relatorio='S', @Detalha_Centro=?";
     $pdo = conexao($banco);
-    $st = $pdo->prepare($sql);
 
     // detalhe dos lancamentos: uma execucao por combinacao centro x nucleo (NULL = todos)
     $classes = [];
@@ -104,7 +103,7 @@ function relatorio_financeiro_dados(string $base, array $o): array
     [$filCod, $centroCod] = $centroSel ?? [null, null];
     foreach (($nucleosSel ?: [null]) as $nucleoCod) {
         // 'J' = detalhe dos lancamentos
-        $st->execute([$empresa, $iniTotal, $fim, 'J', $filCod, $centroCod, $nucleoCod, $detCentro]);
+        $st = db_stmt($pdo, $sql, [$empresa, $iniTotal, $fim, 'J', $filCod, $centroCod, $nucleoCod, $detCentro]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -149,7 +148,7 @@ function relatorio_financeiro_dados(string $base, array $o): array
         $st->closeCursor();
 
         // '5' = resumo por agente financeiro
-        $st->execute([$empresa, $iniTotal, $fim, '5', $filCod, $centroCod, $nucleoCod, $detCentro]);
+        $st = db_stmt($pdo, $sql, [$empresa, $iniTotal, $fim, '5', $filCod, $centroCod, $nucleoCod, $detCentro]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {

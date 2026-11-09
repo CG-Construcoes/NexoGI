@@ -125,9 +125,8 @@ function pc_saldo_dia(PDO $pdo, string $proc, string $tipo, string $ag, string $
         pc_filtro('MF.Empresa_Cod', $empresa, $wg, $pg);
         pc_filtro('MF.Nucleo_Cod', $nucleo, $wg, $pg);
     }
-    $st = $pdo->prepare("SELECT 1 x WHERE EXISTS(
-        SELECT * FROM dbo.Movimento_Financeiro MF WHERE $wg)");
-    $st->execute($pg);
+    $st = db_stmt($pdo, "SELECT 1 x WHERE EXISTS(
+        SELECT * FROM dbo.Movimento_Financeiro MF WHERE $wg)", $pg);
     $existe = (bool) $st->fetch(PDO::FETCH_ASSOC);
     $st->closeCursor();
 
@@ -137,7 +136,7 @@ function pc_saldo_dia(PDO $pdo, string $proc, string $tipo, string $ag, string $
         $pp = array_merge($pBase, [$data]);
         pc_filtro('MF.Empresa_Cod', $empresa, $w, $pp);
         pc_filtro('MF.Nucleo_Cod', $nucleo, $w, $pp);
-        $st = $pdo->prepare(
+        $st = db_stmt($pdo,
             "SELECT TOP 1 S.$cs AS saldo, CONVERT(varchar(23), MF.$cd, 121) AS dt
              FROM $tab S JOIN dbo.Movimento_Financeiro MF ON MF.MovFin_Numero = S.MovFin_Numero
              WHERE $w
@@ -145,21 +144,19 @@ function pc_saldo_dia(PDO $pdo, string $proc, string $tipo, string $ag, string $
                    WHERE MF2.AgenteFinanceiroTipo_Cod = ? AND MF2.AgenteFinanceiro_Cod = ?
                      AND MF2.AgeFin_ContaNumero = ? AND MF2.MovFin_Cancelado <> 'S'
                      AND MF2.$cd < ? $fc2)
-             ORDER BY MF.$cd DESC, MF.MovFin_Numero DESC"
-        );
-        $st->execute(array_merge($pp, [$tipo, $ag, $conta, $data]));
+             ORDER BY MF.$cd DESC, MF.MovFin_Numero DESC",
+            array_merge($pp, [$tipo, $ag, $conta, $data]));
         $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
         $st->closeCursor();
     }
     if ($r === null && !$existe) {
         // ELSE da proc: saldo/data de implantacao da conta
-        $st = $pdo->prepare(
+        $st = db_stmt($pdo,
             "SELECT AGC.$impS AS saldo, CONVERT(varchar(23), AGC.$impD, 121) AS dt
              FROM dbo.AgenteFinanceiroConta AGC
              WHERE AGC.AgenteFinanceiroTipo_Cod = ? AND AGC.AgenteFinanceiro_Cod = ?
-               AND AGC.AgeFin_ContaNumero = ?"
-        );
-        $st->execute([$tipo, $ag, $conta]);
+               AND AGC.AgeFin_ContaNumero = ?",
+            [$tipo, $ag, $conta]);
         $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
         $st->closeCursor();
     }
@@ -180,12 +177,11 @@ function pc_mov_dia(PDO $pdo, bool $con, string $tipo, string $ag, string $conta
     $params = [$tipo, $ag, $conta, $data];
     pc_filtro('MovFin.Empresa_Cod', $empresa, $where, $params);
     pc_filtro('MovFin.Nucleo_Cod', $nucleo, $where, $params);
-    $st = $pdo->prepare(
+    $st = db_stmt($pdo,
         "SELECT SUM(CASE WHEN MovFin.MovFin_DC = 'C' THEN MovFin.MovFin_Valor ELSE 0 END) AS cred,
                 SUM(CASE WHEN MovFin.MovFin_DC = 'D' THEN MovFin.MovFin_Valor ELSE 0 END) AS deb
          FROM dbo.Movimento_Financeiro MovFin
-         WHERE $where");
-    $st->execute($params);
+         WHERE $where", $params);
     $r = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     $st->closeCursor();
     return ['cred' => (float) ($r['cred'] ?? 0), 'deb' => (float) ($r['deb'] ?? 0)];
@@ -194,12 +190,12 @@ function pc_mov_dia(PDO $pdo, bool $con, string $tipo, string $ag, string $conta
 /** Ultima conciliacao da conta — identica nos dois modos (trace confirma). */
 function pc_ultima_data(PDO $pdo, string $tipo, string $ag, string $conta): ?string
 {
-    $st = $pdo->prepare(
+    $st = db_stmt($pdo,
         "SELECT MAX(dbo.MaiorData(MovFin_DataConciliado, MovFin_DataConciliaAte)) AS d
          FROM dbo.Movimento_Financeiro MovFin
          WHERE MovFin.AgenteFinanceiroTipo_Cod = ? AND MovFin.AgenteFinanceiro_Cod = ?
-           AND MovFin.AgeFin_ContaNumero = ? AND MovFin.MovFin_Conciliado = 'C'");
-    $st->execute([$tipo, $ag, $conta]);
+           AND MovFin.AgeFin_ContaNumero = ? AND MovFin.MovFin_Conciliado = 'C'",
+        [$tipo, $ag, $conta]);
     $r = $st->fetch(PDO::FETCH_ASSOC);
     $st->closeCursor();
     return $r['d'] ?? null;
@@ -217,7 +213,7 @@ function pc_valor_aplicado(PDO $pdo, string $tipo, string $ag, string $conta,
     $pEN = [];
     pc_filtro('A.Empresa_Cod', $empresa, $filtroEN, $pEN);
     pc_filtro('A.Nucleo_Cod', $nucleo, $filtroEN, $pEN);
-    $st = $pdo->prepare(
+    $st = db_stmt($pdo,
         "SELECT A.Apl_Numero,
             COALESCE((SELECT SUM(B.AplMov_Valor) FROM Aplicacao_Financeira_Movimento B
                 WHERE B.MovFinTipo_Cod IN ($tipos) AND B.AplMov_DC = 'D'
@@ -227,8 +223,8 @@ function pc_valor_aplicado(PDO $pdo, string $tipo, string $ag, string $conta,
                   AND C.Apl_Numero = A.Apl_Numero AND C.AplMov_Data <= ?), 0) AS SaldoAplicado
          FROM dbo.Aplicacao_Financeira A
          WHERE $where $filtroEN
-         GROUP BY A.Apl_Numero");
-    $st->execute(array_merge($params, $pEN));
+         GROUP BY A.Apl_Numero",
+        array_merge($params, $pEN));
     $total = 0.0;
     while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
         $total += (float) $r['SaldoAplicado'];

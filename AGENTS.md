@@ -1008,3 +1008,15 @@ quando `$sec['id'] === 'despesas'`.
 - Titulos dos layouts exibem (MODO TESTE) no treino. `conexao()` bloqueia nomes de bancos ERP de producao no treino.
 - Verificacao sem consultas/conexoes: `php scripts/teste_ambiente.php`; sintaxe: `bash scripts/verificar_sintaxe.sh`.
 - Scripts CLI tambem usam treino; nao remover o bloqueio para executar migracoes ERP de producao.
+- **PDO_ODBC (NexoGI): parametros NUNCA por bind** — `?` ligado em EXEC/SELECT
+  causa 22001/22026/01004 (truncamento UTF-8 vs tamanho declarado). Solucao:
+  `db_odbc_params()` inline TODO parametro como literal seguro
+  (`db_sql_param_literal()`; nao-ASCII via `db_sql_literal()` CHAR/NCHAR);
+  `query()`/`execute()` ja passam por ela; `prepare/execute` manual deve usar
+  `db_stmt($pdo, $sql, $params)` (relatorio_financeiro/economico, dre,
+  posicao_contas, ultimas_compras). `conexao()` ODBC usa
+  `PDO::ODBC_ATTR_ASSUME_UTF8` (buffer x4 p/ char(n) com acentos).
+- **Permissao de EXECUTE nas bases ERP**: o login do app precisa de
+  `GRANT EXECUTE` em `spMovEconomicoDetalhe`, `spMovFinLancamentosDetalhe`
+  e `sp_ParcelasAgendaPagto` — `scripts/grant_exec_erp_producao.sql`
+  (rodar como sa/admin em dbMGA e dbConv ao subir).
