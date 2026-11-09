@@ -250,7 +250,7 @@ WHERE " . implode("\n  AND ", $where) . "
 ORDER BY Solic.Solic_Data DESC, Solic.Solic_Numero, Solicitem.SolicItem_Item";
 
     $rows = query($sql, $par, $banco);
-    $base = strtolower($banco) === 'dbmga' ? 'MGA' : 'CONV';
+    $base = $banco === env('DB_ERP_MGA', 'dbMGA') ? 'MGA' : 'CONV';
     foreach ($rows as &$r) {
         $r['Base'] = $base;
     }

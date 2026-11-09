@@ -115,7 +115,7 @@ try {
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <span class="topbar-titulo"><?= e($titulo) ?></span>
+                <span class="topbar-titulo"><?= e($titulo) ?><?php if (modo_teste()): ?> <small>(MODO TESTE)</small><?php endif; ?></span>
             </div>
             <?= $topbar_extra ?? '' ?>
             <div class="topbar-user">

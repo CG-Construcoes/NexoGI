@@ -99,7 +99,7 @@ function pedidos_query(array $filtros, string $banco): array
     ORDER BY cc.Centro_Nome, p.Pedido_Numero DESC
     ";
     $rows = query($sql, $params, $banco);
-    $base = strtolower($banco) === 'dbmga' ? 'MGA' : 'CONV';
+    $base = $banco === env('DB_ERP_MGA', 'dbMGA') ? 'MGA' : 'CONV';
     foreach ($rows as &$r) {
         $r['Base'] = $base;
         $r['Pedido_Numero'] = (int) $r['Pedido_Numero'];

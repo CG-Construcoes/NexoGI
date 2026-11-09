@@ -80,7 +80,7 @@ function dados_indicador_pedidos_prazo(string $dataIni, string $dataFim): array
             $erros[] = $banco . ': ' . $e->getMessage();
             continue;
         }
-        $base = strtolower($banco) === 'dbmga' ? 'MGA' : 'CONV';
+        $base = $banco === env('DB_ERP_MGA', 'dbMGA') ? 'MGA' : 'CONV';
         foreach ($rows as $r) {
             $nome = trim((string) ($r['Centro'] ?? ''));
             if ($nome === '') {

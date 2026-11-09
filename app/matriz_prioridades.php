@@ -16,7 +16,7 @@ function mp_centros(): array
         return $cache;
     }
     $cache = [];
-    foreach (['dbMGA', 'dbConv'] as $base) {
+    foreach ([env('DB_ERP_MGA'), env('DB_ERP_CONV')] as $base) {
         try {
             $rows = query("SELECT RTRIM(Empresa_Cod) Empresa_Cod, RTRIM(Filial_Cod) Filial_Cod,
                                   RTRIM(Centro_Cod) Centro_Cod, CONVERT(varchar(4000), RTRIM(Centro_Nome)) Centro_Nome

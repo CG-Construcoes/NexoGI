@@ -6,6 +6,9 @@ function conexao(?string $banco = null): PDO
 {
     static $cache = [];
     $banco ??= env('DB_NAME', 'CGGestao');
+    if (modo_teste() && in_array(strtolower($banco), ['dbmga', 'dbconv'], true)) {
+        throw new RuntimeException('Acesso ao ERP de producao bloqueado no modo teste.');
+    }
     if (!isset($cache[$banco])) {
         $opcoes = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

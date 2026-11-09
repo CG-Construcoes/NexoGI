@@ -21,8 +21,29 @@ function carregar_env(string $arquivo): void
     }
 }
 
+function ambiente_producao(array $servidor, string $appUrl): bool
+{
+    return strtolower((string) ($servidor['HTTP_HOST'] ?? '')) === 'sistemacg.com'
+        && in_array(strtolower((string) ($servidor['HTTPS'] ?? '')), ['on', '1'], true)
+        && rtrim($appUrl, '/') === 'https://sistemacg.com';
+}
+
+function modo_teste(): bool
+{
+    return PHP_SAPI === 'cli' || !ambiente_producao($_SERVER, (string) getenv('APP_URL'));
+}
+
 function env(string $chave, string $padrao = ''): string
 {
+    if ($chave === 'APP_AMBIENTE') {
+        return modo_teste() ? 'treino' : 'producao';
+    }
+    $bases = modo_teste()
+        ? ['DB_ERP_MGA' => 'dbTREINO_MGA', 'DB_ERP_CONV' => 'dbTREINO_CV']
+        : ['DB_ERP_MGA' => 'dbMGA', 'DB_ERP_CONV' => 'dbCONV'];
+    if (isset($bases[$chave])) {
+        return $bases[$chave];
+    }
     $v = getenv($chave);
     return $v === false || $v === '' ? $padrao : $v;
 }

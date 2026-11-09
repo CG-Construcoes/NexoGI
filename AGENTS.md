@@ -999,3 +999,12 @@ quando `$sec['id'] === 'despesas'`.
   (query/execute/exigir_tela/render/url/csrf).
 - Telas antigas migradas sob demanda; switch legado intocado ate la.
 - vendor/ ignorado no git — composer install no deploy (Composer 2.9.5).
+
+## Isolamento ERP por endereco (2026-11-06)
+- Producao somente apos PR/liberacao e deploy pelo usuario. Nao acessar producao durante desenvolvimento/testes.
+- `modo_teste()`/`ambiente_producao()` no bootstrap: producao exige HTTPS real, HTTP_HOST exato `sistemacg.com` e APP_URL `https://sistemacg.com` no servidor. Nao confiar em X-Forwarded-*.
+- `env('DB_ERP_MGA')`/`env('DB_ERP_CONV')` resolvem dbMGA/dbCONV em producao; em qualquer outro acesso (localhost, 127.0.0.1, IPs, CLI) resolvem dbTREINO_MGA/dbTREINO_CV, independentemente dos valores ERP antigos no .env.
+- CGGestao/DB_NAME nao foi separado por ambiente; dados do aplicativo e snapshots nele continuam compartilhados conforme configuracao existente.
+- Titulos dos layouts exibem (MODO TESTE) no treino. `conexao()` bloqueia nomes de bancos ERP de producao no treino.
+- Verificacao sem consultas/conexoes: `php scripts/teste_ambiente.php`; sintaxe: `bash scripts/verificar_sintaxe.sh`.
+- Scripts CLI tambem usam treino; nao remover o bloqueio para executar migracoes ERP de producao.
