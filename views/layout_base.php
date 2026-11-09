@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="<?= url('static/css/style.css') . '?v=' . filemtime(ROOT . '/public/static/css/style.css') ?>">
 </head>
 <body>
+<?php if (modo_teste()): ?>
+<div role="status" style="text-align:center;padding:6px;font-weight:700"><?= e($titulo) ?> (MODO TESTE)</div>
+<?php endif; ?>
 <?= $conteudo ?>
 <script>
 (function () {
