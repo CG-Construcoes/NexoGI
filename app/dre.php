@@ -300,9 +300,9 @@ function dre_dados(array $o): array
         $pdo = conexao($banco);
 
         // ---- lado economico (Posicao_Economica) ----
-        $st = $pdo->prepare("EXEC spMovEconomicoDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
-                             @Relatorio='S', @Detalha_Centro='S', @Medicao='N'");
-        $st->execute([$o['data_ini'], $o['data_fim']]);
+        $st = db_stmt($pdo, "EXEC spMovEconomicoDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
+                             @Relatorio='S', @Detalha_Centro='S', @Medicao='N'",
+            [$o['data_ini'], $o['data_fim']]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -339,9 +339,9 @@ function dre_dados(array $o): array
         $st->closeCursor();
 
         // ---- lado financeiro (PosicaoFinanceira): so '58 Administracao de Obra' ----
-        $st = $pdo->prepare("EXEC spMovFinLancamentosDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
-                             @ClaIns='N', @APagRec='N', @Utilizacao='L', @Relatorio='S', @Detalha_Centro='S'");
-        $st->execute([$o['data_ini'], $o['data_fim']]);
+        $st = db_stmt($pdo, "EXEC spMovFinLancamentosDetalhe @Empresa_Cod='(*)', @DataInicial=?, @DataFinal=?,
+                             @ClaIns='N', @APagRec='N', @Utilizacao='L', @Relatorio='S', @Detalha_Centro='S'",
+            [$o['data_ini'], $o['data_fim']]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {

@@ -12,7 +12,22 @@
     </div>
 </div>
 <form class="rel-econ-filtro" method="get"
-      onsubmit="document.getElementById('relLoading').hidden=false">
+      onsubmit="relAjustarRadios(); document.getElementById('relLoading').hidden=false">
+<script>
+function relFocoTexto(inp, nomeCheck, idRadio) {
+    if (!document.querySelector('input[name="' + nomeCheck + '[]"]:checked')) {
+        document.getElementById(idRadio).checked = true;
+    }
+}
+function relAjustarRadios() {
+    [['centros_sel', 'centroSel'], ['nucleos_sel', 'nucleoSel']].forEach(function (p) {
+        var marc = document.querySelectorAll('input[name="' + p[0] + '[]"]:checked');
+        if (marc.length) {
+            document.getElementById(p[1]).checked = true;
+        }
+    });
+}
+</script>
     <div class="rel-econ-titulo-form">Relatório Econômico</div>
 
     <div class="rel-econ-linha">
@@ -37,9 +52,9 @@
     <fieldset class="rel-econ-box">
         <legend>Período</legend>
         <label>de</label>
-        <input type="date" name="data_ini" required>
+        <input type="date" name="data_ini" value="<?= e($opcoes['data_ini'] ?? '') ?>">
         <label>a</label>
-        <input type="date" name="data_fim" required>
+        <input type="date" name="data_fim" value="<?= e($opcoes['data_fim'] ?? '') ?>">
     </fieldset>
 
     <div class="rel-econ-duas-col">
@@ -71,7 +86,7 @@
         <label><input type="radio" name="nucleo_op" value="todos" checked> Todos</label>
         <label><input type="radio" name="nucleo_op" value="apenas" id="nucleoApenas"> Apenas</label>
         <input type="text" name="nucleo" list="listaNucleosRel" autocomplete="off"
-               placeholder="selecione o núcleo" onfocus="document.getElementById('nucleoApenas').checked=true">
+               placeholder="selecione o núcleo" onfocus="relFocoTexto(this, 'nucleos_sel', 'nucleoApenas')">
         <datalist id="listaNucleosRel">
             <?php foreach ($nucleos as $n): ?>
             <option value="<?= e(trim($n['Nucleo_Cod']) . ' - ' . trim($n['Nucleo_Nome'])) ?>"></option>
@@ -96,7 +111,7 @@
         <label><input type="radio" name="centro_op" value="todos" checked> Todos</label>
         <label><input type="radio" name="centro_op" value="apenas" id="centroApenas"> Apenas</label>
         <input type="text" name="centro" list="listaCentrosRel" autocomplete="off"
-               placeholder="selecione o centro" onfocus="document.getElementById('centroApenas').checked=true">
+               placeholder="selecione o centro" onfocus="relFocoTexto(this, 'centros_sel', 'centroApenas')">
         <datalist id="listaCentrosRel">
             <?php foreach ($centros as $c): ?>
             <option value="<?= e($c['Centro_Cod'] . ' - ' . trim($c['Centro_Nome'])) ?>"></option>

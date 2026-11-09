@@ -503,12 +503,16 @@ switch ($rota) {
             'data_ini'       => (string) ($_GET['data_ini'] ?? ''),
             'data_fim'       => (string) ($_GET['data_fim'] ?? ''),
             'centros'        => match ($_GET['centro_op'] ?? 'todos') {
-                'apenas'       => array_filter([trim((string) ($_GET['centro'] ?? ''))]),
+                'apenas'       => array_filter(
+                    [trim((string) ($_GET['centro'] ?? ''))]
+                        ?: (array) ($_GET['centros_sel'] ?? [])),
                 'selecionados' => array_values(array_filter((array) ($_GET['centros_sel'] ?? []))),
                 default        => [],
             },
             'nucleos'        => match ($_GET['nucleo_op'] ?? 'todos') {
-                'apenas'       => array_filter([trim((string) ($_GET['nucleo'] ?? ''))]),
+                'apenas'       => array_filter(
+                    [trim((string) ($_GET['nucleo'] ?? ''))]
+                        ?: (array) ($_GET['nucleos_sel'] ?? [])),
                 'selecionados' => array_values(array_filter((array) ($_GET['nucleos_sel'] ?? []))),
                 default        => [],
             },
@@ -1439,12 +1443,16 @@ switch ($rota) {
             'data_ini'       => (string) ($_GET['data_ini'] ?? ''),
             'data_fim'       => (string) ($_GET['data_fim'] ?? ''),
             'centros'        => match ($_GET['centro_op'] ?? 'todos') {
-                'apenas'       => array_filter([trim((string) ($_GET['centro'] ?? ''))]),
+                'apenas'       => array_filter(
+                    [trim((string) ($_GET['centro'] ?? ''))]
+                        ?: (array) ($_GET['centros_sel'] ?? [])),
                 'selecionados' => array_values(array_filter((array) ($_GET['centros_sel'] ?? []))),
                 default        => [],
             },
             'nucleos'        => match ($_GET['nucleo_op'] ?? 'todos') {
-                'apenas'       => array_filter([trim((string) ($_GET['nucleo'] ?? ''))]),
+                'apenas'       => array_filter(
+                    [trim((string) ($_GET['nucleo'] ?? ''))]
+                        ?: (array) ($_GET['nucleos_sel'] ?? [])),
                 'selecionados' => array_values(array_filter((array) ($_GET['nucleos_sel'] ?? []))),
                 default        => [],
             },

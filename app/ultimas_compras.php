@@ -137,8 +137,7 @@ function uc_ultimas(string $base, int $insumo, ?int $sub, int $meses = 12): arra
         : '1900-01-01';
     $sql = "USE [$db] " . SQL_UC_ULTIMAS;
     $pdo = conexao(null);
-    $st = $pdo->prepare($sql);
-    $st->execute([$insumo, $sub, $dataIni]);
+    $st = db_stmt($pdo, $sql, [$insumo, $sub, $dataIni]);
     $linhas = [];
     do {
         if ($st->columnCount() > 0) {

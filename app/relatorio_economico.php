@@ -67,11 +67,12 @@ function relatorio_economico_dados(string $base, array $o): array
     }
 
     // "Detalhar Apenas Periodo" dispensa o historico — consulta so o periodo.
+    // Datas vazias: calculo de 01/01/2014 a 31/12/2050 (pedido do usuario).
     $apenasPeriodo = !empty($o['apenas_periodo']);
-    $iniTotal = $apenasPeriodo || $o['data_ini'] === '' ? ($o['data_ini'] !== '' ? $o['data_ini'] : '1900-01-01')
-                                                       : '1900-01-01';
+    $ini = $o['data_ini'] !== '' ? $o['data_ini'] : '2014-01-01';
+    $iniTotal = $apenasPeriodo ? $ini : '1900-01-01';
     $fim   = $o['data_fim'] !== '' ? $o['data_fim'] : '2050-12-31';
-    $corte = $o['data_ini'] !== '' ? $o['data_ini'] : '1900-01-01';
+    $corte = $ini;
     $medicao   = !empty($o['medicao']) ? 'S' : 'N';
     $detCentro = !empty($o['det_centro']) ? 'S' : 'N';
 
@@ -79,7 +80,6 @@ function relatorio_economico_dados(string $base, array $o): array
     $sql = "EXEC spMovEconomicoDetalhe ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL, NULL,
                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'S', ?, NULL, ?";
     $pdo = conexao($banco);
-    $st = $pdo->prepare($sql);
 
     $classes = []; // Centro? => Classe => [titulo, tipo, assuntos[Ass => [titulo, ant, per, gos]]]
     // a procedure aceita um centro e um nucleo por execucao:
@@ -88,7 +88,7 @@ function relatorio_economico_dados(string $base, array $o): array
     $nucleos   = $nucleosSel ?: [null];
     foreach ($consultas as $centroCod) {
     foreach ($nucleos as $nucleoCod) {
-        $st->execute([$empresa, $iniTotal, $fim, $centroCod, $nucleoCod, $detCentro, $medicao]);
+        $st = db_stmt($pdo, $sql, [$empresa, $iniTotal, $fim, $centroCod, $nucleoCod, $detCentro, $medicao]);
         while (true) {
             if ($st->columnCount() > 0) {
                 while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -178,7 +178,7 @@ function relatorio_economico_dados(string $base, array $o): array
         $descs = array_map('trim', (array) ($o['nucleos'] ?? []));
         $nucleosDesc = count($descs) === 1 ? $descs[0] : count($descs) . ' nucleos selecionados';
     }
-    return ['blocos' => $blocos, 'base' => $base, 'data_ini' => $o['data_ini'],
+    return ['blocos' => $blocos, 'base' => $base, 'data_ini' => $ini,
             'data_fim' => $fim, 'apenas_periodo' => $apenasPeriodo,
             'centros_desc' => $centrosDesc, 'centros_lista' => (array) ($o['centros'] ?? []),
             'nucleos_desc' => $nucleosDesc, 'nucleos_lista' => (array) ($o['nucleos'] ?? []),
