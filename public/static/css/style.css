@@ -2833,11 +2833,12 @@ tr.fcs-att td { background: #e3f0e3; }
 }
 
 /* Follow-up das Solicitacoes — bandas de grupo e cores de status */
-.flw-tab { font-size: 12px; min-width: 100%; }
+.flw-tab { font-size: 10px; min-width: 100%; }
 .flw-tab th { cursor: pointer; user-select: none; white-space: nowrap; }
 .flw-tab th.ord-asc::after { content: ' \25B2'; font-size: 9px; }
 .flw-tab th.ord-desc::after { content: ' \25BC'; font-size: 9px; }
-.flw-tab td { white-space: nowrap; }
+.flw-tab td { white-space: nowrap; border-bottom-color: #b8c4d4; padding: 6px 10px; }
+body.dark .flw-tab td { border-bottom-color: #33455f; }
 .flw-tab td.flw-esp { white-space: normal; min-width: 220px; max-width: 380px; }
 .flw-tab tr.flw-grupo { cursor: pointer; }
 .flw-tab tr.flw-grupo td { font-weight: 700; background: #dcebf7; color: #1e3a5f;
@@ -2845,16 +2846,23 @@ tr.fcs-att td { background: #e3f0e3; }
 .flw-tab tr.flw-grupo td:first-child::before { content: '\25BE\00A0'; }
 .flw-tab tr.flw-grupo.flw-fech td:first-child::before { content: '\25B8\00A0'; }
 .flw-tab tr.flw-oculta { display: none; }
-.flw-tab tr.flw-atrasada td { background: #ffd9d9; color: #7a1f1f; }
-.flw-tab tr.flw-atrasada:hover td { background: #ffcccc; }
+.flw-tab td.flw-atraso { background: #ffd9d9; color: #7a1f1f; font-weight: 700; }
 .flw-tab td.flw-aut { background: #c9f0c9; color: #145214; font-weight: 600; }
-.flw-tab tr.flw-atrasada td.flw-aut { background: #f0c9c9; color: #145214; }
 .flw-tab td.flw-prazo { background: #c9f0c9; color: #145214; font-weight: 600; }
-.flw-tab tr.flw-atrasada td.flw-prazo { background: #ffd9d9; color: #7a1f1f; }
+body.dark .flw-tab td.flw-atraso { background: rgba(220,38,38,.28); color: #f87171; }
 .flw-tab td.flw-sit-AB { background: #d9e8d9; font-weight: 600; }
 .flw-tab td.flw-sit-CO { background: #fdf3c0; font-weight: 600; }
 .flw-tab td.flw-sit-PE { background: #d5e6f7; font-weight: 600; }
 .flw-tab td.flw-sit-AR { background: #e6d9f2; font-weight: 600; }
+
+/* Follow-up — variantes escuras das celulas de status */
+body.dark .flw-tab td.flw-aut    { background: rgba(34,197,94,.18);  color: #86efac; }
+body.dark .flw-tab td.flw-prazo  { background: rgba(34,197,94,.18);  color: #86efac; }
+body.dark .flw-tab td.flw-sit-AB { background: rgba(59,130,246,.22); color: #93c5fd; }
+body.dark .flw-tab td.flw-sit-CO { background: rgba(234,179,8,.20);  color: #fde047; }
+body.dark .flw-tab td.flw-sit-PE { background: rgba(14,165,233,.20); color: #7dd3fc; }
+body.dark .flw-tab td.flw-sit-AR { background: rgba(239,68,68,.20);  color: #fca5a5; }
+body.dark .flw-tab tr.flw-grupo td { background: #16233a; color: #9ec3ee; }
 
 /* Follow-up — rodape fixo com barra de rolagem horizontal da tabela */
 .flw-hscroll { position: fixed; bottom: 0; left: 0; z-index: 700; display: none;
@@ -3101,7 +3109,7 @@ body.dark .texto-mutado, body.dark .muted { color: var(--text-muted); }
     letter-spacing: .04em; border-bottom: 1px solid var(--border-color); }
 .atv-kb-n { background: rgba(0,0,0,.12); border-radius: 10px; padding: 1px 8px; font-size: .75rem; }
 .atv-kb-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-.atv-kb-card { background: var(--bg-surface); border: 1px solid var(--border-color);
+.atv-kb-card { background: var(--cc, var(--bg-surface)); border: 1px solid var(--border-color);
     border-radius: 8px; padding: 9px 10px; cursor: grab; box-shadow: var(--shadow-sm);
     font-size: .85rem; }
 .atv-kb-card:active { cursor: grabbing; }
@@ -3113,6 +3121,53 @@ body.dark .texto-mutado, body.dark .muted { color: var(--text-muted); }
 .atv-kb-vis { background: var(--primary-50); border-radius: 6px; padding: 1px 7px; }
 .atv-kb-col.atv-kb-sobre { outline: 2px dashed var(--primary-500); outline-offset: -2px; }
 body.dark .atv-kb-card { box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+body.dark .atv-kb-card[style*="--cc"] {
+    background: color-mix(in srgb, var(--cc) 20%, var(--bg-surface));
+    border: 1px solid color-mix(in srgb, var(--cc) 55%, var(--border-color));
+}
+body.dark .atv-kb-vis { background: rgba(96,165,250,.18); color: #93c5fd; }
+/* fundos claros remanescentes */
+body.dark .sidebar-toggle { background: #1f2937; color: var(--text-main); border-color: var(--border-strong); }
+body.dark .topbar-inicio, body.dark .topbar-corte { background: transparent; }
+body.dark .topbar-corte input[type="date"],
+body.dark .filtros select,
+body.dark .rel-econ-linha input,
+body.dark .rel-econ-box select,
+body.dark .rel-econ-box input[type="date"],
+body.dark .rel-econ-centros-lista,
+body.dark .rel-econ-loading-box,
+body.dark .fc-menu,
+body.dark .fc-combo-lista,
+body.dark .fcs-tip,
+body.dark .fcs-progresso,
+body.dark .flw-campo select,
+body.dark .flw-campo input,
+body.dark .atv-fbar,
+body.dark .atv-frow select,
+body.dark .atv-frow input[type="date"],
+body.dark .atv-frow input[type="text"],
+body.dark .atv-card,
+body.dark .atv-form-grid select,
+body.dark .atv-form-grid textarea,
+body.dark .atv-modal-box,
+body.dark .login-card input:focus {
+    background: var(--bg-surface); color: var(--text-main); border-color: var(--border-color);
+}
+body.dark .atv-fbar { border-color: var(--border-color); }
+body.dark .atv-frow label, body.dark .atv-fescopo label { color: var(--text-main); }
+body.dark .fcs-progresso span { background: #93c5fd; }
+/* badges de status: pastel -> tom escuro translucido com texto claro */
+body.dark .badge.atv-st-ainiciar,   body.dark .atv-kb-head.atv-st-ainiciar   { background: rgba(148,163,184,.16); color: #cbd5e1; }
+body.dark .badge.atv-st-andamento,  body.dark .atv-kb-head.atv-st-andamento  { background: rgba(59,130,246,.20);  color: #93c5fd; }
+body.dark .badge.atv-st-aguardando, body.dark .atv-kb-head.atv-st-aguardando { background: rgba(245,158,11,.18);  color: #fcd34d; }
+body.dark .badge.atv-st-suspensa,   body.dark .atv-kb-head.atv-st-suspensa   { background: rgba(139,92,246,.20);  color: #c4b5fd; }
+body.dark .badge.atv-st-concluida,  body.dark .atv-kb-head.atv-st-concluida  { background: rgba(16,185,129,.18);  color: #6ee7b7; }
+body.dark .badge.atv-st-cancelada,  body.dark .atv-kb-head.atv-st-cancelada  { background: rgba(107,114,128,.20); color: #9ca3af; }
+body.dark .atv-orient { background: var(--bg-subtle); }
+body.dark .atv-card h3 { color: #93c5fd; }
+body.dark .atv-tab tr.atv-venc td { background: rgba(220,38,38,.15); }
+body.dark .atv-tab tr.atv-venc:hover td { background: rgba(220,38,38,.26); }
+body.dark .atv-venc-txt { color: #f87171; }
 @media (max-width: 1100px) { .atv-kb { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px) { .atv-kb { grid-template-columns: 1fr; } }
 
@@ -3148,3 +3203,22 @@ body.dark .atv-kb-card { box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .atv-kb-head.atv-st-concluida  { background: #d1fae5; color: #065f46; }
 .atv-kb-head.atv-st-cancelada  { background: #f3f4f6; color: #6b7280; }
 .atv-kb-head { border-radius: 9px 9px 0 0; }
+.flw-tab tr.flw-sel td { background: var(--primary-100, #e8f0fe); }
+body.dark .flw-tab tr.flw-sel td { background: #1e2f52; }
+
+/* Filtro compacto padrao (follow-up/pedidos/solicitacao/coleta) */
+.flw-filtro2 { background: var(--bg-panel, #fff); border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
+.flw-rows { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; }
+.flw-c { display: flex; flex-direction: column; }
+.flw-c > span { font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .3px; color: var(--text-muted); margin-bottom: 1px; }
+.flw-c input, .flw-c select { font-size: 11.5px; padding: 3px 6px; height: 26px;
+    border: 1px solid var(--border-strong); border-radius: 5px;
+    background: var(--bg-input, #fff); color: var(--text-main); }
+.flw-c input[type=date] { width: 124px; }
+.flw-c select { max-width: 200px; }
+.flw-c.w-emp input { width: 160px; }
+.flw-c.w-num input { width: 70px; }
+body.dark .flw-filtro2 { background: #171e2e; }
+body.dark .flw-c input, body.dark .flw-c select { background: #1b2333; }

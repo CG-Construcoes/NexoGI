@@ -384,6 +384,31 @@ function carregar_pedido(string $base, int $pedidoNumero): ?array
         $autorizacao = 'Autorizado ' . date('d/m/Y H:i:s', strtotime($p['Instrucao_Data'])) . ' ' . ($p['Usuario_Instrucao'] ?? '');
     }
 
+    $logo = '';
+    try {
+        $lg = query('SELECT Empresa_Logomarca FROM dbo.Empresa WHERE Empresa_Cod = ?', [$p['Empresa_Cod']], $banco);
+        if ($lg && $lg[0]['Empresa_Logomarca']) {
+            $logo = logo_data_uri((string) $lg[0]['Empresa_Logomarca']);
+        }
+    } catch (Throwable $e) {
+    }
+    $condicoes = '';
+    try {
+        $cc = query('SELECT CONVERT(varchar(max), Ped_Texto) T1, CONVERT(varchar(max), Ped_Texto2) T2 FROM dbo.Pedido_CondicoesAcessorias WHERE Ped_CondicoesAcessorias = 1', [], $banco);
+        if ($cc) {
+            $condicoes = trim((string) $cc[0]['T1']);
+            $t2 = trim((string) $cc[0]['T2']);
+            if ($t2 !== '') { $condicoes .= "\n" . $t2; }
+            $limpo = [];
+            foreach (preg_split('/\r?\n/', $condicoes) as $l) {
+                if (strpos($l, '___') !== false) { break; }
+                $limpo[] = $l;
+            }
+            $condicoes = trim(implode("\n", $limpo));
+        }
+    } catch (Throwable $e) {
+    }
+
     return [
         'base' => $base,
         'numero' => sprintf('%06d', (int) $p['Pedido_CentroNumero']),
@@ -421,6 +446,8 @@ function carregar_pedido(string $base, int $pedidoNumero): ?array
         'parcelas' => texto_parcelas($p),
         'valor_pedido' => $valorCent / 100, 'desconto' => $descontoCent / 100, 'total_ped' => $totalPedCent / 100,
         'autorizacao' => $autorizacao,
+        'logo' => $logo,
+        'condicoes' => $condicoes,
         'retorno_fone' => fmt_fone(($compras['Fax'] ?? '') ?: ($compras['Telefone'] ?? null)),
         'folhas' => _paginar($itens),
         'impresso_em' => date('d/m/Y H:i:s'),
@@ -459,4 +486,69 @@ function dados_impressao_pedidos(array $chaves): array
         }
     }
     return ['pedidos' => $pedidos, 'erros' => $erros];
+}
+
+/** Decodifica BMP 16/24/32bpp (BI_RGB/BI_BITFIELDS) para data URI PNG. */
+function logo_data_uri(string $blob): string
+{
+    if (strlen($blob) < 54 || substr($blob, 0, 2) !== 'BM' || !function_exists('imagecreatetruecolor')) {
+        return '';
+    }
+    $h = @unpack('@10/Voff/@14/Vinfo/@18/Vw/@22/lh/@28/vbits/@30/Vcomp', $blob);
+    if (!$h || $h['w'] < 1 || $h['w'] > 4000 || abs($h['h']) < 1 || abs($h['h']) > 4000) {
+        return '';
+    }
+    if (!in_array($h['bits'], [16, 24, 32], true) || !in_array($h['comp'], [0, 3], true)) {
+        return '';
+    }
+    $w = $h['w'];
+    $alt = abs($h['h']);
+    $topDown = $h['h'] < 0;
+    if ($h['bits'] === 16) {
+        if ($h['comp'] === 3) {
+            $mo = 14 + $h['info'];
+            $rm = unpack('V', $blob, $mo)[1];
+            $gm = unpack('V', $blob, $mo + 4)[1];
+            $bm = unpack('V', $blob, $mo + 8)[1];
+        } else {
+            $rm = 0x7C00; $gm = 0x03E0; $bm = 0x001F;
+        }
+    } else {
+        $rm = 0xFF0000; $gm = 0xFF00; $bm = 0xFF;
+    }
+    $img = imagecreatetruecolor($w, $alt);
+    if (!$img) { return ''; }
+    $branco = imagecolorallocate($img, 255, 255, 255);
+    imagefill($img, 0, 0, $branco);
+    $bpp = intdiv($h['bits'], 8);
+    $stride = intdiv($w * $h['bits'] + 31, 32) * 4;
+    for ($y = 0; $y < $alt; $y++) {
+        $row = $h['off'] + ($topDown ? $y : $alt - 1 - $y) * $stride;
+        for ($x = 0; $x < $w; $x++) {
+            $px = 0;
+            for ($b = 0; $b < $bpp; $b++) {
+                $px |= ord($blob[$row + $x * $bpp + $b]) << (8 * $b);
+            }
+            imagesetpixel($img, $x, $y,
+                (_bits($px, $rm) << 16) | (_bits($px, $gm) << 8) | _bits($px, $bm));
+        }
+    }
+    ob_start();
+    imagepng($img);
+    $png = ob_get_clean();
+    imagedestroy($img);
+    return $png ? 'data:image/png;base64,' . base64_encode($png) : '';
+}
+
+/** Extrai canal de cor escalando para 0-255 conforme a mascara. */
+function _bits(int $px, int $mask): int
+{
+    if (!$mask) { return 0; }
+    $shift = 0;
+    $m = $mask;
+    while (!($m & 1)) { $m >>= 1; $shift++; }
+    $bits = 0;
+    $mm = $m;
+    while ($mm & 1) { $bits++; $mm >>= 1; }
+    return (int) round((($px & $mask) >> $shift) * 255 / ((1 << $bits) - 1));
 }

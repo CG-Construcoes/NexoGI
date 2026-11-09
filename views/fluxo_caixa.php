@@ -33,11 +33,11 @@
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
 
-<form method="post" action="<?= url('fluxo-caixa') ?>">
+<form method="post" action="<?= url('acompanhamentofinanceiro') ?>">
     <?= csrf_campo() ?>
     <input type="hidden" name="bases_enviadas" value="1">
 
-    <div style="margin:0 0 14px; display:flex; align-items:center; gap:14px">
+    <div style="margin:0 0 14px; display:flex; align-items:center; gap:14px" id="fcs-bases">
         <strong>Bases:</strong>
         <label title="Informações da base dbMGA">
             <input type="checkbox" id="fcs-base-mga" name="base_mga" value="1"
@@ -48,21 +48,21 @@
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>1. POSIÇÃO FINANCEIRA</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s1" data-tog>1. POSIÇÃO FINANCEIRA</div>
         <div class="fcs-secao-corpo" hidden>
             <?php require ROOT . '/views/fluxo_caixa_posicao.php'; ?>
         </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>2. APORTES A RETORNAR</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s2" data-tog>2. APORTES A RETORNAR</div>
         <div class="fcs-secao-corpo" hidden>
             <?php require ROOT . '/views/fluxo_caixa_aportes_item.php'; ?>
         </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-secao-tit-flex" data-tog>
+        <div class="fcs-secao-tit fcs-secao-tit-flex" id="fcs-s3" data-tog>
             <span>3. SALDO FINANCEIRO POR OBRA/CENTRO</span>
             <?php if ($podeAtualizar): ?>
             <div class="fcs-periodo">
@@ -224,28 +224,28 @@
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>4. CONTAS A RECEBER</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s4" data-tog>4. CONTAS A RECEBER</div>
         <div class="fcs-secao-corpo" hidden>
             <?php require ROOT . '/views/fluxo_caixa_receber.php'; ?>
         </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>5. CONTAS A PAGAR</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s5" data-tog>5. CONTAS A PAGAR</div>
         <div class="fcs-secao-corpo" hidden>
             <?php require ROOT . '/views/fluxo_caixa_pagar.php'; ?>
         </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s6" data-tog>6. COMPOSIÇÃO DO RESULTADO POR NÚCLEO</div>
         <div class="fcs-secao-corpo" hidden>
             <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
         </div>
     </div>
 
     <div class="fcs-secao">
-        <div class="fcs-secao-tit fcs-fech" data-tog>7. CONSÓRCIOS</div>
+        <div class="fcs-secao-tit fcs-fech" id="fcs-s7" data-tog>7. CONSÓRCIOS</div>
         <div class="fcs-secao-corpo" hidden>
             <div class="fcs-emb">Em construção — os dados deste grupo serão definidos.</div>
         </div>
@@ -360,13 +360,8 @@
             })
             .catch(function () {});
     }
-    function bloquearSaida(e) {
-        e.preventDefault();
-        e.returnValue = '';
-    }
     function mostrarProg() {
         prog.hidden = false;
-        window.addEventListener('beforeunload', bloquearSaida);
         if (!dicaTimer) {
             buscarDica();
             dicaTimer = setInterval(buscarDica, 10000);
@@ -374,7 +369,6 @@
     }
     function esconderProg() {
         prog.hidden = true;
-        window.removeEventListener('beforeunload', bloquearSaida);
         clearInterval(dicaTimer);
         dicaTimer = null;
     }
@@ -744,3 +738,70 @@
 })();
 </script>
 <?php endif; ?>
+
+<?php
+/* ============================ Tour guiado (?) ============================ */
+$fcs_passos = [
+    ['sel' => '#fcs-bases', 'txt' => '<b>0 - Bancos de Dados</b>: selecione quais bancos serao consultados (DBMGA e/ou DBCONV).'],
+    ['sel' => '#fcs-s1', 'txt' => '<b>1 - Posicao Financeira</b>: a rotina calcula a posicao financeira de acordo com os centros de custo selecionados no item 3.'],
+    ['sel' => '#fcs-s2', 'txt' => '<b>2 - Aportes a Retornar</b>: valores cadastrados pelo gerente financeiro na tela <i>Financeiro\\Fluxo de Caixa\\Aportes a Retornar</i>.'],
+    ['sel' => '#fcs-s3', 'txt' => '<b>3 - Saldo Financeiro por Obra/Centro</b>: o gerente financeiro configura os grupos — cada um pode ter 1 ou mais centros de custo, alem de valores avulsos lancados. Calculado de acordo com o <b>periodo</b> selecionado e os itens marcados no grid.'],
+    ['sel' => '#fcs-s4', 'txt' => '<b>4 - Contas a Receber</b>: calculado pelos valores de previsao de medicoes informados pelo gerente financeiro ou gestores das obras. Cadastro em <i>Engenharia\\Previsoes\\Medicoes</i>.'],
+    ['sel' => '#fcs-s5', 'txt' => '<b>5 - Contas a Pagar</b>: valores calculados de acordo com os lancamentos nos bancos de dados.'],
+    ['sel' => '#fcs-s6', 'txt' => '<b>6 - Composicao do Resultado por Nucleo</b>: ainda nao habilitado.'],
+    ['sel' => '#fcs-s7', 'txt' => '<b>7 - Consorcios</b>: ainda nao habilitado.'],
+];
+?>
+<button type="button" class="atv-tour-btn" id="fcsTourBtn" title="Como usar esta tela">?</button>
+<script>
+(function () {
+    var PASSOS = <?= json_encode($fcs_passos, JSON_UNESCAPED_UNICODE) ?>;
+    var btn = document.getElementById("fcsTourBtn"),
+        passo = -1, spot = null, bub = null;
+    function limpar() {
+        if (spot) { spot.remove(); spot = null; }
+        if (bub) { bub.remove(); bub = null; }
+        passo = -1;
+    }
+    function mostrar(i) {
+        limpar();
+        if (!PASSOS[i]) { return; }
+        passo = i;
+        var p = PASSOS[i], el = null;
+        (p.sel.split(",")).forEach(function (s) { if (!el) { el = document.querySelector(s.trim()); } });
+        if (el) { el.scrollIntoView({ block: "center", behavior: "instant" }); }
+        var r = el ? el.getBoundingClientRect() : {left: innerWidth/2-1, top: innerHeight/2-1, width: 2, height: 2, right: innerWidth/2+1, bottom: innerHeight/2+1};
+        spot = document.createElement("div");
+        spot.className = "atv-tour-spot";
+        spot.style.left = (r.left - 6) + "px"; spot.style.top = (r.top - 6) + "px";
+        spot.style.width = (r.width + 12) + "px"; spot.style.height = (r.height + 12) + "px";
+        document.body.appendChild(spot);
+        bub = document.createElement("div");
+        bub.className = "atv-tour-bub";
+        bub.innerHTML = "<div class=\"t-txt\">" + p.txt + "</div>" +
+            "<div class=\"t-nav\"><button type=\"button\" id=\"tAnt\">&larr; Anterior</button>" +
+            "<span class=\"t-passos\">" + (i + 1) + "/" + PASSOS.length + "</span>" +
+            (i < PASSOS.length - 1
+                ? "<button type=\"button\" class=\"t-prox\" id=\"tProx\">Proximo &rarr;</button>"
+                : "<button type=\"button\" class=\"t-prox\" id=\"tFim\">Concluir</button>") + "</div>";
+        document.body.appendChild(bub);
+        var br = bub.getBoundingClientRect(),
+            bx = Math.min(Math.max(12, r.left), innerWidth - br.width - 12),
+            by = (r.bottom + 16 + br.height < innerHeight) ? r.bottom + 16 : r.top - br.height - 16;
+        bub.style.left = bx + "px"; bub.style.top = Math.max(12, by) + "px";
+        var ant = bub.querySelector("#tAnt"), prox = bub.querySelector("#tProx"),
+            fim = bub.querySelector("#tFim");
+        if (i === 0) { ant.disabled = true; ant.style.opacity = ".4"; }
+        if (ant) { ant.onclick = function () { if (passo > 0) { mostrar(passo - 1); } }; }
+        if (prox) { prox.onclick = function () { mostrar(passo + 1); }; }
+        if (fim) { fim.onclick = limpar; }
+    }
+    btn.addEventListener("click", function () { mostrar(0); });
+    document.addEventListener("keydown", function (ev) {
+        if (passo < 0) { return; }
+        if (ev.key === "Escape") { limpar(); }
+        if (ev.key === "ArrowRight") { mostrar(Math.min(PASSOS.length - 1, passo + 1)); }
+        if (ev.key === "ArrowLeft") { mostrar(Math.max(0, passo - 1)); }
+    });
+})();
+</script>
