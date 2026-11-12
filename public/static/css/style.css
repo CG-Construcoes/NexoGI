@@ -2549,6 +2549,7 @@ body.sidebar-fixa .pedidos-rodape {
     .topbar,
     .pedidos-rodape,
     .flw-hscroll,
+    .fcs-acoes,
     .versao-app {
         display: none !important;
     }

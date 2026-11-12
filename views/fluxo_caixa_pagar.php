@@ -47,14 +47,42 @@
         <?php foreach ($fcPag['linhas'] as $i => $li):
             $m = $li['mes'][$ym] ?? ['c' => 0.0, 'p' => 0.0];
             $tot = $m['c'] + $m['p'];
-            $acLinha[$i] += $tot; ?>
-        <tr class="fcs-mrow" hidden>
-            <td>&nbsp;&nbsp;<?= e($li['nome']) ?></td>
+            $acLinha[$i] += $tot;
+            $crows = $li['centros'][$ym] ?? [];
+            $temDet = (bool) $crows; ?>
+        <tr class="fcs-mrow" hidden<?= $temDet ? ' data-gtog' : '' ?>>
+            <td>&nbsp;&nbsp;<?= e($li['nome']) ?><?= $temDet
+                ? ' <span class="fcs-mes-tag">▸ centro</span>' : '' ?></td>
             <td class="col-valor"><?= number_format($m['c'], 2, ',', '.') ?></td>
             <td class="col-valor"><?= number_format($m['p'], 2, ',', '.') ?></td>
             <td class="col-valor"><?= number_format($tot, 2, ',', '.') ?></td>
             <td class="col-valor"><?= number_format($acLinha[$i], 2, ',', '.') ?></td>
         </tr>
+        <?php if ($temDet): ?>
+        <tr class="fcs-crow" hidden>
+            <td colspan="5" style="background:#f8fafc; padding:4px 10px 8px 34px">
+                <table class="tabela" style="margin:0; font-size:12px">
+                    <thead><tr>
+                        <th>Centro de Custo</th><th>Base</th>
+                        <th class="col-valor">Comprometido</th>
+                        <th class="col-valor">Previsto</th>
+                        <th class="col-valor">Total</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($crows as $cr): ?>
+                    <tr>
+                        <td><?= e($cr['nome']) ?></td>
+                        <td><?= e($cr['base']) ?></td>
+                        <td class="col-valor"><?= number_format($cr['c'], 2, ',', '.') ?></td>
+                        <td class="col-valor"><?= number_format($cr['p'], 2, ',', '.') ?></td>
+                        <td class="col-valor"><?= number_format($cr['c'] + $cr['p'], 2, ',', '.') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        <?php endif; ?>
         <?php endforeach; ?>
         <tr class="fcs-sub">
             <td>Subtotal <?= e($rot) ?></td>
@@ -80,13 +108,25 @@
 <script>
 (function () {
     // Meses do item 5: recolhido = so o mes e o subtotal; clique expande.
+    // Ao fechar o mes, os detalhes de centro tambem recolhem.
     document.querySelectorAll('.fcs-pagar tr.fcs-mes[data-mtog]').forEach(function (tr) {
         tr.addEventListener('click', function () {
             var aberto = tr.classList.toggle('fcs-mab');
             var n = tr.nextElementSibling;
-            while (n && n.classList.contains('fcs-mrow')) {
-                n.hidden = !aberto;
+            while (n && (n.classList.contains('fcs-mrow') || n.classList.contains('fcs-crow'))) {
+                n.hidden = n.classList.contains('fcs-crow') ? true : !aberto;
                 n = n.nextElementSibling;
+            }
+        });
+    });
+    // Linha do grupo: clique expande/recolhe os centros daquele mes.
+    document.querySelectorAll('.fcs-pagar tr.fcs-mrow[data-gtog]').forEach(function (tr) {
+        tr.style.cursor = 'pointer';
+        tr.title = 'Clique para ver os valores por centro de custo';
+        tr.addEventListener('click', function () {
+            var n = tr.nextElementSibling;
+            if (n && n.classList.contains('fcs-crow')) {
+                n.hidden = !n.hidden;
             }
         });
     });

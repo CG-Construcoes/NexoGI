@@ -4,8 +4,12 @@
 <div class="<?= $aviso['tipo'] === 'ok' ? 'alert-ok' : 'alert-erro' ?>" style="margin-bottom:18px"><?= $aviso['html'] ?></div>
 <?php endif; ?>
 
-<p style="margin:0 0 14px">
+<p style="margin:0 0 14px" class="fcs-acoes">
     <a href="<?= e(url('fluxo-caixa')) ?>">&laquo; Voltar</a>
+    <button type="button" class="btn" style="margin-left:16px"
+            onclick="window.print()">Imprimir</button>
+    <a class="btn" style="margin-left:8px"
+       href="<?= e(url('fluxo-caixa/pdf')) ?>">Gerar PDF</a>
 </p>
 
 <div class="fcs-secao">

@@ -194,16 +194,15 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   todos); marcar empresa filtra Nucleo/Obra por data-emps (JS — aplicado
   tambem na abertura da tela) e desmarca itens que saem da lista. DRE por Ano
   aceita intervalo de anos (max 10); DRE Mensal = 1 ano + selecao de meses.
-- **DRE Arquivada** (rotas `dre-ano-arquivada`/`dre-mes-arquivada`, mesmo case
-  com `$arquivada`): le `CGGestao.dbo.Rel_Posicao_Economica` — a MESMA fonte
-  do BI (populada 1x/dia pelas spBI*, dados ate o dia anterior). ~3s vs ~3min
-  da versao ao vivo. Tooltip no item do menu: "DRE Arquivada e a DRE calculada
-  ate o dia anterior." Detalhes: Chave_Centro da view e UPPER ('DBMGACGC...');
-  Chave_Nucleo da view e base+filial ('DBMGA01') — o filtro de nucleo usa
-  LEFT(Chave_Centro,5)+Nucleo_Cod ('DBMGA27'); sem RDZ na view, "despesa" =
-  ClasseTipo_Titulo='Despesa operacional'. Acumulador comum: `dre_acumular()`
-  + `dre_linhas_de_acc()`. Menu aceita `'title'` no item (tooltip no sidebar
-  e na pagina de menu).
+- **DRE Arquivada — REMOVIDA em 2026-11-11** (pedido do usuario, "nao serao
+  mais necessarias"): rotas `dre-ano-arquivada`/`dre-mes-arquivada`, itens
+  de menu e `dre_dados_arquivada()` excluidos; `$arquivada` ficou fixa em
+  false so para as views nao quebrarem. Fonte que ela usava:
+  `CGGestao.dbo.Rel_Posicao_Economica` (snapshot das spBI*, ~3s vs ~3min
+  do vivo). Detalhes uteis se um dia voltar: Chave_Centro UPPER
+  ('DBMGACGC...'); Chave_Nucleo = base+filial ('DBMGA01'); prefixo da
+  base sem tamanho fixo ('DBMGA'=5, 'DBCONV'=6) — usar str_starts_with;
+  sem RDZ na view, "despesa" = ClasseTipo_Titulo='Despesa operacional'.
 - Empresas: 1 entrada por codigo (Vw_Empresa_Ativa), ordem alfabetica pelo
   rotulo. Renomeacao SO VISUAL dos legados: CV1->'CVC (CV1-DbMga)',
   CV2->'CVP (CV2-DbMga)', CV3->'CVJ (CV3-DbMga)' — sao empresas distintas
@@ -526,7 +525,10 @@ regras de negocio e historico). A versao Python continua funcionando e NAO deve 
   Grupos (`fc_listar`, 2026-10-16) e relatorio de agrupamento.
 - Saldo via relatorio (2026-10-15): `fcs_saldo_relatorio($dados)` le a
   linha SALDO de um retorno de `relatorio_financeiro_dados()` (mesma
-  formula da view travada: Receitas+Despesas da coluna Periodo) —
+  formula da view travada: Receitas+Despesas, coluna Acum.Anterior+Periodo).
+  **Redefinicao 2026-11-10, instruida por Julio e Natalia: SALDO = so
+  Receitas+Despesas** — Recursos em Sociedade e Outros Grupos ficam fora
+  (antes a funcao somava as 4 secoes) —
   usada pelo calculo do grupo e pela impressao (`$rel['saldo']`,
   sempre impresso como "Saldo do Grupo" no fim do bloco). A divergencia
   reportada em Lavras era de PERIODO/comparacao, nao de formula:
@@ -888,17 +890,25 @@ quando `$sec['id'] === 'despesas'`.
   grupos + SaldoGrupo gravado/recalculado (?att=ids destaca). Sem checkbox
   marcado o botao so abre o resumo; "imprimir[]" abre o iframe de impressao
   na carga do resumo (sessionStorage fcs_imprimir).
-- **Item 5 CONTAS A PAGAR** (premissas pendentes de critica do usuario):
+- **Item 5 CONTAS A PAGAR** (formato redefinido em 2026-11-11):
   Titulos_a_Pagar + Documento_de_Entrada (mesma fonte do Relatorio de
-  Contas a Pagar); EntDocTipo_Cod 'ED' = Comprometido, 'EP' = Previsto;
-  mes = TitaPag_DataVencimentoFluxo; Situacao 'A' (+ 'L' pre-datado) e sem
-  pagamento conciliado; vencidos < 1o mes caem no 1o mes (atrasados).
-  Meses = periodo da tela (resumo via ?ini/?fim; padrao mes atual..dez).
-  Linhas = TODOS os grupos do item 3; colunas Comprometido/Previsto/Total/
-  Acumulado + Subtotal por mes + TOTAL acumulado (views/fluxo_caixa_pagar.php
-  partial compartilhado; fcs_pagar_* em fluxo_caixa_saldos.php). Sem a
-  coluna "Grupo" do modelo (Obras Ativas/Demais Centros) — aqui cada linha
-  ja e um grupo.
+  Contas a Pagar); classificacao por DocEnt.Ent_Tipo (NAO EntDocTipo_Cod —
+  confirmado via trace Profiler): Comprometido = Ent_Tipo <> 'EP'
+  ("Previsoes (ED)?" do ERP — inclui ED e demais tipos), Previsto =
+  Ent_Tipo = 'EP' ("Apenas EP"), Total/Acumulado = sem filtro de tipo;
+  mes = TitaPag_DataVencimentoFluxo; Situacao 'A' (+ 'L'
+  pre-datado) e sem pagamento conciliado; NADA com vencimento anterior
+  a data atual entra (regra de 2026-11-10 — vencidos sao excluidos,
+  nao reagrupados no 1o mes).
+  Meses = trimestre rolante (mes vigente + 2 seguintes), independente
+  do periodo do item 3. Linhas = TODOS os grupos do item 3; colunas
+  Comprometido/Previsto/Total/Acumulado + Subtotal por mes + TOTAL
+  acumulado (views/fluxo_caixa_pagar.php partial compartilhado;
+  fcs_pagar_* em fluxo_caixa_saldos.php). Clique na linha do grupo
+  expande os valores por centro de custo (detalhe gravado em
+  msoft.FluxoCaixa_PagarCentro no Atualizar; scripts/
+  criar_fluxo_pagar_centro.sql). Sem a coluna "Grupo" do modelo
+  (Obras Ativas/Demais Centros) — aqui cada linha ja e um grupo.
 - **Item 1 POSICAO FINANCEIRA**: snapshot msoft.FluxoCaixa_Posicao (1
   linha consolidada, migrar_fluxo_caixa_posicao.php);
   fcs_posicao_calcular_salvar() roda posicao_contas_dados tipo 'BC'
@@ -1009,10 +1019,12 @@ quando `$sec['id'] === 'despesas'`.
 
 ## Isolamento ERP por endereco (2026-11-06)
 - Producao somente apos PR/liberacao e deploy pelo usuario. Nao acessar producao durante desenvolvimento/testes.
-- `modo_teste()`/`ambiente_producao()` no bootstrap: producao exige HTTPS real, HTTP_HOST exato `sistemacg.com` e APP_URL `https://sistemacg.com` no servidor. Nao confiar em X-Forwarded-*.
-- `env('DB_ERP_MGA')`/`env('DB_ERP_CONV')` resolvem dbMGA/dbCONV em producao; em qualquer outro acesso (localhost, 127.0.0.1, IPs, CLI) resolvem dbTREINO_MGA/dbTREINO_CV, independentemente dos valores ERP antigos no .env.
+- `ambiente_producao()` no bootstrap permanece como referencia da condicao de producao (HTTPS real, HTTP_HOST exato `sistemacg.com`, APP_URL correspondente). Nao confiar em X-Forwarded-*.
+- **Desde 2026-11-10 (pedido do usuario): as bases de TREINO foram desativadas — todo acesso (web E CLI) usa producao (dbMGA/dbConv)**. `modo_teste()` retorna sempre false; `env('DB_ERP_*')` resolve dbMGA/dbCONV sempre. As bases dbTREINO_* nao sao mais usadas pelo codigo.
 - CGGestao/DB_NAME nao foi separado por ambiente; dados do aplicativo e snapshots nele continuam compartilhados conforme configuracao existente.
 - Titulos dos layouts exibem (MODO TESTE) no treino. `conexao()` bloqueia nomes de bancos ERP de producao no treino.
+- Item 1 do Acompanhamento: `msoft.FluxoCaixa_PosicaoDetalhe` guarda as contas que compoem o snapshot (clique na celula expande a origem). Criar como sa/admin: `scripts/criar_fluxo_posicao_detalhe.sql` (o login do app nao tem DDL; `migrar_fluxo_posicao_detalhe.php` so roda com permissao).
+- PDF do resumo: rota `fluxo-caixa/pdf` via dompdf (composer — `composer install` no deploy), view propria `views/fluxo_caixa_pdf.php` com tudo expandido.
 - Verificacao sem consultas/conexoes: `php scripts/teste_ambiente.php`; sintaxe: `bash scripts/verificar_sintaxe.sh`.
 - Scripts CLI tambem usam treino; nao remover o bloqueio para executar migracoes ERP de producao.
 - **PDO_ODBC (NexoGI): parametros NUNCA por bind** — `?` ligado em EXEC/SELECT

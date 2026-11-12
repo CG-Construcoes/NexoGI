@@ -28,19 +28,20 @@ function ambiente_producao(array $servidor, string $appUrl): bool
         && rtrim($appUrl, '/') === 'https://sistemacg.com';
 }
 
+/** Modo teste desativado (2026-11-10, pedido do usuario): "so vamos utilizar
+ *  as bases de producao" — todo acesso (web E CLI) usa dbMGA/dbConv.
+ *  Mantida a funcao p/ os pontos que ainda a consultam (titulos, guarda). */
 function modo_teste(): bool
 {
-    return PHP_SAPI === 'cli' || !ambiente_producao($_SERVER, (string) getenv('APP_URL'));
+    return false;
 }
 
 function env(string $chave, string $padrao = ''): string
 {
     if ($chave === 'APP_AMBIENTE') {
-        return modo_teste() ? 'treino' : 'producao';
+        return 'producao';
     }
-    $bases = modo_teste()
-        ? ['DB_ERP_MGA' => 'dbTREINO_MGA', 'DB_ERP_CONV' => 'dbTREINO_CV']
-        : ['DB_ERP_MGA' => 'dbMGA', 'DB_ERP_CONV' => 'dbCONV'];
+    $bases = ['DB_ERP_MGA' => 'dbMGA', 'DB_ERP_CONV' => 'dbCONV'];
     if (isset($bases[$chave])) {
         return $bases[$chave];
     }
