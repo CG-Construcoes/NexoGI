@@ -28,6 +28,7 @@ $ROTAS_TELA = [
     'fluxo-caixa' => 'fluxo-caixa',
     'fluxo-caixa/imprimir' => 'fluxo-caixa',
     'fluxo-caixa/resumo' => 'fluxo-caixa',
+    'fluxo-caixa/pdf' => 'fluxo-caixa',
     'matriz-prioridades' => 'matriz-prioridades',
     'followup-solicitacoes' => 'followup-solicitacoes',
     'medicoes' => 'medicoes',
@@ -37,8 +38,6 @@ $ROTAS_TELA = [
     'faturamento' => 'faturamento',
     'dre-ano' => 'dre-ano',
     'dre-mes' => 'dre-mes',
-    'dre-ano-arquivada' => 'dre-ano-arquivada',
-    'dre-mes-arquivada' => 'dre-mes-arquivada',
     'atividades' => 'atividades',
     'atividade' => 'atividades',
     'ultimas-compras' => 'ultimas-compras',
@@ -1341,6 +1340,30 @@ switch ($rota) {
             'atualizados' => $att]);
         break;
 
+    case 'fluxo-caixa/pdf':
+        exigir_login();
+        $grupos = fcs_grupos_visiveis(fcs_listar());
+        $vars = ['titulo' => 'Acompanhamento Financeiro',
+            'grupos' => $grupos,
+            'fcPag' => fcs_pagar_sem_zeros(fcs_pagar_salvo(fcs_listar())),
+            'fcRec' => fcs_receber_dados(),
+            'fcPos' => fcs_posicao_salva(),
+            'fcApo' => fcs_aportes_salvo(fcs_listar()),
+            'posDet' => fcs_posicao_detalhe(),
+            'basesSel' => fcs_bases_salvas(),
+            'geradoEm' => date('Y-m-d H:i:s'),
+            'tempoCalc' => isset($_GET['tempo']) ? (int) $_GET['tempo'] : null];
+        ob_start();
+        extract($vars);
+        require ROOT . '/views/fluxo_caixa_pdf.php';
+        $html = ob_get_clean();
+        $dompdf = new Dompdf\Dompdf();
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+        $dompdf->stream('acompanhamento-financeiro.pdf', ['Attachment' => true]);
+        exit;
+
     case 'fluxo-caixa-grupos/relatorio':
         exigir_login();
         render('fluxo_caixa_relatorio', ['titulo' => 'Agrupamento de Centros de Custo',
@@ -1349,10 +1372,8 @@ switch ($rota) {
 
     case 'dre-ano':
     case 'dre-mes':
-    case 'dre-ano-arquivada':
-    case 'dre-mes-arquivada':
         exigir_login();
-        $arquivada = str_contains($rota, 'arquivada');
+        $arquivada = false; // DRE arquivada removida em 2026-11-11 (flag mantida p/ views)
         $modo = str_contains($rota, '-ano') ? 'ano' : 'mes';
         $gerado = isset($_GET['gerar']);
         $anoAtual = (int) date('Y');
@@ -1399,8 +1420,7 @@ switch ($rota) {
             set_time_limit(900); // as procedures sao pesadas: 2 execucoes por base
             try {
                 $t0 = microtime(true);
-                $dados = dre_pivot(
-                    ($arquivada ? dre_dados_arquivada($o) : dre_dados($o))['linhas'], $modo);
+                $dados = dre_pivot(dre_dados($o)['linhas'], $modo);
                 $dados['tempo'] = microtime(true) - $t0;
             } catch (Throwable $t) {
                 $erro = 'Erro ao gerar o DRE: ' . $t->getMessage();

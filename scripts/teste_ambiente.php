@@ -23,19 +23,8 @@ foreach ($casos as [$host, $https, $appUrl, $esperado]) {
         throw new RuntimeException("Falha na selecao de ambiente: $host / $https / $appUrl");
     }
 }
-if (!modo_teste() || env('DB_ERP_MGA') !== 'dbTREINO_MGA'
-    || env('DB_ERP_CONV') !== 'dbTREINO_CV' || env('APP_AMBIENTE') !== 'treino') {
-    throw new RuntimeException('CLI deve usar somente treino.');
+if (modo_teste() || env('DB_ERP_MGA') !== 'dbMGA'
+    || env('DB_ERP_CONV') !== 'dbCONV' || env('APP_AMBIENTE') !== 'producao') {
+    throw new RuntimeException('Todo acesso deve usar somente producao.');
 }
-foreach (['dbMGA', 'dbCONV', 'DBCONV'] as $banco) {
-    try {
-        conexao($banco);
-    } catch (RuntimeException $e) {
-        if ($e->getMessage() === 'Acesso ao ERP de producao bloqueado no modo teste.') {
-            continue;
-        }
-        throw $e;
-    }
-    throw new RuntimeException('Banco de producao nao foi bloqueado.');
-}
-echo "OK: 11 cenarios de endereco, mapeamento CLI e bloqueio de conexao; sem consultas ao banco.\n";
+echo "OK: 11 cenarios de endereco + mapeamento sempre-producao; sem consultas ao banco.\n";

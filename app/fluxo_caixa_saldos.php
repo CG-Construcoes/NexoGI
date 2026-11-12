@@ -362,16 +362,18 @@ function fcs_opcoes_relatorio(string $emp, string $ini, string $fim,
 }
 
 /**
- * TOTAL GERAL de um retorno de relatorio_financeiro_dados(): soma das secoes
- * Receitas + Despesas + Sociedade + Outros Grupos, coluna ACUMULADO
- * (Acum.Anterior + Periodo = todo o historico ate data_fim).
+ * Linha SALDO do relatorio financeiro: no modelo do ERP ela vem logo apos o
+ * Total Despesas = Receitas + Despesas, coluna ACUMULADO (Acum.Anterior +
+ * Periodo = todo o historico ate data_fim). Recursos em Sociedade e Outros
+ * Grupos ficam FORA do saldo — redefinicao de 2026-11-10 instruida por
+ * Julio e Natalia (antes o saldo somava as 4 secoes).
  */
 function fcs_saldo_relatorio(array $dados): float
 {
     $saldo = 0.0;
     foreach ($dados['blocos'] as $secoes) {
         foreach ($secoes as $s) {
-            if (in_array($s['id'], ['receitas', 'despesas', 'sociedade', 'outros'], true)) {
+            if (in_array($s['id'], ['receitas', 'despesas'], true)) {
                 $saldo += (float) ($s['ant'] ?? 0) + (float) ($s['per'] ?? 0);
             }
         }
@@ -541,10 +543,16 @@ function fcs_atualizar_saldos(array $ids, string $ini, string $fim, array $avuls
 /**
  * Item 5 — CONTAS A PAGAR. Mesma fonte do Relatorio de Contas a Pagar
  * (Titulos_a_Pagar + Documento_de_Entrada), somando o ValorLiquido por
- * mes de TitaPag_DataVencimentoFluxo e por tipo de entrada:
- *   ED (documento real) -> Comprometido; EP (previsao) -> Previsto.
- * Titulos ja pagos/conciliados nao entram; vencidos antes do primeiro
- * mes do quadro caem no primeiro mes (atrasados viram compromisso atual).
+ * mes de TitaPag_DataVencimentoFluxo e por tipo de entrada.
+ * Redefinicao do formato de calculo (2026-11-11, instrucao do usuario,
+ * espelhando os checkboxes do relatorio do ERP — confirmado via trace
+ * do Profiler "Contas a Pagar - Comprometido/Previsto/Acumulado.trc"):
+ *   Comprometido = relatorio com "Previsoes (ED)?" -> DocEnt.Ent_Tipo <> 'EP'
+ *   Previsto     = relatorio com "Apenas EP"       -> DocEnt.Ent_Tipo =  'EP'
+ *   Acumulado    = "Previsoes (EP)?" + "Previsoes (ED)?" -> sem filtro
+ *   (a classificacao e por Ent_Tipo, NAO por EntDocTipo_Cod)
+ * Titulos ja pagos/conciliados nao entram. Regra (2026-11-10):
+ *  - NADA com vencimento anterior a data atual entra no quadro.
  */
 
 /** base => empresa => [Filial+Centro] dos CodCs do grupo (para DocEnt). */
@@ -589,25 +597,28 @@ function fcs_mes_tag(int $i): string
     return ['Mês Vigente', 'Mês Posterior', 'Mês Subsequente'][$i] ?? '';
 }
 
-/** [Y-m => ['c'=>comprometido, 'p'=>previsto]] de um grupo de centros. */
+/** ['mes'=> [Y-m => ['c'=>comprometido,'p'=>previsto]],
+ *  'centros' => [['codc'=>,'base'=>,'mes'=>[Y-m=>['c','p']]], ...]]
+ *  de um grupo de centros — 'centros' alimenta o expandir da linha. */
 function fcs_pagar_grupo(array $codcs, array $meses): array
 {
     $out = [];
+    $porCentro = [];
     foreach ($meses as $ym) {
         $out[$ym] = ['c' => 0.0, 'p' => 0.0];
     }
     if (!$meses) {
-        return $out;
+        return ['mes' => $out, 'centros' => []];
     }
     $hoje = date('Y-m-d H:i:s');
     $limite = date('Y-m-d', strtotime(end($meses) . '-01 +1 month'));
-    $iniYm = $meses[0];
     foreach (fcs_alvos_filcen($codcs) as $base => $emps) {
         foreach ($emps as $emp => $pares) {
             $ph = implode(',', array_fill(0, count($pares), '?'));
             $rows = query(
                 "SELECT CONVERT(char(7), TitaPag.TitaPag_DataVencimentoFluxo, 120) ym,
-                        RTRIM(DocEnt.EntDocTipo_Cod) tipo,
+                        RTRIM(DocEnt.Filial_Cod) + RTRIM(DocEnt.Centro_Cod) filcen,
+                        RTRIM(DocEnt.Ent_Tipo) tipo,
                         SUM(TitaPag.TitaPag_Valor + TitaPag.TitaPag_EncargosFin
                             + TitaPag.TitaPag_Multa + TitaPag.TitaPag_Acrescimos
                             - TitaPag.TitaPag_Descontos
@@ -616,7 +627,6 @@ function fcs_pagar_grupo(array $codcs, array $meses): array
                  JOIN dbo.Documento_de_Entrada DocEnt
                      ON TitaPag.Ent_Numero = DocEnt.Ent_Numero
                  WHERE DocEnt.Empresa_Cod = ?
-                   AND DocEnt.EntDocTipo_Cod IN ('ED','EP')
                    AND ( TitaPag.TitaPag_Situacao = 'A'
                       OR ( TitaPag.TitaPag_Situacao = 'L'
                            AND TitaPag.Pag_DataPagamento > ?
@@ -626,21 +636,33 @@ function fcs_pagar_grupo(array $codcs, array $meses): array
                                     WHERE MovFin.MovFin_Numero = Pagto.MovFin_Numero
                                       AND TitaPag.Pag_Numero = Pagto.Pag_Numero
                                       AND MovFin.MovFin_Conciliado = 'C' )
+                   AND TitaPag.TitaPag_DataVencimentoFluxo >= CAST(GETDATE() AS date)
                    AND TitaPag.TitaPag_DataVencimentoFluxo < ?
                    AND DocEnt.Filial_Cod + DocEnt.Centro_Cod IN ($ph)
                  GROUP BY CONVERT(char(7), TitaPag.TitaPag_DataVencimentoFluxo, 120),
-                          RTRIM(DocEnt.EntDocTipo_Cod)",
+                          RTRIM(DocEnt.Filial_Cod) + RTRIM(DocEnt.Centro_Cod),
+                          RTRIM(DocEnt.Ent_Tipo)",
                 array_merge([$emp, $hoje, $limite], $pares), banco_da_base($base));
             foreach ($rows as $r) {
-                $ym = $r['ym'] < $iniYm ? $iniYm : $r['ym']; // vencidos -> 1o mes
+                $ym = $r['ym'];
                 if (!isset($out[$ym])) {
                     continue;
                 }
-                $out[$ym][$r['tipo'] === 'EP' ? 'p' : 'c'] += (float) $r['val'];
+                $k = $r['tipo'] === 'EP' ? 'p' : 'c';
+                $v = (float) $r['val'];
+                $out[$ym][$k] += $v;
+                $porCentro[$emp . $r['filcen'] . '|' . $base][$ym][$k] =
+                    ($porCentro[$emp . $r['filcen'] . '|' . $base][$ym][$k] ?? 0.0) + $v;
             }
         }
     }
-    return $out;
+    // devolve na forma codc => base para gravar o detalhe
+    $centros = [];
+    foreach ($porCentro as $chave => $porMes) {
+        [$codc, $base] = explode('|', $chave);
+        $centros[] = ['codc' => $codc, 'base' => $base, 'mes' => $porMes];
+    }
+    return ['mes' => $out, 'centros' => $centros];
 }
 
 /** Dados do quadro: meses + uma linha por grupo + erros por grupo. */
@@ -653,8 +675,9 @@ function fcs_pagar_dados(array $grupos): array
     foreach ($grupos as $g) {
         $gid = (int) $g['FCGrupo_Id'];
         try {
+            $pg = fcs_pagar_grupo(fc_centros_do_grupo($gid), $meses);
             $linhas[] = ['id' => $gid, 'nome' => trim((string) $g['FCGrupo_Nome']),
-                         'mes' => fcs_pagar_grupo(fc_centros_do_grupo($gid), $meses)];
+                         'mes' => $pg['mes'], 'centros' => $pg['centros']];
         } catch (Throwable $t) {
             $erros[] = trim((string) $g['FCGrupo_Nome']) . ': ' . $t->getMessage();
             $linhas[] = ['id' => $gid,
@@ -676,12 +699,31 @@ function fcs_pagar_calcular_salvar(array $grupos): array
         execute("DELETE FROM msoft.FluxoCaixa_Pagar WHERE FCGrupo_Id IN ($phDel)",
             $idsDel);
     }
+    $temDet = (bool) query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                             WHERE TABLE_SCHEMA = 'msoft'
+                               AND TABLE_NAME = 'FluxoCaixa_PagarCentro'");
     foreach ($dados['linhas'] as $l) {
+        if ($temDet) {
+            execute('DELETE FROM msoft.FluxoCaixa_PagarCentro
+                     WHERE FCGrupo_Id = ?', [$l['id']]);
+        }
         foreach ($l['mes'] as $ym => $v) {
             execute('INSERT INTO msoft.FluxoCaixa_Pagar
                      (FCGrupo_Id, Mes, Comprometido, Previsto, UltimaAtualizacao)
                      VALUES (?, ?, ?, ?, GETDATE())',
                     [$l['id'], $ym, $v['c'], $v['p']]);
+        }
+        if ($temDet) {
+            foreach ($l['centros'] ?? [] as $c) {
+                foreach ($c['mes'] as $ym => $v) {
+                    execute('INSERT INTO msoft.FluxoCaixa_PagarCentro
+                             (FCGrupo_Id, Centro_CodC, Base, Mes,
+                              Comprometido, Previsto)
+                             VALUES (?, ?, ?, ?, ?, ?)',
+                            [$l['id'], $c['codc'], $c['base'], $ym,
+                             $v['c'] ?? 0.0, $v['p'] ?? 0.0]);
+                }
+            }
         }
     }
     $dados['ultima'] = date('Y-m-d H:i:s');
@@ -698,6 +740,9 @@ function fcs_pagar_salvo(array $grupos): array
     foreach (query('SELECT FCGrupo_Id, RTRIM(Mes) Mes, Comprometido, Previsto,
                           UltimaAtualizacao
                     FROM msoft.FluxoCaixa_Pagar') as $r) {
+        if ($r['Mes'] < date('Y-m')) {
+            continue; // mes passado gravado por calculo antigo nao exibe
+        }
         $meses[$r['Mes']] = true;
         $porGrupo[(int) $r['FCGrupo_Id']][$r['Mes']] = [
             'c' => (float) $r['Comprometido'], 'p' => (float) $r['Previsto']];
@@ -708,11 +753,31 @@ function fcs_pagar_salvo(array $grupos): array
     }
     $meses = array_keys($meses);
     sort($meses);
+    // detalhe por centro (clique na linha do grupo) — tabela do script
+    // criar_fluxo_pagar_centro.sql; vazio se nao migrada
+    $porCentro = [];
+    if (query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = 'msoft'
+                  AND TABLE_NAME = 'FluxoCaixa_PagarCentro'")) {
+        $labels = fc_centros();
+        foreach (query('SELECT FCGrupo_Id, RTRIM(Centro_CodC) codc,
+                              RTRIM(Base) base, RTRIM(Mes) mes,
+                              Comprometido, Previsto
+                        FROM msoft.FluxoCaixa_PagarCentro
+                        ORDER BY Centro_CodC, Base, Mes') as $r) {
+            $porCentro[(int) $r['FCGrupo_Id']][$r['mes']][] = [
+                'nome' => $labels[$r['codc']] ?? $r['codc'],
+                'base' => $r['base'],
+                'c' => (float) $r['Comprometido'],
+                'p' => (float) $r['Previsto']];
+        }
+    }
     $linhas = [];
     foreach ($grupos as $g) {
         $gid = (int) $g['FCGrupo_Id'];
         $linhas[] = ['id' => $gid, 'nome' => trim((string) $g['FCGrupo_Nome']),
-                     'mes' => $porGrupo[$gid] ?? []];
+                     'mes' => $porGrupo[$gid] ?? [],
+                     'centros' => $porCentro[$gid] ?? []];
     }
     return ['meses' => $meses, 'linhas' => $linhas, 'erros' => [],
             'ultima' => $ultima];
@@ -831,6 +896,7 @@ function fcs_posicao_calcular_salvar(): array
     }
 
     $tot = ['saldo' => 0.0, 'aplic' => 0.0];
+    $detalhe = [];
     $bases = fcs_bases_selecionadas();
     foreach ($bases as $base) {
         try {
@@ -840,6 +906,16 @@ function fcs_posicao_calcular_salvar(): array
             ]);
             $tot['saldo'] += $d['tot']['atual'];
             $tot['aplic'] += $d['tot']['aplicado'];
+            foreach ($d['blocos'] as $b) {
+                foreach ($b['grupos'] as $ag) {
+                    foreach ($ag['contas'] as $c) {
+                        $detalhe[] = [$base, $b['cod'], $b['nome'],
+                            $ag['agente'], $ag['nome'], $c['agencia'],
+                            $c['conta'], $c['atual'], $c['aplicado'],
+                            $c['ultima']];
+                    }
+                }
+            }
         } catch (Throwable $t) {
             $erros[] = "$base: " . $t->getMessage();
         }
@@ -863,6 +939,21 @@ function fcs_posicao_calcular_salvar(): array
              VALUES (?, ?, ?, ?, ?, ?, GETDATE())',
             [$tot['saldo'], $tot['aplic'], $mes[0], $mes[1], $mes[2],
              implode(',', $bases)]);
+
+    // detalhe por conta p/ o clique "de onde vem o valor" (tabela do
+    // script migrar_fluxo_posicao_detalhe.php — ignora se nao migrada)
+    if (query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = 'msoft'
+                  AND TABLE_NAME = 'FluxoCaixa_PosicaoDetalhe'")) {
+        execute('DELETE FROM msoft.FluxoCaixa_PosicaoDetalhe');
+        foreach ($detalhe as $r) {
+            execute('INSERT INTO msoft.FluxoCaixa_PosicaoDetalhe
+                     (Base, Empresa_Cod, Empresa_Nome, Agente_Cod,
+                      Agente_Nome, Agencia, Conta, SaldoAtual,
+                      ValorAplicado, UltimaConc)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', $r);
+        }
+    }
     $tot['mes'] = $mes;
     return ['tot' => $tot, 'erros' => $erros];
 }
@@ -882,6 +973,26 @@ function fcs_posicao_salva(): ?array
             'mes' => [(float) $r['SaldoMes1'], (float) $r['SaldoMes2'],
                       (float) $r['SaldoMes3']],
             'ultima' => (string) $r['UltimaAtualizacao']];
+}
+
+/** Contas bancarias que compuseram o ultimo snapshot do item 1
+ *  (preenchida por fcs_posicao_calcular_salvar). [] se nao migrada. */
+function fcs_posicao_detalhe(): array
+{
+    if (!query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                 WHERE TABLE_SCHEMA = 'msoft'
+                   AND TABLE_NAME = 'FluxoCaixa_PosicaoDetalhe'")) {
+        return [];
+    }
+    return query('SELECT RTRIM(Base) Base, RTRIM(Empresa_Cod) Empresa_Cod,
+                         CONVERT(varchar(200), Empresa_Nome) Empresa_Nome,
+                         RTRIM(Agente_Cod) Agente_Cod,
+                         CONVERT(varchar(200), Agente_Nome) Agente_Nome,
+                         RTRIM(Agencia) Agencia, RTRIM(Conta) Conta,
+                         SaldoAtual, ValorAplicado,
+                         CONVERT(varchar(23), UltimaConc, 120) UltimaConc
+                  FROM msoft.FluxoCaixa_PosicaoDetalhe
+                  ORDER BY Base, Empresa_Cod, Agente_Nome, Conta');
 }
 
 /** Remove linhas sem valor em nenhum mes (resumo pos-Atualizar). */

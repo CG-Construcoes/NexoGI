@@ -381,68 +381,6 @@ function dre_dados(array $o): array
 }
 
 /**
- * DRE "arquivada" — MESMA fonte do Power BI: view CGGestao.dbo.Rel_Posicao_
- * Economica, populada 1x/dia pelas spBI* (dados ate o dia anterior). Rapida:
- * um unico SELECT. A view ja aplica o filtro Vw_Centro_Ativo no lado economico
- * e o UNION do lado financeiro ('58 Administracao de Obra').
- * A view nao expoe RDZ: "despesa" = ClasseTipo_Titulo='Despesa operacional'
- * (equivalente ao RDZ='2D' — total bateu ao centavo na validacao).
- */
-function dre_dados_arquivada(array $o): array
-{
-    $mapa   = dre_mapa();
-    $empSel = dre_set((array) ($o['empresas'] ?? []));
-    $nucSel = dre_set((array) ($o['nucleos'] ?? []));
-    $cenSel = dre_set((array) ($o['centros'] ?? []));
-
-    $where = 'Ent_DataEntrada >= CAST(? AS date) AND Ent_DataEntrada < DATEADD(day, 1, CAST(? AS date))';
-    $par   = [$o['data_ini'], $o['data_fim']];
-    if ($empSel) {
-        $where .= ' AND UPPER(RTRIM(Empresa_Cod)) IN (' . implode(',', array_fill(0, count($empSel), '?')) . ')';
-        foreach (array_keys($empSel) as $e) {
-            $par[] = $e;
-        }
-    }
-    $acc = [];
-    foreach (query("SELECT Empresa_Cod, Chave_Centro, Nucleo_Cod,
-                           CONVERT(varchar(4000), GO_Titulo) GO_Titulo,
-                           CONVERT(varchar(4000), SubGO_Titulo) SubGO_Titulo,
-                           CONVERT(varchar(4000), ClasseTipo_Titulo) ClasseTipo_Titulo,
-                           EntItemApl_Valor, Ent_DataEntrada
-                    FROM dbo.Rel_Posicao_Economica WHERE $where", $par) as $r) {
-        // Chave_Centro da view e UPPER ('DBMGACGC010107'/'DBCONVCVC0101');
-        // Chave_Nucleo da view e base+filial ('DBMGA01') — para filtrar por
-        // nucleo usa-se prefixo da base (DBMGA/DBCONV) + Nucleo_Cod =
-        // mesmo formato da Vw_Centro_Ativo.
-        $cen = strtoupper(trim((string) $r['Chave_Centro']));
-        $pfx = str_starts_with($cen, 'DBMGA') ? 'DBMGA' : 'DBCONV';
-        $nuc = $pfx . trim((string) $r['Nucleo_Cod']);
-        if ($cenSel && !isset($cenSel[$cen])) {
-            continue;
-        }
-        if ($nucSel && !isset($nucSel[$nuc])) {
-            continue;
-        }
-        $d = substr((string) $r['Ent_DataEntrada'], 0, 10);
-        dre_acumular($acc, $mapa,
-            trim((string) $r['GO_Titulo']), trim((string) $r['SubGO_Titulo']),
-            trim((string) $r['ClasseTipo_Titulo']) === 'Despesa operacional',
-            (int) substr($d, 0, 4), (int) substr($d, 5, 2),
-            (float) $r['EntItemApl_Valor']);
-    }
-
-    // empresas sem centro ativo nao existem na view (ela filtra por
-    // Vw_Centro_Ativo) — selecionadas, buscam o historico na tabela
-    // Posicao_Economica, que TEM os dados (CV1: 2020-23, CV2/CV3: 2022-24)
-    if ($empSel) {
-        dre_posicao_historico($acc, $mapa, $o,
-            array_values(array_intersect(array_keys(dre_empresas_sem_ativos()),
-                                         array_keys($empSel))));
-    }
-    return ['linhas' => dre_linhas_de_acc($acc)];
-}
-
-/**
  * Pivota as linhas: 'ano' => coluna por ano; 'mes' => coluna por mes.
  * Retorna porCf[cf][col], porGo[cf][go][col], porSub[cf][go][sub][col],
  * semCf[go|sub][col].
