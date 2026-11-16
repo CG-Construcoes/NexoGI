@@ -1017,12 +1017,37 @@ quando `$sec['id'] === 'despesas'`.
 - Telas antigas migradas sob demanda; switch legado intocado ate la.
 - vendor/ ignorado no git — composer install no deploy (Composer 2.9.5).
 
+## Registro de AR — consulta (2026-11-13)
+- Menu Suprimentos > Aviso de Recebimento > AR de Materiais e Serviços;
+  rota/slug `registro-ar`, backend `app/registro_ar.php`, view `views/registro_ar.php`.
+- Somente GET e SELECT; `rar_banco()` bloqueia a tela fora do modo treino.
+  Usa DB_ERP_CONV/DB_ERP_MGA conforme ambiente. Nenhuma rotina de gravacao.
+- Busca por numero visivel AR_CentroNumero, centro concatenado, fornecedor e datas;
+  lista limitada a 200, ordenada por data. Detalhe via AR_Numero interno + base.
+- Layout em blocos: cabecalho, grid Documentos, grid Itens, grid Parcelas e
+  rodape. Selecao da nota troca paineis por Ent_Numero no navegador sem nova
+  consulta. Primeira nota selecionada por padrao; paineis vazios sem AR.
+  CNO/CIB via Cadastro_de_Obras ligado por Obra_Numero. Rodape: 8 acoes
+  desabilitadas + Confirmar/Cancelar desabilitados nesta etapa de consulta.
+- Documentos por AR_Numero; itens e parcelas vinculados por Ent_Numero.
+  Exemplo validado no dbTREINO_CV: interno 4880, AR 723, NF 432591,
+  dois itens e uma parcela, totais 928,50 (conforme prints/trace).
+- Retencoes exibidas em resumo; interfaces completas de impostos, XML, IBS/CBS,
+  medicoes, classificacao e gravacao ficam para etapas posteriores.
+
 ## Isolamento ERP por endereco (2026-11-06)
 - Producao somente apos PR/liberacao e deploy pelo usuario. Nao acessar producao durante desenvolvimento/testes.
 - `ambiente_producao()` no bootstrap permanece como referencia da condicao de producao (HTTPS real, HTTP_HOST exato `sistemacg.com`, APP_URL correspondente). Nao confiar em X-Forwarded-*.
-- **Desde 2026-11-10 (pedido do usuario): as bases de TREINO foram desativadas — todo acesso (web E CLI) usa producao (dbMGA/dbConv)**. `modo_teste()` retorna sempre false; `env('DB_ERP_*')` resolve dbMGA/dbCONV sempre. As bases dbTREINO_* nao sao mais usadas pelo codigo.
+- **Desde 2026-11-12 (pedido do usuario): modo TREINO reativado — producao
+  somente no acesso web oficial `ambiente_producao()` (https + host exato
+  `sistemacg.com` + `APP_URL=https://sistemacg.com`). Localhost, IPs, outros
+  hosts e CLI caem em `dbTREINO_MGA`/`dbTREINO_CV`** ("nao escrever no
+  dbMGA e nem no dbConv" — motivo: a tela nova de Registro de AR grava no
+  ERP). `modo_teste()` = `!ambiente_producao`; `env('DB_ERP_*')` resolve
+  conforme o modo. (Entre 2026-11-10 e 11-12 o treino ficou desligado —
+  tudo ia em producao.)
 - CGGestao/DB_NAME nao foi separado por ambiente; dados do aplicativo e snapshots nele continuam compartilhados conforme configuracao existente.
-- Titulos dos layouts exibem (MODO TESTE) no treino. `conexao()` bloqueia nomes de bancos ERP de producao no treino.
+- Titulos dos layouts exibem (MODO TESTE) no treino. `conexao()` bloqueia nomes de bancos ERP de producao no treino (guarda reativada: dbMGA/dbCONV lancam RuntimeException fora do acesso oficial).
 - Item 1 do Acompanhamento: `msoft.FluxoCaixa_PosicaoDetalhe` guarda as contas que compoem o snapshot (clique na celula expande a origem). Criar como sa/admin: `scripts/criar_fluxo_posicao_detalhe.sql` (o login do app nao tem DDL; `migrar_fluxo_posicao_detalhe.php` so roda com permissao).
 - PDF do resumo: rota `fluxo-caixa/pdf` via dompdf (composer — `composer install` no deploy), view propria `views/fluxo_caixa_pdf.php` com tudo expandido.
 - Verificacao sem consultas/conexoes: `php scripts/teste_ambiente.php`; sintaxe: `bash scripts/verificar_sintaxe.sh`.

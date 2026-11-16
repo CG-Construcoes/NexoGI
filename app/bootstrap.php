@@ -28,20 +28,26 @@ function ambiente_producao(array $servidor, string $appUrl): bool
         && rtrim($appUrl, '/') === 'https://sistemacg.com';
 }
 
-/** Modo teste desativado (2026-11-10, pedido do usuario): "so vamos utilizar
- *  as bases de producao" — todo acesso (web E CLI) usa dbMGA/dbConv.
- *  Mantida a funcao p/ os pontos que ainda a consultam (titulos, guarda). */
+/** Modo teste REATIVADO (2026-11-12, pedido do usuario): "reativar o modo
+ *  Banco de treino — nao escrever no dbMGA e nem no dbConv". Producao so no
+ *  acesso web oficial (ambiente_producao: https + sistemacg.com + APP_URL);
+ *  localhost, IPs, outros hosts e CLI caem em treino (dbTREINO_MGA/dbTREINO_CV). */
 function modo_teste(): bool
 {
-    return false;
+    static $teste = null;
+    return $teste ??= !ambiente_producao(
+        is_array($_SERVER ?? null) ? $_SERVER : [],
+        (string) getenv('APP_URL'));
 }
 
 function env(string $chave, string $padrao = ''): string
 {
     if ($chave === 'APP_AMBIENTE') {
-        return 'producao';
+        return modo_teste() ? 'teste' : 'producao';
     }
-    $bases = ['DB_ERP_MGA' => 'dbMGA', 'DB_ERP_CONV' => 'dbCONV'];
+    $bases = modo_teste()
+        ? ['DB_ERP_MGA' => 'dbTREINO_MGA', 'DB_ERP_CONV' => 'dbTREINO_CV']
+        : ['DB_ERP_MGA' => 'dbMGA',        'DB_ERP_CONV' => 'dbCONV'];
     if (isset($bases[$chave])) {
         return $bases[$chave];
     }
@@ -122,3 +128,4 @@ require ROOT . '/app/atividades.php';
 require ROOT . '/app/ultimas_compras.php';
 require ROOT . '/app/solicitacao.php';
 require ROOT . '/app/coleta.php';
+require ROOT . '/app/registro_ar.php';

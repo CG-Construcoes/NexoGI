@@ -6,6 +6,13 @@ function conexao(?string $banco = null): PDO
 {
     static $cache = [];
     $banco ??= env('DB_NAME', 'CGGestao');
+    // Guarda do modo treino (2026-11-12): localhost/IP/CLI nao podem abrir
+    // as bases ERP de producao — impede leitura E escrita em dbMGA/dbConv
+    // fora do acesso oficial (https://sistemacg.com).
+    if (modo_teste() && in_array($banco, ['dbMGA', 'dbCONV'], true)) {
+        throw new RuntimeException(
+            "Banco de producao '{$banco}' bloqueado no modo teste.");
+    }
     if (!isset($cache[$banco])) {
         $opcoes = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

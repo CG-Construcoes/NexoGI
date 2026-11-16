@@ -56,7 +56,8 @@ const MODULES = [
             ['slug' => 'followup-pedidos', 'nome' => 'Follow-up dos Pedidos', 'pronto' => true],
             ['slug' => 'ultimas-compras', 'nome' => 'Ultimas Compras', 'pronto' => true],
         ]],
-        ['nome' => 'Avisos de Recebimentos', 'itens' => [
+        ['nome' => 'Aviso de Recebimento', 'itens' => [
+            ['slug' => 'registro-ar', 'nome' => 'AR de Materiais e Serviços', 'pronto' => true],
         ]],
         ['nome' => 'Relatorios', 'itens' => [
         ]],

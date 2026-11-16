@@ -11,6 +11,7 @@ $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 // Permissao por tela: rotas mapeadas exigem acesso via grupos do usuario
 // (msoft.UsuarioGrupoMembro -> UsuarioGrupoTelas; admin sempre passa).
 $ROTAS_TELA = [
+    'registro-ar' => 'registro-ar',
     'followup-pedidos' => 'followup-pedidos',
     'pedidos' => 'followup-pedidos',
     'pedidos/imprimir' => 'followup-pedidos',
@@ -1368,6 +1369,61 @@ switch ($rota) {
         exigir_login();
         render('fluxo_caixa_relatorio', ['titulo' => 'Agrupamento de Centros de Custo',
             'active' => 'fluxo-caixa-grupos', 'grupos' => fc_relatorio()]);
+        break;
+
+    case 'registro-ar':
+        exigir_login();
+        if ($metodo !== 'GET') {
+            http_response_code(405);
+            header('Allow: GET');
+            exit;
+        }
+        $base = in_array($_GET['base'] ?? '', ['CONV', 'MGA', 'TODAS'], true) ? $_GET['base'] : 'CONV';
+        $f = [];
+        foreach (['numero', 'centro', 'fornecedor', 'ini', 'fim'] as $campo) {
+            $f[$campo] = is_string($_GET[$campo] ?? '') ? trim($_GET[$campo] ?? '') : '';
+        }
+        $lista = null;
+        $ar = null;
+        $erro = '';
+        try {
+            foreach ($base === 'TODAS' ? ['CONV', 'MGA'] : [$base] as $origem) {
+                rar_banco($origem);
+            }
+            foreach (['ini', 'fim'] as $campo) {
+                if ($f[$campo] !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $f[$campo])
+                    || date('Y-m-d', strtotime($f[$campo])) !== $f[$campo])) {
+                    throw new RuntimeException('Informe datas válidas.');
+                }
+            }
+            if ($f['ini'] !== '' && $f['fim'] !== '' && $f['ini'] > $f['fim']) {
+                throw new RuntimeException('A data inicial deve ser anterior à final.');
+            }
+            if (!isset($_GET['consulta']) && !empty($_GET['id'])) {
+                $ar = rar_consultar($base, (int) $_GET['id']);
+                if (!$ar) {
+                    $erro = 'AR não encontrado nesta base.';
+                }
+            } elseif (isset($_GET['consulta']) && in_array($_GET['consulta'], ['centro', 'fornecedor'], true)) {
+                $termo = is_string($_GET['termo'] ?? '') ? trim($_GET['termo'] ?? '') : '';
+                $lista = rar_opcoes($base, $_GET['consulta'], $termo);
+            } else {
+                $lista = rar_buscar($base, $f);
+            }
+        } catch (Throwable $t) {
+            $erro = 'Falha ao consultar AR: ' . $t->getMessage();
+        }
+        if (isset($_GET['consulta'])) {
+            header('Content-Type: application/json; charset=UTF-8');
+            header('Cache-Control: no-store');
+            if ($erro !== '') {
+                http_response_code(400);
+            }
+            echo json_encode(['linhas' => $lista ?? [], 'erro' => $erro], JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        }
+        render('registro_ar', ['titulo' => 'Registro de AR', 'active' => 'registro-ar',
+            'base' => $base, 'f' => $f, 'lista' => $lista, 'ar' => $ar, 'erro' => $erro]);
         break;
 
     case 'dre-ano':
