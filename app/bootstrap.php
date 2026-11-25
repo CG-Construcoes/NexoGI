@@ -28,16 +28,17 @@ function ambiente_producao(array $servidor, string $appUrl): bool
         && rtrim($appUrl, '/') === 'https://sistemacg.com';
 }
 
-/** Modo teste REATIVADO (2026-11-12, pedido do usuario): "reativar o modo
- *  Banco de treino — nao escrever no dbMGA e nem no dbConv". Producao so no
- *  acesso web oficial (ambiente_producao: https + sistemacg.com + APP_URL);
- *  localhost, IPs, outros hosts e CLI caem em treino (dbTREINO_MGA/dbTREINO_CV). */
+/** Modo teste DESATIVADO (2026-11-24, pedido do usuario): retorno aos bancos
+ *  de producao para teste dos relatorios. Todos os acessos (localhost, IPs,
+ *  CLI e web) usam dbMGA/dbCONV.
+ *  Para reativar o treino, troque `return false` pelo bloco comentado abaixo:
+ *      static $teste = null;
+ *      return $teste ??= !ambiente_producao(
+ *          is_array($_SERVER ?? null) ? $_SERVER : [],
+ *          (string) getenv('APP_URL')); */
 function modo_teste(): bool
 {
-    static $teste = null;
-    return $teste ??= !ambiente_producao(
-        is_array($_SERVER ?? null) ? $_SERVER : [],
-        (string) getenv('APP_URL'));
+    return false;
 }
 
 function env(string $chave, string $padrao = ''): string

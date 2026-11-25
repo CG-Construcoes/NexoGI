@@ -101,7 +101,7 @@
                 <th>Grupo</th>
                 <th>Centros</th>
                 <th style="width:90px">Avulso</th>
-                <th class="col-valor" title="Saldo do grupo calculado pelo Relatório Financeiro (Receitas + Despesas) no período informado">Saldo Atual</th>
+                <th class="col-valor" id="fcs-th-saldo" title="Saldo do grupo calculado pelo Relatório Financeiro (Receitas + Despesas) no período informado">Saldo Atual</th>
                 <?php $mesesFc = fcs_pagar_meses();
                 foreach ($mesesFc as $mi => $ymFc):
                     $mmFc = fcs_mes_rotulo($ymFc);
@@ -150,10 +150,15 @@
                     </span>
                 </td>
                 <td><?= (int) $g['QtdeCentros'] ?></td>
-                <td>
+                <td style="white-space:nowrap">
                     <?php if ($avulsos): ?>
                     <button type="button" class="btn btn-sm fcs-av-btn" data-grupo="<?= $gid ?>">
                         Avulso (<?= count($avulsos) ?>)</button>
+                    <?php endif; ?>
+                    <?php if ($podeGrupos): ?>
+                    <button type="button" class="btn btn-sm fcs-av-add" data-grupo="<?= $gid ?>"
+                            data-nome="<?= e($g['FCGrupo_Nome']) ?>"
+                            title="Incluir novos centros de custos ou Valores Avulsos">+</button>
                     <?php endif; ?>
                 </td>
                 <td class="col-valor"><?= $g['SaldoGrupo'] !== null
@@ -204,7 +209,7 @@
             }
         } ?>
         <tfoot>
-            <tr style="font-weight:700; background:#d7e6f5; border-top:2px solid #1974b8">
+            <tr id="fcs-total" style="font-weight:700; background:#d7e6f5; border-top:2px solid #1974b8">
                 <td colspan="4">TOTAL GERAL</td>
                 <td><?= $totCentros ?></td>
                 <td></td>
@@ -255,6 +260,265 @@
         <button type="submit" class="btn" id="fcs-btn">Atualizar</button>
     </div>
 </form>
+
+<?php if ($podeGrupos): ?>
+<!-- ===== Modal: Centros / Valores Avulsos do grupo (mesmo padrao da tela de grupos) ===== -->
+<div id="fcs-avulso-modal" class="fcs-overlay" hidden>
+    <div style="background:#fff; border-radius:10px; padding:24px 28px; width:620px;
+                max-width:94vw; box-shadow:0 8px 30px rgba(0,0,0,.3)">
+        <h3 id="fcs-avm-titulo" style="margin:0 0 14px; font-size:16px; color:#1e3a5f">Centros do grupo</h3>
+
+        <div style="display:flex; align-items:flex-end; gap:10px; margin-bottom:14px">
+            <div class="campo grow" style="flex:1; margin:0">
+                <label for="fcs-avm-centro" style="font-size:14px; font-weight:700">
+                    Adicionar Centro de Custos existente:
+                    <small id="fcs-avm-sel-count" class="fc-sel-count"></small></label>
+                <div class="fc-combo">
+                    <input type="text" id="fcs-avm-centro"
+                           placeholder="Digite para pesquisar e marque os centros"
+                           autocomplete="off" style="width:100%">
+                    <div class="fc-combo-lista" id="fcs-avm-centro-lista" hidden></div>
+                </div>
+            </div>
+            <button type="button" class="btn" id="fcs-avm-inc-centro">Adicionar selecionados</button>
+        </div>
+
+        <div style="display:flex; align-items:flex-end; gap:10px; margin-bottom:14px">
+            <div class="campo grow" style="flex:1; margin:0">
+                <label for="fcs-avm-desc" style="font-size:14px; font-weight:700">
+                    Adicionar Valor Avulso:
+                    <small class="fc-av-hint">(o valor e preenchido na hora do calculo)</small></label>
+                <input type="text" id="fcs-avm-desc" maxlength="60"
+                       placeholder="Nome do valor avulso" style="width:100%">
+            </div>
+            <button type="button" class="btn btn-secundario" id="fcs-avm-inc">Incluir Valor Avulso</button>
+        </div>
+
+        <div id="fcs-avm-erro" class="alert-erro" style="margin-bottom:10px" hidden></div>
+        <div style="max-height:36vh; overflow:auto">
+            <table class="tabela" style="max-width:100%">
+                <tbody id="fcs-avm-lista"></tbody>
+            </table>
+        </div>
+        <div style="margin-top:14px; text-align:right">
+            <button type="button" class="btn btn-secundario" id="fcs-avm-voltar">Voltar</button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var modal = document.getElementById('fcs-avulso-modal'),
+        titulo = document.getElementById('fcs-avm-titulo'),
+        input = document.getElementById('fcs-avm-centro'),
+        combo = document.getElementById('fcs-avm-centro-lista'),
+        contador = document.getElementById('fcs-avm-sel-count'),
+        incC = document.getElementById('fcs-avm-inc-centro'),
+        desc = document.getElementById('fcs-avm-desc'),
+        inc = document.getElementById('fcs-avm-inc'),
+        voltar = document.getElementById('fcs-avm-voltar'),
+        lista = document.getElementById('fcs-avm-lista'),
+        erro = document.getElementById('fcs-avm-erro'),
+        form = document.querySelector('form'),
+        csrfTok = form.querySelector('input[name="csrf"]').value,
+        gidAtual = 0, alterado = false,
+        // codc => rotulo / codc => FCGrupo_Id (centros ja agrupados nao entram na lista)
+        CENTROS = <?= json_encode($centrosTodos, JSON_UNESCAPED_UNICODE) ?>,
+        OCUPADOS = <?= json_encode($ocupadosGrupos) ?>;
+    function aviso(msg) {
+        erro.hidden = !msg;
+        erro.textContent = msg || '';
+    }
+    function enviar(params, fim) {
+        var corpo = new URLSearchParams();
+        corpo.set('csrf', csrfTok);
+        corpo.set('ajax', '1');
+        corpo.set('grupo', gidAtual);
+        for (var k in params) {
+            if (k === 'centros') {
+                params[k].forEach(function (c) { corpo.append('centros[]', c); });
+            } else {
+                corpo.set(k, params[k]);
+            }
+        }
+        fetch(form.action, { method: 'POST', body: corpo })
+            .then(function (r) {
+                if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                return r.json();
+            })
+            .then(function (j) {
+                if (j.ok) {
+                    aviso(j.erros && j.erros.length ? j.erros.join(' | ') : '');
+                    render(j);
+                } else {
+                    aviso(j.erro || 'erro');
+                }
+                if (fim) { fim(j); }
+            })
+            .catch(function (e) {
+                aviso('falha de rede' + (e && e.message ? ' (' + e.message + ')' : ''));
+                if (fim) { fim(null); }
+            });
+    }
+    // ---- combo de centros: so os livres (nenhum grupo) aparecem ----
+    function montarCombo() {
+        combo.innerHTML = '';
+        Object.keys(CENTROS).forEach(function (codc) {
+            if (OCUPADOS[codc] !== undefined) { return; } // ja esta em um grupo
+            var it = document.createElement('div');
+            it.className = 'fc-combo-item';
+            it.dataset.texto = CENTROS[codc].toLowerCase();
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = codc;
+            it.appendChild(cb);
+            it.appendChild(document.createTextNode(' ' + CENTROS[codc]));
+            combo.appendChild(it);
+        });
+        contar();
+        filtrar();
+    }
+    function filtrar() {
+        var t = input.value.toLowerCase().trim(), visiveis = 0;
+        combo.querySelectorAll('.fc-combo-item').forEach(function (it) {
+            var ok = t === '' || it.dataset.texto.indexOf(t) !== -1;
+            it.style.display = ok ? '' : 'none';
+            if (ok) { visiveis++; }
+        });
+        combo.hidden = visiveis === 0;
+    }
+    function contar() {
+        var n = combo.querySelectorAll('input[type=checkbox]:checked').length;
+        contador.textContent = n ? '(' + n + ' selecionado' + (n > 1 ? 's' : '') + ')' : '';
+    }
+    input.addEventListener('focus', filtrar);
+    input.addEventListener('input', filtrar);
+    input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') { combo.hidden = true; }
+    });
+    input.addEventListener('blur', function () {
+        setTimeout(function () { combo.hidden = true; }, 150);
+    });
+    combo.addEventListener('change', function (ev) {
+        if (ev.target.type === 'checkbox') { contar(); }
+    });
+    combo.addEventListener('mousedown', function (ev) {
+        var it = ev.target.closest('.fc-combo-item');
+        if (!it || ev.target.type === 'checkbox') { return; }
+        ev.preventDefault();
+        var cb = it.querySelector('input[type=checkbox]');
+        if (cb) { cb.checked = !cb.checked; contar(); }
+    });
+    // ---- lista de centros + avulsos do grupo ----
+    function btnRemover(texto, onclick) {
+        var td = document.createElement('td');
+        td.className = 'acoes';
+        td.style.width = '90px';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-danger';
+        btn.textContent = texto;
+        btn.addEventListener('click', onclick);
+        td.appendChild(btn);
+        return td;
+    }
+    function render(j) {
+        var centros = j.centros || [], avs = j.avulsos || [];
+        // mantem o mapa de ocupados sincronizado com o que o servidor retornou
+        Object.keys(OCUPADOS).forEach(function (c) {
+            if (OCUPADOS[c] === gidAtual) { delete OCUPADOS[c]; }
+        });
+        centros.forEach(function (c) { OCUPADOS[c.codc] = gidAtual; });
+        montarCombo();
+        lista.innerHTML = '';
+        if (!centros.length && !avs.length) {
+            lista.innerHTML = '<tr><td class="vazio" style="padding:8px">' +
+                'Nenhum centro de custo no grupo.</td></tr>';
+            return;
+        }
+        centros.forEach(function (c) {
+            var tr = document.createElement('tr');
+            var td = document.createElement('td');
+            td.textContent = c.rotulo;
+            tr.appendChild(td);
+            tr.appendChild(btnRemover('Remover', function () {
+                enviar({ acao: 'excluir_centro', centro: c.codc }, function (r) {
+                    if (r && r.ok) { alterado = true; }
+                });
+            }));
+            lista.appendChild(tr);
+        });
+        avs.forEach(function (a) {
+            var tr = document.createElement('tr');
+            tr.className = 'fc-avulso';
+            var td = document.createElement('td');
+            var em = document.createElement('em');
+            em.textContent = a.nome;
+            td.appendChild(em);
+            var sm = document.createElement('small');
+            sm.className = 'fc-av-hint';
+            sm.textContent = ' — valor informado na hora do calculo';
+            td.appendChild(sm);
+            tr.appendChild(td);
+            tr.appendChild(btnRemover('Remover', function () {
+                if (!confirm('Remover o valor avulso "' + a.nome + '"?')) { return; }
+                enviar({ acao: 'excluir_avulso', avulso_id: a.id }, function (r) {
+                    if (r && r.ok) { alterado = true; }
+                });
+            }));
+            lista.appendChild(tr);
+        });
+    }
+    document.querySelectorAll('.fcs-av-add').forEach(function (b) {
+        b.addEventListener('click', function () {
+            gidAtual = parseInt(b.dataset.grupo, 10);
+            titulo.textContent = 'Centros do grupo: ' + b.dataset.nome;
+            desc.value = '';
+            input.value = '';
+            aviso('');
+            alterado = false;
+            lista.innerHTML = '<tr><td style="color:#64748b; padding:8px">carregando...</td></tr>';
+            modal.hidden = false;
+            input.focus();
+            enviar({ acao: 'dados_grupo' });
+        });
+    });
+    incC.addEventListener('click', function () {
+        var sel = [];
+        combo.querySelectorAll('input[type=checkbox]:checked').forEach(function (cb) {
+            sel.push(cb.value);
+        });
+        if (!sel.length) { aviso('Selecione ao menos um centro de custo.'); return; }
+        incC.disabled = true;
+        enviar({ acao: 'incluir_centros', centros: sel }, function (j) {
+            incC.disabled = false;
+            if (j && j.ok) { alterado = true; input.value = ''; filtrar(); }
+        });
+    });
+    function incluir() {
+        var d = desc.value.trim();
+        if (d === '') { aviso('Informe o nome do valor avulso.'); desc.focus(); return; }
+        inc.disabled = true;
+        enviar({ acao: 'incluir_avulso', descricao: d }, function (j) {
+            inc.disabled = false;
+            if (j && j.ok) { alterado = true; desc.value = ''; desc.focus(); }
+        });
+    }
+    inc.addEventListener('click', incluir);
+    desc.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); incluir(); }
+    });
+    function fechar() {
+        modal.hidden = true;
+        // mudou centros/avulsos: recarrega p/ refletir contadores e inputs
+        if (alterado) { location.href = location.pathname + '?keep=1'; }
+    }
+    voltar.addEventListener('click', fechar);
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.hidden && combo.hidden) { fechar(); }
+    });
+})();
+</script>
+<?php endif; ?>
 
 <script>
 (function () {
@@ -745,7 +1009,15 @@ $fcs_passos = [
     ['sel' => '#fcs-bases', 'txt' => '<b>0 - Bancos de Dados</b>: selecione quais bancos serao consultados (DBMGA e/ou DBCONV).'],
     ['sel' => '#fcs-s1', 'txt' => '<b>1 - Posicao Financeira</b>: a rotina calcula a posicao financeira de acordo com os centros de custo selecionados no item 3.'],
     ['sel' => '#fcs-s2', 'txt' => '<b>2 - Aportes a Retornar</b>: valores cadastrados pelo gerente financeiro na tela <i>Financeiro\\Fluxo de Caixa\\Aportes a Retornar</i>.'],
-    ['sel' => '#fcs-s3', 'txt' => '<b>3 - Saldo Financeiro por Obra/Centro</b>: o gerente financeiro configura os grupos — cada um pode ter 1 ou mais centros de custo, alem de valores avulsos lancados. Calculado de acordo com o <b>periodo</b> selecionado e os itens marcados no grid.'],
+    ['sel' => '#fcs-s3', 'txt' => '<b>3 - Saldo Financeiro por Obra/Centro</b>: o gerente financeiro configura os grupos — cada um pode ter 1 ou mais centros de custo, alem de valores avulsos lancados. Calculado de acordo com o <b>periodo</b> selecionado e os itens marcados no grid. Os proximos passos detalham o item 3.'],
+    ['sel' => '#fcs-todos', 'txt' => '<b>3 - Calcular</b>: marque os grupos que serao recalculados ao clicar em Atualizar. O checkbox do cabecalho marca todos.'],
+    ['sel' => '#fcs-exibir-todos', 'txt' => '<b>3 - Exibir</b>: liga/desliga o grupo no relatorio — o desmarcado nao soma nos totais nem aparece na impressao.'],
+    ['sel' => 'tr[data-gid]', 'txt' => '<b>3 - Linha do grupo</b>: clique na linha para abrir o detalhe — totais por centro de custo e os campos de valores avulsos. A alca <b>⠿</b> a esquerda arrasta a linha para reordenar.'],
+    ['sel' => '.fcs-av-btn', 'txt' => '<b>3 - Avulso (N)</b>: abre os campos dos valores avulsos do grupo. Preencha o valor e clique em <b>Salvar</b> ao lado — o valor entra direto no saldo do grupo. Linha vermelha = avulso sem valor preenchido.'],
+    ['sel' => '.fcs-av-add', 'txt' => '<b>3 - Botao +</b>: abre o modal do grupo para <b>adicionar centros de custo existentes</b> (centros ja usados em outro grupo nao aparecem na lista) e <b>incluir/remover valores avulsos</b>.'],
+    ['sel' => '#fcs-th-saldo', 'txt' => '<b>3 - Saldos</b>: <b>Saldo Atual</b> = receitas + despesas do grupo no periodo. As colunas seguintes sao as projecoes dos proximos meses (saldo − contas a pagar + contas a receber).'],
+    ['sel' => '#fcs-total', 'txt' => '<b>3 - Total Geral</b>: soma dos saldos dos grupos marcados como Exibir.'],
+    ['sel' => '#fcs-btn', 'txt' => '<b>3 - Atualizar</b>: recalcula os grupos marcados — avisa se faltar valor avulso — e depois contas a pagar, aportes e posicao financeira. Sem nada marcado, so recalcula esses itens e abre o resumo.'],
     ['sel' => '#fcs-s4', 'txt' => '<b>4 - Contas a Receber</b>: calculado pelos valores de previsao de medicoes informados pelo gerente financeiro ou gestores das obras. Cadastro em <i>Engenharia\\Previsoes\\Medicoes</i>.'],
     ['sel' => '#fcs-s5', 'txt' => '<b>5 - Contas a Pagar</b>: valores calculados de acordo com os lancamentos nos bancos de dados.'],
     ['sel' => '#fcs-s6', 'txt' => '<b>6 - Composicao do Resultado por Nucleo</b>: ainda nao habilitado.'],

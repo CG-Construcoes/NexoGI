@@ -1149,6 +1149,47 @@ switch ($rota) {
                 }
                 exit;
             }
+            // Modal "Centros / Valor Avulso" do item 3: gerencia centros e
+            // valores avulsos do grupo direto na listagem — mesmas regras
+            // da tela de grupos (centro nao se repete entre grupos).
+            if (!empty($_POST['ajax']) && in_array((string) ($_POST['acao'] ?? ''),
+                    ['dados_grupo', 'incluir_centros', 'excluir_centro',
+                     'incluir_avulso', 'excluir_avulso'], true)) {
+                header('Content-Type: application/json; charset=utf-8');
+                try {
+                    exigir_tela('fluxo-caixa-grupos', 'alterar');
+                    $gidAv = (int) ($_POST['grupo'] ?? 0);
+                    $erros = [];
+                    if ($_POST['acao'] === 'incluir_avulso') {
+                        fc_incluir_avulso($gidAv, (string) ($_POST['descricao'] ?? ''));
+                    } elseif ($_POST['acao'] === 'excluir_avulso') {
+                        fc_excluir_avulso($gidAv, (int) ($_POST['avulso_id'] ?? 0));
+                    } elseif ($_POST['acao'] === 'incluir_centros') {
+                        $rInc = fc_incluir_centros($gidAv, (array) ($_POST['centros'] ?? []));
+                        $erros = $rInc['erros'];
+                    } elseif ($_POST['acao'] === 'excluir_centro') {
+                        fc_excluir_centro($gidAv, (string) ($_POST['centro'] ?? ''));
+                    }
+                    $rotulos = fc_centros();
+                    $lstC = [];
+                    foreach (fc_centros_do_grupo($gidAv) as $codc) {
+                        $lstC[] = ['codc' => $codc,
+                                   'rotulo' => $rotulos[$codc] ?? $codc];
+                    }
+                    $lstAv = [];
+                    foreach (fc_avulsos_do_grupo($gidAv) as $av) {
+                        $lstAv[] = ['id' => (int) $av['Avulso_Id'],
+                            'nome' => fc_avulso_rotulo($av),
+                            'valor' => $av['Avulso_Valor'] !== null
+                                ? (float) $av['Avulso_Valor'] : null];
+                    }
+                    echo json_encode(['ok' => true, 'centros' => $lstC,
+                                      'avulsos' => $lstAv, 'erros' => $erros]);
+                } catch (Throwable $t) {
+                    echo json_encode(['ok' => false, 'erro' => $t->getMessage()]);
+                }
+                exit;
+            }
             // Bases: formulario da tela enviado sem nenhuma marcada.
             if (fcs_bases_post() === []) {
                 $msgBases = 'Marque ao menos uma base (DBMGA / DBCONV).';
@@ -1279,6 +1320,12 @@ switch ($rota) {
             'centrosPorGrupo' => fcs_centros_por_grupo(),
             'avulsosPorGrupo' => fcs_avulsos_por_grupo(),
             'basesSel' => fcs_bases_salvas(),
+            'podeGrupos' => usuario_pode('fluxo-caixa-grupos', 'alterar'),
+            'centrosTodos' => usuario_pode('fluxo-caixa-grupos', 'alterar')
+                ? fc_centros() : [],
+            'ocupadosGrupos' => usuario_pode('fluxo-caixa-grupos', 'alterar')
+                ? array_map(static fn($r) => (int) $r['FCGrupo_Id'],
+                          fc_centros_em_grupos()) : [],
             'podeAtualizar' => usuario_pode('fluxo-caixa', 'alterar')]);
         break;
 
